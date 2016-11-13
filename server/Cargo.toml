@@ -7,3 +7,5 @@ authors = ["Russell Johnston <rpjohnst@gmail.com>"]
 
 [dependencies]
 debug = { path = "debug" }
+hyper = "*"
+reroute = "*"
