@@ -2,6 +2,10 @@
 name = "server"
 version = "0.1.0"
 authors = ["Russell Johnston <rpjohnst@gmail.com>"]
+build = "build.rs"
+
+[build-dependencies]
+serde_codegen = "*"
 
 [workspace]
 
@@ -9,3 +13,5 @@ authors = ["Russell Johnston <rpjohnst@gmail.com>"]
 debug = { path = "debug" }
 hyper = "*"
 reroute = "*"
+serde = "*"
+serde_json = "*"
