@@ -8,3 +8,4 @@ client/bower_components
 # Webstorm folder
 .idea
 
+client/**/*.css
