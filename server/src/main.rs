@@ -33,15 +33,13 @@ static DEBUG_EXEC_TRACE_END_PT : &'static str = r"/api/v1/debug/executions/[[:di
 static DEBUG_EXEC_STOP_END_PT : &'static str = r"/api/v1/debug/executions/[[:digit:]]*/stop";
 
 // @ /greet
-fn basic_handler(_: Request, res: Response, c: Captures){
+fn basic_handler(_: Request, res: Response, c: Captures) {
     println!("captures: {:?}", c);
     res.send(b"He who controls the spice...").unwrap();
 }
 
 // @ /filesystem/:path*
-fn filesystem_handler(_: Request, res: Response, c: Captures){
-    println!("file system captures captures: {:?}", c); //debug line
-
+fn filesystem_handler(_: Request, res: Response, c: Captures) {
     let c_str = &c.unwrap()[0];
     
     println!{"c_str value: {}", c_str}; //debug line
@@ -60,7 +58,8 @@ fn filesystem_handler(_: Request, res: Response, c: Captures){
         file_type = "file".to_string();
     }
 
-    let my_file = File{name: path.to_string(), path: path.to_string(), f_type: file_type, contents: "Hello World".to_string()};
+    let my_file = File{name: path.to_string(), path: path.to_string(),
+                       f_type: file_type, contents: "Hello World".to_string()};
 
     let json_str = serde_json::to_string(&my_file).unwrap();
 
@@ -68,79 +67,87 @@ fn filesystem_handler(_: Request, res: Response, c: Captures){
 }
 
 // @ /processes
-fn process_handler(_: Request, res: Response, c: Captures){
+fn process_handler(_: Request, res: Response, c: Captures) {
     println!("captures: {:?}", c);
     res.send(b"Here are the processes").unwrap();
 }
 
 // @ /debug/attach/pid/:pid
-fn attach_pid_handler(_:Request, res: Response, c: Captures){
+fn attach_pid_handler(_:Request, res: Response, c: Captures) {
+    let c_str = &c.unwrap()[0];
+    
     res.send(b"He who controls the spice...").unwrap();
 }
 
 
 // @ /debug/attach/bin/:function
-fn attach_bin_handler(_:Request, res: Response, c: Captures){
+fn attach_bin_handler(_:Request, res: Response, c: Captures) {
+    let c_str = &c.unwrap()[0];
+    
+    println!{"c_str value: {}", c_str}; //debug line
+    
+    let func = c_str.split("/api/v1/debug/attach/bin/").nth(1).unwrap();
+    
     res.send(b"He who controls the spice...").unwrap();
 }
 
 // @ /debug/attach/bin/:function
-fn debug_info_handler(_:Request, res: Response, c: Captures){
+fn debug_info_handler(_:Request, res: Response, c: Captures) {
     res.send(b"He who controls the spice...").unwrap();
 }
 
 // @ /debug/attach/bin/:function
-fn debug_list_handler(_:Request, res: Response, c: Captures){
+fn debug_list_handler(_:Request, res: Response, c: Captures) {
     res.send(b"He who controls the spice...").unwrap();
 }
 
 // @ /debug/attach/bin/:function
-fn function_info_handler(_:Request, res: Response, c: Captures){
+fn function_info_handler(_:Request, res: Response, c: Captures) {
     res.send(b"He who controls the spice...").unwrap();
 }
 
 // @ /debug/attach/bin/:function
-fn list_breakpoints_handler(_:Request, res: Response, c: Captures){
+fn list_breakpoints_handler(_:Request, res: Response, c: Captures) {
     res.send(b"He who controls the spice...").unwrap();
 }
 
 // @ /debug/attach/bin/:function
-fn set_breakpoint_handler(_:Request, res: Response, c: Captures){
+fn set_breakpoint_handler(_:Request, res: Response, c: Captures) {
     res.send(b"He who controls the spice...").unwrap();
 }
 
 // @ /debug/attach/bin/:function
-fn del_breakpoint_handler(_:Request, res: Response, c: Captures){
+fn del_breakpoint_handler(_:Request, res: Response, c: Captures) {
     res.send(b"He who controls the spice...").unwrap();
 }
 
 // @ /debug/attach/bin/:function
-fn launch_process_handler(_:Request, res: Response, c: Captures){
+fn launch_process_handler(_:Request, res: Response, c: Captures) {
     res.send(b"He who controls the spice...").unwrap();
 }
 
 // @ /debug/attach/bin/:function
-fn exec_func_handler(_:Request, res: Response, c: Captures){
+fn exec_func_handler(_:Request, res: Response, c: Captures) {
     res.send(b"He who controls the spice...").unwrap();
 }
 
 // @ /debug/attach/bin/:function
-fn list_execs_handler(_:Request, res: Response, c: Captures){
+fn list_execs_handler(_:Request, res: Response, c: Captures) {
     res.send(b"He who controls the spice...").unwrap();
 }
 
 // @ /debug/attach/bin/:function
-fn exec_status_handler(_:Request, res: Response, c: Captures){
+fn exec_status_handler(_:Request, res: Response, c: Captures) {
     res.send(b"He who controls the spice...").unwrap();
 }
 
 // @ /debug/attach/bin/:function
-fn exec_trace_handler(_:Request, res: Response, c: Captures){
+fn exec_trace_handler(_:Request, res: Response, c: Captures) {
     res.send(b"He who controls the spice...").unwrap();
 }
 
 // @ /debug/attach/bin/:function
-fn stop_exec_handler(_:Request, res: Response, c: Captures){
+fn stop_exec_handler(_:Request, res: Response, c: Captures) {
     res.send(b"He who controls the spice...").unwrap();
 }
 
