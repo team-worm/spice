@@ -32,121 +32,138 @@ static DEBUG_EXEC_STATUS_END_PT : &'static str = r"/api/v1/debug/executions/[[:d
 static DEBUG_EXEC_TRACE_END_PT : &'static str = r"/api/v1/debug/executions/[[:digit:]]*/trace";
 static DEBUG_EXEC_STOP_END_PT : &'static str = r"/api/v1/debug/executions/[[:digit:]]*/stop";
 
-// @ /greet
+/// @ /greet
 fn basic_handler(_: Request, res: Response, c: Captures) {
     println!("captures: {:?}", c);
     res.send(b"He who controls the spice...").unwrap();
 }
 
-// @ /filesystem/:path*
+/// @ /filesystem/:path*
 fn filesystem_handler(_: Request, res: Response, c: Captures) {
     let c_str = &c.unwrap()[0];
     
-    println!{"c_str value: {}", c_str}; //debug line
-    
     let path = c_str.split("/api/v1/filesystem").nth(1).unwrap();
 
-    println!("path value: {}", path);// debug line
-    
     let file_meta = fs::metadata(path).unwrap();
 
     let mut file_type = "".to_string();
 
+    let mut dir_content = Vec::<File>::new();
     if file_meta.is_dir(){
         file_type = "dir".to_string();
+        let paths = fs::read_dir(path).unwrap();
+        
+        for path in paths{
+            let dir_entry = path.unwrap();
+            let mut child_file_type = "".to_string();
+            
+            if dir_entry.file_type().unwrap().is_dir() {
+                child_file_type = "dir".to_string();
+            } else {
+                child_file_type = "file".to_string();
+            }
+
+            
+            dir_content.push(File{name: dir_entry.file_name().into_string().unwrap(),
+                                  path: dir_entry.path().into_os_string().into_string().unwrap(),
+                                  f_type: child_file_type,
+                                  contents: Vec::<File>::new()});
+                
+        } // end dir content iterator
     } else{
         file_type = "file".to_string();
     }
 
     let my_file = File{name: path.to_string(), path: path.to_string(),
-                       f_type: file_type, contents: "Hello World".to_string()};
+                       f_type: file_type, contents: dir_content};
 
     let json_str = serde_json::to_string(&my_file).unwrap();
 
     res.send(&json_str.into_bytes()).unwrap();
 }
 
-// @ /processes
+/// @ /processes -- list the currently running processes on the host machine
 fn process_handler(_: Request, res: Response, c: Captures) {
     println!("captures: {:?}", c);
     res.send(b"Here are the processes").unwrap();
 }
 
-// @ /debug/attach/pid/:pid
+/// @ /debug/attach/pid/:pid -- attach to currently running process by pid
 fn attach_pid_handler(_:Request, res: Response, c: Captures) {
     let c_str = &c.unwrap()[0];
-    
-    res.send(b"He who controls the spice...").unwrap();
+    let pid = c_str.split("/api/v1/debug/attach/pid/").nth(1).unwrap();
+
+    let mut debug_str = "You attached to pid ".to_string();
+    debug_str.push_str(pid);
+    res.send(debug_str.as_bytes()).unwrap(); //TODO:  really attach to pid
 }
 
 
-// @ /debug/attach/bin/:function
+/// @ /debug/attach/bin/:path -- attach to a binary that resides at :path
 fn attach_bin_handler(_:Request, res: Response, c: Captures) {
     let c_str = &c.unwrap()[0];
     
-    println!{"c_str value: {}", c_str}; //debug line
-    
-    let func = c_str.split("/api/v1/debug/attach/bin/").nth(1).unwrap();
+    let path = c_str.split("/api/v1/debug/attach/bin/").nth(1).unwrap();
     
     res.send(b"He who controls the spice...").unwrap();
 }
 
-// @ /debug/attach/bin/:function
+/// @ /debug
 fn debug_info_handler(_:Request, res: Response, c: Captures) {
     res.send(b"He who controls the spice...").unwrap();
 }
 
-// @ /debug/attach/bin/:function
+/// @ /debug/functions
 fn debug_list_handler(_:Request, res: Response, c: Captures) {
     res.send(b"He who controls the spice...").unwrap();
 }
 
-// @ /debug/attach/bin/:function
+/// @ /debug/functions/:function
 fn function_info_handler(_:Request, res: Response, c: Captures) {
     res.send(b"He who controls the spice...").unwrap();
 }
 
-// @ /debug/attach/bin/:function
+/// @ /debug/breakpoints
 fn list_breakpoints_handler(_:Request, res: Response, c: Captures) {
     res.send(b"He who controls the spice...").unwrap();
 }
 
-// @ /debug/attach/bin/:function
+/// @ /debug/breakpoints/:function -- Sets a breakpoint on given function
 fn set_breakpoint_handler(_:Request, res: Response, c: Captures) {
     res.send(b"He who controls the spice...").unwrap();
 }
 
-// @ /debug/attach/bin/:function
+/// @ /debug/breakpoints/:function -- Deletes a breakpoint
 fn del_breakpoint_handler(_:Request, res: Response, c: Captures) {
     res.send(b"He who controls the spice...").unwrap();
 }
 
-// @ /debug/attach/bin/:function
+/// @ /debug/execute -- Launches process if not running.  Continues otherwise
 fn launch_process_handler(_:Request, res: Response, c: Captures) {
     res.send(b"He who controls the spice...").unwrap();
 }
 
-// @ /debug/attach/bin/:function
+/// @ /debug/functions/:function/execute -- executes function with parameters in POST body
 fn exec_func_handler(_:Request, res: Response, c: Captures) {
     res.send(b"He who controls the spice...").unwrap();
 }
 
-// @ /debug/attach/bin/:function
+/// @ /debug/executions -- returns list of executions 
 fn list_execs_handler(_:Request, res: Response, c: Captures) {
     res.send(b"He who controls the spice...").unwrap();
 }
 
-// @ /debug/attach/bin/:function
+/// @ /debug/executions/:executionId -- get information about execution status
 fn exec_status_handler(_:Request, res: Response, c: Captures) {
     res.send(b"He who controls the spice...").unwrap();
 }
 
-// @ /debug/attach/bin/:function
+/// @ /debug/executions/executionId/trace -- Get trace data for execution
 fn exec_trace_handler(_:Request, res: Response, c: Captures) {
     res.send(b"He who controls the spice...").unwrap();
 }
 
-// @ /debug/attach/bin/:function
+/// @ /debug/executions/:executionId/stop -- Halts a running execution
 fn stop_exec_handler(_:Request, res: Response, c: Captures) {
     res.send(b"He who controls the spice...").unwrap();
 }

@@ -1,32 +1,47 @@
 #[derive(Serialize, Deserialize)]
 struct Error {
-    code: i32, //unique code identifying error type
-    name: String, //Unique human readable name for error
-    message: String, //Human readable error message
-    data: String, //TODO:  this needs to be another struct.  Data specific to error
+    ///unique code identifying error type
+    code: i32,
+    ///Unique human readable name for error
+    name: String,
+    ///Unique human readable message for error
+    message: String,
+    ///TODO:  this needs to be another struct.  Data specific to error
+    data: String, 
 }
 
 #[derive(Serialize, Deserialize)]
 struct File {
-    name: String, //Name of file
-    path: String, //Path to file
-    f_type: String, //file or directory
-    contents: String, //TODO:  make this a vector of File objects
+    ///Name of file
+    name: String,
+    ///Path to file
+    path: String,
+    ///file or directory
+    f_type: String, 
+    ///Contents of a directory
+    contents: Vec<File>, 
 }
 
 #[derive(Serialize, Deserialize)]
 struct Process {
-    id: i32, //Identifying number of process on host machine
-    name: String, //Name of process on host machine
+    ///Identifying number of process on host machine
+    id: i32,
+    ///Name of process on host machine
+    name: String, 
 }
 
 #[derive(Serialize, Deserialize)]
 struct Execution {
-    id: i32, //Unique identifier
-    e_type: String, //type of execution.  Either 'function' or 'process'
-    status: String, // Either `pending`, `executing`, `stopped`, or `done`
-    executionTime: i32, //nanoseconds
-    data: String, //TODO:  this needs to be an object that contains data specific to this type
+    ///Unique identifier
+    id: i32,
+    ///type of execution.  Either 'function' or 'process'
+    e_type: String,
+    /// Either `pending`, `executing`, `stopped`, or `done`
+    status: String,
+    ///nanoseconds
+    executionTime: i32,
+    ///TODO:  this needs to be an object that contains data specific to this type
+    data: String, 
 }
 
 #[derive(Serialize, Deserialize)]

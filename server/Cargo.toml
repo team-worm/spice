@@ -5,13 +5,13 @@ authors = ["Russell Johnston <rpjohnst@gmail.com>", "Tarik Courdy <tarik.courdy@
 build = "build.rs"
 
 [build-dependencies]
-serde_codegen = "*"
+serde_codegen = "0.8"
 
 [workspace]
 
 [dependencies]
 debug = { path = "debug" }
-hyper = "*"
-reroute = "*"
-serde = "*"
-serde_json = "*"
+hyper = "0.9"
+reroute = "0.2"
+serde = "0.8"
+serde_json = "0.8"
