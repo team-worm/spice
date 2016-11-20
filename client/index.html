@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" href="images/favicon.png" type="image/x-icon" />
+    <!--Javascript-->
+    <script src="node_modules/angular/angular.js"></script>
+    <script src="node_modules/angular-animate/angular-animate.js"></script>
+    <script src="node_modules/angular-aria/angular-aria.js"></script>
+    <script src="node_modules/angular-material/angular-material.js"></script>
+    <script src="node_modules/angular-messages/angular-messages.js"></script>
+    <script src="https://use.fontawesome.com/bb80f3a922.js"></script>
+    <script src="js/spice.js"></script>
+    <!--CSS-->
+    <link rel="stylesheet" href="node_modules/angular-material/angular-material.css">
+    <link rel="stylesheet" href="spice.css">
+    <title>Spice Debug</title>
+</head>
+<body ng-app="Spice" ng-controller="MainCtrl" ng-cloak md-theme="docs-dark">
+    <md-content layout-fill>
+        <md-toolbar>
+            <div class="md-toolbar-tools">
+                <h2><b>Spice Debugger</b></h2>
+            </div>
+        </md-toolbar>
+        <md-progress-linear md-mode="determinate" class="md-warn" value="{{MockLoader}}"></md-progress-linear>
+        <div class="mockup">
+            <span>
+                I am a mockup
+            </span>
+        </div>
+        <md-content layout-padding="100" >
+            <div layout="row" layout-sm="column" layout-margin>
+                <md-content flex class="md-whiteframe-6dp">
+                    <md-toolbar>
+                        <div class="md-toolbar-tools">
+                            <span>Launch a Binary</span>
+                            <span flex></span>
+                            <md-button class="md-fab md-mini md-primary" aria-label="Help with Launch a Binary">
+                                <i class="fa fa-question" aria-hidden="true"></i>
+                            </md-button>
+                        </div>
+                    </md-toolbar>
+                    <md-content layout-padding>
+                        <div layout="column" layout-wrap flex>
+                            <div>
+                                <i class="fa fa-folder-open-o" aria-hidden="true"></i> My Cool App
+                                <div style="padding-left: 1rem">
+                                    <div>
+                                        <i class="fa fa-file-text-o" aria-hidden="true"></i> app.c
+                                    </div>
+                                    <div>
+                                        <i class="fa fa-folder-open-o" aria-hidden="true"></i> modules
+                                    </div>
+                                    <div style="padding-left: 1rem">
+                                        <div>
+                                            <i class="fa fa-file-text-o" aria-hidden="true"></i> loader.c
+                                        </div>
+                                        <div>
+                                            <i class="fa fa-file-text-o" aria-hidden="true"></i> sam.c
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div>
+                                <i class="fa fa-folder-o" aria-hidden="true"></i> images
+                            </div>
+                            <div>
+                                <i class="fa fa-folder-o" aria-hidden="true"></i> documents
+                            </div>
+                        </div>
+                    </md-content>
+                    <div layout="row" layout-align="end end">
+                        <md-button class="md-primary">Launch</md-button>
+                    </div>
+                </md-content>
+                <md-content flex class="md-whiteframe-6dp">
+                    <md-toolbar>
+                        <div class="md-toolbar-tools">
+                            <span>Attach to Process</span>
+                            <span flex></span>
+                            <md-button class="md-fab md-mini md-primary" aria-label="Help with Launch a Binary">
+                                <i class="fa fa-question" aria-hidden="true"></i>
+                            </md-button>
+                        </div>
+                    </md-toolbar>
+                    <md-content layout-padding>
+                        <md-radio-group>
+                            <md-radio-button value="a"  class="md-primary">Chrome</md-radio-button>
+                            <md-radio-button value="b"  class="md-primary"> Firefox </md-radio-button>
+                            <md-radio-button value="c"  class="md-primary"> My App </md-radio-button>
+                            <md-radio-button value="d"  class="md-primary">James De St. Germain</md-radio-button>
+
+                        </md-radio-group>
+                    </md-content>
+                    <div layout="row" layout-align="end end">
+                        <md-button class="md-primary">Attach</md-button>
+                    </div>
+                </md-content>
+                <md-content flex class="md-whiteframe-6dp">
+                    <md-toolbar>
+                        <div class="md-toolbar-tools">
+                            <span>Connect to Remote Host</span>
+                            <span flex></span>
+                            <md-button class="md-fab md-mini md-primary" aria-label="Help with Launch a Binary">
+                                <i class="fa fa-question" aria-hidden="true"></i>
+                            </md-button>
+                        </div>
+                    </md-toolbar>
+                    <md-content layout-padding>
+                        <md-input-container class="md-block">
+                            <label>Host</label>
+                            <input>
+                        </md-input-container>
+                        <md-input-container class="md-block">
+                            <label>Port</label>
+                            <input>
+                        </md-input-container>
+                    </md-content>
+                    <div layout="row" layout-align="end">
+                        <md-button class="md-primary">Connect</md-button>
+                    </div>
+                </md-content>
+            </div>
+        </md-content>
+    </md-content>
+</body>
+</html>

@@ -1,11 +1,26 @@
 {
   "name": "client",
   "version": "1.0.0",
-  "description": "",
+  "description": "Debug through time.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "sass": "node node_modules/node-sass/bin/node-sass styles/spice.scss spice.css"
   },
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "angular": "^1.5.8",
+    "angular-animate": "^1.5.8",
+    "angular-aria": "^1.5.8",
+    "angular-material": "^1.1.1",
+    "angular-messages": "^1.5.8"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/team-worm/spice.git"
+  },
+  "devDependencies": {
+    "node-sass": "^3.13.0"
+  }
 }
