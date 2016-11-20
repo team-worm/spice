@@ -18,7 +18,7 @@ struct File {
     path: String,
     ///file or directory
     f_type: String, 
-    ///Contents of a directory
+    ///vector of File objects
     contents: Vec<File>, 
 }
 
