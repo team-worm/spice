@@ -5,7 +5,8 @@ extern crate serde_json;
 
 //structs found in /serde_types.in.rs
 //need this line to make serialization of structs work.
-include!(concat!(env!("OUT_DIR"), "/serde_types.rs"));
+include!(concat!(env!("OUT_DIR"), "/serde_types.rs"));   
+
 
 use std::*;
 use std::io::BufRead;
@@ -47,7 +48,7 @@ fn filesystem_handler(_: Request, res: Response, c: Captures) {
 
     let file_meta = fs::metadata(path).unwrap();
 
-    let mut file_type = "".to_string();
+    let file_type; 
 
     let mut dir_content = Vec::<File>::new();
     if file_meta.is_dir(){
@@ -56,7 +57,7 @@ fn filesystem_handler(_: Request, res: Response, c: Captures) {
         
         for path in paths {
             let dir_entry = path.unwrap();
-            let mut child_file_type = "".to_string();
+            let child_file_type; 
             
             if dir_entry.file_type().unwrap().is_dir() {
                 child_file_type = "dir".to_string();
@@ -67,7 +68,7 @@ fn filesystem_handler(_: Request, res: Response, c: Captures) {
             
             dir_content.push(File{name: dir_entry.file_name().into_string().unwrap(),
                                   path: dir_entry.path().into_os_string().into_string().unwrap(),
-                                  f_type: child_file_type,
+                                  fType: child_file_type,
                                   contents: Vec::<File>::new()});
                 
         } // end dir content iterator
@@ -76,7 +77,7 @@ fn filesystem_handler(_: Request, res: Response, c: Captures) {
     }
 
     let my_file = File{name: path.to_string(), path: path.to_string(),
-                       f_type: file_type, contents: dir_content};
+                       fType: file_type, contents: dir_content};
 
     let json_str = serde_json::to_string(&my_file).unwrap();
 
@@ -88,7 +89,7 @@ fn filesystem_handler(_: Request, res: Response, c: Captures) {
 fn process_handler(_: Request, res: Response, c: Captures) {
     println!("captures: {:?}", c);
 
-    let mut curr_procs = read_proc_dir();
+    let curr_procs = read_proc_dir();
 
     let json_str = serde_json::to_string(&curr_procs).unwrap();
     res.send(&json_str.into_bytes()).unwrap();
@@ -101,7 +102,7 @@ fn read_proc_dir() -> Vec<Process> {
 
     for path in paths {
         let dir_entry = path.unwrap();
-        let mut f_name = dir_entry.file_name().into_string().unwrap();
+        let f_name = dir_entry.file_name().into_string().unwrap();
         let mut path_name = dir_entry.path().into_os_string().into_string().unwrap();
         
         if dir_entry.metadata().unwrap().is_dir()
@@ -109,8 +110,8 @@ fn read_proc_dir() -> Vec<Process> {
 
                 path_name.push_str("/status");
                 println!("stat path is: {}", f_name);// debug line
-                let mut proc_stats = fs::File::open(path_name).unwrap();
-                let mut reader = io::BufReader::new(proc_stats);
+                let proc_stats = fs::File::open(path_name).unwrap();
+                let reader = io::BufReader::new(proc_stats);
 
                 let mut p_name = "".to_string();
                 let mut p_id = "".to_string();
@@ -154,7 +155,7 @@ fn attach_pid_handler(_:Request, res: Response, c: Captures) {
 fn attach_bin_handler(_:Request, res: Response, c: Captures) {
     let c_str = &c.unwrap()[0];
     
-    let path = c_str.split("/api/v1/debug/attach/bin/").nth(1).unwrap();
+    let path = c_str.split("/api/v1/debug/attach/bin/").nth(1).unwrap(); //TODO
     
     res.send(b"He who controls the spice...").unwrap();
 }

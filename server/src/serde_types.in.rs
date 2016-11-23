@@ -17,7 +17,7 @@ struct File {
     ///Path to file
     path: String,
     ///file or directory
-    f_type: String, 
+    fType: String, 
     ///vector of File objects
     contents: Vec<File>, 
 }
@@ -35,7 +35,7 @@ struct Execution {
     ///Unique identifier
     id: i32,
     ///type of execution.  Either 'function' or 'process'
-    e_type: String,
+    eType: String,
     /// Either `pending`, `executing`, `stopped`, or `done`
     status: String,
     ///nanoseconds
@@ -47,7 +47,7 @@ struct Execution {
 #[derive(Serialize, Deserialize)]
 struct Trace {
     index: i32,
-    t_type: i32,
+    tType: i32,
     line: i32,
     data: String, //TODO:  needs to be an object that contains data specific to this type
 }
@@ -77,7 +77,7 @@ struct Breakpoint {
 struct Variable {
     id: i32,
     name: String,
-    v_type: String, //TODO: make this SourceType once that struct is defined
+    vType: String, //TODO: make this SourceType once that struct is defined
     address: i32,
     data: String,  //TODO: make this an object that has info related to variable
 }
