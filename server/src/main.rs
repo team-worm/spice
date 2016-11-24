@@ -3,36 +3,38 @@ extern crate reroute;
 extern crate serde;
 extern crate serde_json;
 
-//structs found in /serde_types.in.rs
-//need this line to make serialization of structs work.
-include!(concat!(env!("OUT_DIR"), "/serde_types.rs"));   
-
-
-use std::*;
+use std::{fs, io};
 use std::io::BufRead;
 use hyper::server::{Server, Request, Response};
-use hyper::status::StatusCode;
 use reroute::{Captures, Router};
+
+use serde_types::*;
+
+mod serde_types {
+    #![allow(non_snake_case)]
+
+    include!(concat!(env!("OUT_DIR"), "/serde_types.rs"));
+}
 
 //static VERSION : &'static str = "/api/v1/";
 
 //REST ENDPOINTS
-static FILE_SYS_END_PT : &'static str = r"/api/v1/filesystem/[[:ascii:]]*";
-static PROCESS_END_PT : &'static str = "/api/v1/processes";
-static DEBUG_ATCH_PID_END_PT : &'static str = r"/api/v1/debug/attach/pid/[[:digit:]]*";
-static DEBUG_ATCH_BIN_END_PT : &'static str = r"/api/v1/debug/attach/bin/[[:ascii:]]*";
-static DEBUG_END_PT : &'static str = "/api/v1/debug";
-static DEBUG_FUNC_LST_END_PT : &'static str = "/api/v1/debug/functions";
-static DEBUG_FUNC_END_PT : &'static str = r"/api/v1/debug/functions/[[:ascii:]]*";
-static BRKPNT_END_PT : &'static str = "/api/v1/debug/breakpoints";
-static FUNC_BRKPNT_END_PT : &'static str = r"/api/v1/debug/breakpoints/[[:ascii:]]*"; //PUT AND DELETE
-static DEBUG_EXEC_PROC_END_PT : &'static str = "/api/v1/debug/execute";
-static DEBUG_EXEC_FUNC_END_PT : &'static str = r"/api/v1/debug/functions/[[:ascii:]]*/execute";
+static FILE_SYS_END_PT: &'static str = r"/api/v1/filesystem/[[:ascii:]]*";
+static PROCESS_END_PT: &'static str = "/api/v1/processes";
+static DEBUG_ATCH_PID_END_PT: &'static str = r"/api/v1/debug/attach/pid/[[:digit:]]*";
+static DEBUG_ATCH_BIN_END_PT: &'static str = r"/api/v1/debug/attach/bin/[[:ascii:]]*";
+static DEBUG_END_PT: &'static str = "/api/v1/debug";
+static DEBUG_FUNC_LST_END_PT: &'static str = "/api/v1/debug/functions";
+static DEBUG_FUNC_END_PT: &'static str = r"/api/v1/debug/functions/[[:ascii:]]*";
+static BRKPNT_END_PT: &'static str = "/api/v1/debug/breakpoints";
+static FUNC_BRKPNT_END_PT: &'static str = r"/api/v1/debug/breakpoints/[[:ascii:]]*"; //PUT AND DELETE
+static DEBUG_EXEC_PROC_END_PT: &'static str = "/api/v1/debug/execute";
+static DEBUG_EXEC_FUNC_END_PT: &'static str = r"/api/v1/debug/functions/[[:ascii:]]*/execute";
 
-static DEBUG_EXEC_LST_END_PT : &'static str = "/api/v1/debug/executions";
-static DEBUG_EXEC_STATUS_END_PT : &'static str = r"/api/v1/debug/executions/[[:digit:]]*";
-static DEBUG_EXEC_TRACE_END_PT : &'static str = r"/api/v1/debug/executions/[[:digit:]]*/trace";
-static DEBUG_EXEC_STOP_END_PT : &'static str = r"/api/v1/debug/executions/[[:digit:]]*/stop";
+static DEBUG_EXEC_LST_END_PT: &'static str = "/api/v1/debug/executions";
+static DEBUG_EXEC_STATUS_END_PT: &'static str = r"/api/v1/debug/executions/[[:digit:]]*";
+static DEBUG_EXEC_TRACE_END_PT: &'static str = r"/api/v1/debug/executions/[[:digit:]]*/trace";
+static DEBUG_EXEC_STOP_END_PT: &'static str = r"/api/v1/debug/executions/[[:digit:]]*/stop";
 
 /// @ /greet
 fn basic_handler(_: Request, res: Response, c: Captures) {
@@ -43,41 +45,42 @@ fn basic_handler(_: Request, res: Response, c: Captures) {
 /// @ /filesystem/:path* -- return a list of files given a directory path
 fn filesystem_handler(_: Request, res: Response, c: Captures) {
     let c_str = &c.unwrap()[0];
-    
-    let path = c_str.split("/api/v1/filesystem").nth(1).unwrap();
+
+    let path = c_str.split("/api/v1/filesystem").nth(1).unwrap().to_string();
 
     let file_meta = fs::metadata(path).unwrap();
 
     let file_type; 
 
-    let mut dir_content = Vec::<File>::new();
-    if file_meta.is_dir(){
+    let mut contents = vec![];
+    if file_meta.is_dir() {
         file_type = "dir".to_string();
         let paths = fs::read_dir(path).unwrap();
-        
+
         for path in paths {
             let dir_entry = path.unwrap();
             let child_file_type; 
-            
+
             if dir_entry.file_type().unwrap().is_dir() {
                 child_file_type = "dir".to_string();
             } else {
                 child_file_type = "file".to_string();
             }
 
-            
-            dir_content.push(File{name: dir_entry.file_name().into_string().unwrap(),
-                                  path: dir_entry.path().into_os_string().into_string().unwrap(),
-                                  fType: child_file_type,
-                                  contents: Vec::<File>::new()});
-                
+
+            dir_content.push(File {
+                name: dir_entry.file_name().into_string().unwrap(),
+                path: dir_entry.path().into_os_string().into_string().unwrap(),
+                fType: child_file_type,
+                contents: Vec::<File>::new()
+            });
+
         } // end dir content iterator
-    } else{
+    } else {
         file_type = "file".to_string();
     }
 
-    let my_file = File{name: path.to_string(), path: path.to_string(),
-                       fType: file_type, contents: dir_content};
+    let my_file = File { name: path, path, fType: file_type, contents };
 
     let json_str = serde_json::to_string(&my_file).unwrap();
 
@@ -104,7 +107,7 @@ fn read_proc_dir() -> Vec<Process> {
         let dir_entry = path.unwrap();
         let f_name = dir_entry.file_name().into_string().unwrap();
         let mut path_name = dir_entry.path().into_os_string().into_string().unwrap();
-        
+
         if dir_entry.metadata().unwrap().is_dir()
             && !f_name.parse::<i32>().is_err() {
 
@@ -125,12 +128,13 @@ fn read_proc_dir() -> Vec<Process> {
                     }
 
                     if !p_name.is_empty() && !p_id.is_empty() {
-                        processes.push(Process{id: p_id.parse::<i32>().unwrap(),
-                                               name: p_name.to_string()});
+                        processes.push(Process {
+                            id: p_id.parse::<i32>().unwrap(), name: p_name.to_string()
+                        });
                         break;
                     }
 
-                        
+
                 } // end reading lines of status file                
             }
     } //end iteration over dirs in proc
@@ -154,9 +158,9 @@ fn attach_pid_handler(_:Request, res: Response, c: Captures) {
 /// @ /debug/attach/bin/:path -- attach to a binary that resides at :path
 fn attach_bin_handler(_:Request, res: Response, c: Captures) {
     let c_str = &c.unwrap()[0];
-    
+
     let path = c_str.split("/api/v1/debug/attach/bin/").nth(1).unwrap(); //TODO
-    
+
     res.send(b"He who controls the spice...").unwrap();
 }
 
@@ -223,10 +227,10 @@ fn stop_exec_handler(_:Request, res: Response, c: Captures) {
 
 fn main() {
     //install routes
-    
+
     let mut router = Router::new();
     router.get("/greet", basic_handler); // debug line
-    
+
 
     router.get(FILE_SYS_END_PT, filesystem_handler);
     router.get(PROCESS_END_PT, process_handler);
@@ -244,8 +248,8 @@ fn main() {
     router.get(DEBUG_EXEC_STATUS_END_PT, exec_status_handler);
     router.get(DEBUG_EXEC_TRACE_END_PT, exec_trace_handler);
     router.post(DEBUG_EXEC_STOP_END_PT, stop_exec_handler);
-    
-    
+
+
     router.finalize().unwrap();
 
     let server = Server::http("127.0.0.1:3000").unwrap();

@@ -1,83 +1,87 @@
 #[derive(Serialize, Deserialize)]
-struct Error {
-    ///unique code identifying error type
-    code: i32,
-    ///Unique human readable name for error
-    name: String,
-    ///Unique human readable message for error
-    message: String,
-    ///TODO:  this needs to be another struct.  Data specific to error
-    data: String, 
+pub struct Error {
+    /// Unique code identifying error type
+    pub code: i32,
+    /// Unique human readable name for error
+    pub name: String,
+    /// Unique human readable message for error
+    pub message: String,
+    // TODO: this needs to be another struct.  Data specific to error
+    pub data: String,
 }
 
 #[derive(Serialize, Deserialize)]
-struct File {
-    ///Name of file
-    name: String,
-    ///Path to file
-    path: String,
-    ///file or directory
-    fType: String, 
-    ///vector of File objects
-    contents: Vec<File>, 
+pub struct File {
+    /// Name of file
+    pub name: String,
+    /// Path to file
+    pub path: String,
+    /// File or directory
+    pub fType: String,
+    /// Vector of File objects
+    pub contents: Vec<File>,
 }
 
 #[derive(Serialize, Deserialize)]
-struct Process {
-    ///Identifying number of process on host machine
-    id: i32,
-    ///Name of process on host machine
-    name: String, 
+pub struct Process {
+    /// Identifying number of process on host machine
+    pub id: i32,
+    /// Name of process on host machine
+    pub name: String,
 }
 
 #[derive(Serialize, Deserialize)]
-struct Execution {
-    ///Unique identifier
-    id: i32,
-    ///type of execution.  Either 'function' or 'process'
-    eType: String,
+pub struct Execution {
+    /// Unique identifier
+    pub id: i32,
+    /// Type of execution.  Either 'function' or 'process'
+    pub eType: String,
     /// Either `pending`, `executing`, `stopped`, or `done`
-    status: String,
-    ///nanoseconds
-    executionTime: i32,
-    ///TODO:  this needs to be an object that contains data specific to this type
-    data: String, 
+    pub status: String,
+    /// Nanoseconds
+    pub executionTime: i32,
+    // TODO: this needs to be an object that contains data specific to this type
+    pub data: String,
 }
 
 #[derive(Serialize, Deserialize)]
-struct Trace {
-    index: i32,
-    tType: i32,
-    line: i32,
-    data: String, //TODO:  needs to be an object that contains data specific to this type
+pub struct Trace {
+    pub index: i32,
+    pub tType: i32,
+    pub line: i32,
+    // TODO: needs to be an object that contains data specific to this type
+    pub data: String,
 }
 
 #[derive(Serialize, Deserialize)]
-struct Function {
-    address: i32,
-    name: String,
-    sourcePath: String,
-    lineNumber: i32,
-    lineCount: i32,
-    parameters: String,  //TODO:  make this an array of function parameter objects {name: string, type: SourceType}
+pub struct Function {
+    pub address: i32,
+    pub name: String,
+    pub sourcePath: String,
+    pub lineNumber: i32,
+    pub lineCount: i32,
+    // TODO: make this an array of function parameter objects { name: string, type: SourceType }
+    pub parameters: String,
 }
 
 #[derive(Serialize, Deserialize)]
-struct AttachInfo {
-    attachedProcess: Process,
+pub struct AttachInfo {
+    pub attachedProcess: Process,
 }
 
 #[derive(Serialize, Deserialize)]
-struct Breakpoint {
-    function: Function,
-    metadata: String
+pub struct Breakpoint {
+    pub function: Function,
+    pub metadata: String
 }
 
 #[derive(Serialize, Deserialize)]
-struct Variable {
-    id: i32,
-    name: String,
-    vType: String, //TODO: make this SourceType once that struct is defined
-    address: i32,
-    data: String,  //TODO: make this an object that has info related to variable
+pub struct Variable {
+    pub id: i32,
+    pub name: String,
+    // TODO: make this SourceType once that struct is defined
+    pub vType: String,
+    pub address: i32,
+    // TODO: make this an object that has info related to variable
+    pub data: String,
 }
