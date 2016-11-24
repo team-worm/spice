@@ -1,3 +1,5 @@
+#![feature(field_init_shorthand)]
+
 extern crate hyper;
 extern crate reroute;
 extern crate serde;
@@ -48,14 +50,14 @@ fn filesystem_handler(_: Request, res: Response, c: Captures) {
 
     let path = c_str.split("/api/v1/filesystem").nth(1).unwrap().to_string();
 
-    let file_meta = fs::metadata(path).unwrap();
+    let file_meta = fs::metadata(&path).unwrap();
 
     let file_type; 
 
     let mut contents = vec![];
     if file_meta.is_dir() {
         file_type = "dir".to_string();
-        let paths = fs::read_dir(path).unwrap();
+        let paths = fs::read_dir(&path).unwrap();
 
         for path in paths {
             let dir_entry = path.unwrap();
@@ -68,7 +70,7 @@ fn filesystem_handler(_: Request, res: Response, c: Captures) {
             }
 
 
-            dir_content.push(File {
+            contents.push(File {
                 name: dir_entry.file_name().into_string().unwrap(),
                 path: dir_entry.path().into_os_string().into_string().unwrap(),
                 fType: child_file_type,
@@ -80,7 +82,7 @@ fn filesystem_handler(_: Request, res: Response, c: Captures) {
         file_type = "file".to_string();
     }
 
-    let my_file = File { name: path, path, fType: file_type, contents };
+    let my_file = File { name: path.clone(), path, fType: file_type, contents };
 
     let json_str = serde_json::to_string(&my_file).unwrap();
 
