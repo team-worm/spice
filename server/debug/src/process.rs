@@ -11,6 +11,7 @@ use kernel32;
 pub struct Child(winapi::HANDLE);
 
 impl Child {
+    /// Read `buffer.len()` bytes from a process's address space at `address`
     pub fn read_memory(&self, address: usize, buffer: &mut [u8]) -> io::Result<usize> {
         unsafe {
             let mut read = 0;
@@ -33,6 +34,34 @@ impl AsRawHandle for Child {
 
 impl IntoRawHandle for Child {
     fn into_raw_handle(self) -> RawHandle { self.0 }
+}
+
+/// Read a suspended thread's CPU state
+pub fn get_thread_context(
+    thread: winapi::HANDLE, flags: winapi::DWORD
+) -> io::Result<winapi::CONTEXT> {
+    unsafe {
+        let mut context = winapi::CONTEXT {
+            ContextFlags: flags,
+            ..mem::zeroed()
+        };
+        if kernel32::GetThreadContext(thread, &mut context) == winapi::FALSE {
+            return Err(io::Error::last_os_error());
+        }
+
+        Ok(context)
+    }
+}
+
+/// Write a suspended thread's CPU state
+pub fn set_thread_context(thread: winapi::HANDLE, context: &winapi::CONTEXT) -> io::Result<()> {
+    unsafe {
+        if kernel32::SetThreadContext(thread, context) == winapi::FALSE {
+            return Err(io::Error::last_os_error());
+        }
+
+        Ok(())
+    }
 }
 
 /// Custom implementation of `std::process::Command` to debug child processes.

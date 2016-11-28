@@ -134,7 +134,8 @@ fn main() {
                         let name = symbol.name.to_string_lossy();
                         println!("  0x{:016x} {}+{} {}", address, name, off, file_pos);
 
-                        let _ = symbols.enumerate_symbols(&frame, |symbol, size| {
+                        let instruction = stack.AddrPC.Offset as usize;
+                        let _ = symbols.enumerate_symbols(instruction, |symbol, size| {
                             if size == 0 { return true; }
 
                             let name = symbol.name.to_string_lossy();
