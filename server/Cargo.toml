@@ -1,6 +1,17 @@
 [package]
 name = "server"
 version = "0.1.0"
-authors = ["Russell Johnston <rpjohnst@gmail.com>"]
+authors = ["Russell Johnston <rpjohnst@gmail.com>", "Tarik Courdy <tarik.courdy@gmail.com>"]
+build = "build.rs"
+
+[workspace]
 
 [dependencies]
+debug = { path = "debug" }
+hyper = { version = "0.9", default-features = false }
+reroute = { git = "https://github.com/team-worm/reroute", default-features = false }
+serde = "0.8"
+serde_json = "0.8"
+
+[build-dependencies]
+serde_codegen = "0.8"
