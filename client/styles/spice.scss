@@ -5,3 +5,24 @@
   text-align: center;
   font-size: larger;
 }
+.launcher {
+  &.bottom-right {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+  }
+
+  &.filesystem {
+    .file {
+      &:hover {
+        cursor: pointer;
+        color:black;
+        background-color: white;
+      }
+      &.lit {
+        color:black;
+        background-color: white;
+      }
+    }
+  }
+}

@@ -1,0 +1,101 @@
+<md-content layout-padding="100" ng-controller="LauncherCtrl">
+    <div layout="row" layout-sm="column" layout-margin>
+        <md-content flex class="md-whiteframe-6dp">
+            <md-toolbar>
+                <div class="md-toolbar-tools">
+                    <span>Launch a Binary</span>
+                    <span flex></span>
+                    <md-button class="md-fab md-mini md-primary" aria-label="Help with Launch a Binary">
+                        <i class="fa fa-question" aria-hidden="true"></i>
+                    </md-button>
+                </div>
+            </md-toolbar>
+            <md-content layout-padding>
+                <div class="launcher filesystem" layout="column" layout-wrap flex>
+                    <div>
+                        <div class="file">
+                            <i class="fa fa-folder-open-o" aria-hidden="true"></i> Cool App
+                        </div>
+                        <div style="padding-left: 1rem">
+                            <div class="file">
+                                <i class="fa fa-file-text-o" aria-hidden="true"></i> app.c
+                            </div>
+                            <div class="file">
+                                <i class="fa fa-folder-open-o" aria-hidden="true"></i> modules
+                            </div>
+                            <div style="padding-left: 1rem">
+                                <div class="file">
+                                    <i class="fa fa-file-text-o" aria-hidden="true"></i> loader.c
+                                </div>
+                                <div class="file">
+                                    <i class="fa fa-file-text-o" aria-hidden="true"></i> sam.c
+                                </div>
+                            </div>
+                            <div class="file" ng-class="{lit: !nobinary}" ng-click="binClicked()">
+                                <i class="fa fa-file" aria-hidden="true"></i> App.exe
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="file">
+                            <i class="fa fa-folder-o" aria-hidden="true"></i> documents
+                        </div>
+                    </div>
+                    <div class="file">
+                        <i class="fa fa-folder-o" aria-hidden="true"></i> images
+                    </div>
+                </div>
+            </md-content>
+            <div class="launcher bottom-right" layout="row" layout-align="end end">
+                <md-button class="md-primary md-raised" ng-disabled="nobinary">Launch</md-button>
+            </div>
+        </md-content>
+        <md-content flex class="md-whiteframe-6dp">
+            <md-toolbar>
+                <div class="md-toolbar-tools">
+                    <span>Attach to Process</span>
+                    <span flex></span>
+                    <md-button class="md-fab md-mini md-primary" aria-label="Help with Launch a Binary">
+                        <i class="fa fa-question" aria-hidden="true"></i>
+                    </md-button>
+                </div>
+            </md-toolbar>
+            <md-content layout-padding>
+                <md-radio-group>
+                    <md-radio-button value="a"  class="md-primary">Chrome</md-radio-button>
+                    <md-radio-button value="b"  class="md-primary"> Firefox </md-radio-button>
+                    <md-radio-button value="c"  class="md-primary"> My App </md-radio-button>
+                    <md-radio-button value="d"  class="md-primary">James De St. Germain</md-radio-button>
+
+                </md-radio-group>
+            </md-content>
+            <div class="launcher bottom-right" layout="row" layout-align="end end">
+                <md-button class="md-primary md-raised" disabled="true" >Attach</md-button>
+            </div>
+        </md-content>
+        <md-content flex class="md-whiteframe-6dp">
+            <md-toolbar>
+                <div class="md-toolbar-tools">
+                    <span>Connect to Remote Host</span>
+                    <span flex></span>
+                    <md-button class="md-fab md-mini md-primary" aria-label="Help with Launch a Binary">
+                        <i class="fa fa-question" aria-hidden="true"></i>
+                    </md-button>
+                </div>
+            </md-toolbar>
+            <md-content layout-padding>
+                <md-input-container class="md-block">
+                    <label>Host</label>
+                    <input>
+                </md-input-container>
+                <md-input-container class="md-block">
+                    <label>Port</label>
+                    <input>
+                </md-input-container>
+            </md-content>
+            <div class="launcher bottom-right" layout="row" layout-align="end">
+                <md-button class="md-primary md-raised" disabled="true">Connect</md-button>
+            </div>
+        </md-content>
+    </div>
+</md-content>

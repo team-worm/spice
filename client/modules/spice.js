@@ -1,7 +1,6 @@
 angular.module('Spice', ['ngMaterial', 'ngMessages'])
     .controller('MainCtrl', ['$scope', '$interval', function($scope, $interval) {
-        $scope.MockupText = 'I am a mockup';
-        $scope.MockProcesses = ['chrome', 'firefox','slack','De St. Germain', 'Jensen'];
+
         $scope.MockLoader = 0;
 
         $interval(function() {
@@ -17,4 +16,4 @@ angular.module('Spice', ['ngMaterial', 'ngMessages'])
             .primaryPalette('orange')
             .dark();
 
-    });
+});
