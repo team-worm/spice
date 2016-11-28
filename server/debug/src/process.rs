@@ -17,7 +17,7 @@ impl Child {
             let mut read = 0;
             if kernel32::ReadProcessMemory(
                 self.0, address as winapi::LPCVOID,
-                buffer.as_mut_ptr() as winapi::PVOID, buffer.len() as winapi::DWORD64,
+                buffer.as_mut_ptr() as winapi::LPVOID, buffer.len() as winapi::SIZE_T,
                 &mut read
             ) == winapi::FALSE {
                 return Err(io::Error::last_os_error());
@@ -26,6 +26,40 @@ impl Child {
             Ok(read as usize)
         }
     }
+
+    /// Write `buffer.len()` bytes into a process's address space at `address`
+    pub fn write_memory(&mut self, address: usize, buffer: &[u8]) -> io::Result<usize> {
+        unsafe {
+            let mut written = 0;
+            if kernel32::WriteProcessMemory(
+                self.0, address as winapi::LPVOID,
+                buffer.as_ptr() as winapi::LPCVOID, buffer.len() as winapi::SIZE_T,
+                &mut written
+            ) == winapi::FALSE {
+                return Err(io::Error::last_os_error());
+            }
+
+            Ok(written as usize)
+        }
+    }
+
+    pub fn set_breakpoint(&mut self, address: usize) -> io::Result<Breakpoint> {
+        let mut saved = [0u8; 1];
+        self.read_memory(address, &mut saved)?;
+        self.write_memory(address, &[0xCCu8])?;
+        Ok(Breakpoint { address, saved })
+    }
+
+    pub fn remove_breakpoint(&mut self, breakpoint: Breakpoint) -> io::Result<()> {
+        self.write_memory(breakpoint.address, &breakpoint.saved)?;
+        Ok(())
+    }
+}
+
+/// An enabled breakpoint in a child process
+pub struct Breakpoint {
+    address: usize,
+    saved: [u8; 1],
 }
 
 impl AsRawHandle for Child {

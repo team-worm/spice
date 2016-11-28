@@ -126,8 +126,8 @@ fn main() {
                             .expect("failed to get symbol");
 
                         let file_pos = symbols.line_from_address(address)
-                            .map(|(file, line, _off)| {
-                                format!("{}:{}", file.to_string_lossy(), line)
+                            .map(|(line, _off)| {
+                                format!("{}:{}", line.file.to_string_lossy(), line.line)
                             })
                             .unwrap_or(String::new());
 

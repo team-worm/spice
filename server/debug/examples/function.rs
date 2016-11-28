@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use std::os::windows::io::AsRawHandle;
 
 fn main() {
-    let child = debug::Command::new(env::args().nth(1).unwrap())
+    let mut child = debug::Command::new(env::args().nth(1).unwrap())
         .env_clear()
         .debug()
         .expect("failed to launch process");
@@ -22,6 +22,9 @@ fn main() {
         .expect("failed to initialize symbol handler");
 
     let mut attached = false;
+
+    let mut breakpoints = HashMap::new();
+    let mut last_breakpoint = None;
 
     let mut done = false;
     while !done {
@@ -73,32 +76,46 @@ fn main() {
                 if !attached {
                     attached = true;
 
-                    print!("{}(", function_name);
                     let function = symbols.symbol_from_name(&function_name)
                         .expect("failed to get symbol");
-
-                    let thread = threads[&event.thread_id];
-                    let mut context = debug::get_thread_context(thread, winapi::CONTEXT_FULL)
-                        .expect("failed to get context");
-                    context.Rip = function.address as winapi::DWORD64;
-                    debug::set_thread_context(thread, &context)
-                        .expect("failed to set context");
-
+                    let mut parameters = vec![];
                     symbols.enumerate_symbols(function.address, |symbol, _| {
                         if symbol.flags & winapi::SYMFLAG_PARAMETER != 0 {
-                            print!("{},", symbol.name.to_string_lossy());
+                            parameters.push(symbol.name.to_string_lossy().into_owned());
                         }
                         true
                     }).expect("failed to enumerate symbols");
-                    println!(");");
+
+                    println!("{}({});", function_name, parameters.join(", "));
+
+                    let lines = symbols.lines_from_symbol(&function)
+                        .expect("failed to get lines");
+                    for line in lines {
+                        let breakpoint = child.set_breakpoint(line.address)
+                            .expect("failed to set breakpoint");
+
+                        breakpoints.insert(line.address, Some(breakpoint));
+                    }
 
                     debug_continue = true;
                 } else if e.dwFirstChance == 0 {
                     println!("passing on last chance exception");
-                } else {
-                    if er.ExceptionCode == winapi::EXCEPTION_BREAKPOINT {
-                        debug_continue = true;
-                    }
+                } else if er.ExceptionCode == winapi::EXCEPTION_BREAKPOINT {
+                    let address = er.ExceptionAddress as usize;
+                    let breakpoint = breakpoints.get_mut(&address)
+                        .expect("hit untracked breakpoint")
+                        .take();
+                    child.remove_breakpoint(breakpoint.unwrap())
+                        .expect("failed to remove breakpoint");
+                    last_breakpoint = Some(address);
+
+                    let mut context = debug::get_thread_context(
+                        threads[&event.thread_id], winapi::CONTEXT_FULL
+                    ).expect("failed to get thread context");
+                    context.Rip = er.ExceptionAddress as winapi::DWORD64;
+                    context.EFlags |= 0x100;
+                    debug::set_thread_context(threads[&event.thread_id], &context)
+                        .expect("failed to set thread context");
 
                     let frame = symbols.walk_stack(threads[&event.thread_id])
                         .expect("failed to get thread stack")
@@ -108,22 +125,11 @@ fn main() {
                     let ref stack = frame.stack;
 
                     let address = stack.AddrPC.Offset as usize;
-                    let (symbol, off) = symbols.symbol_from_address(address)
-                        .expect("failed to get symbol");
-
-                    let file_pos = symbols.line_from_address(address)
-                        .map(|(file, line, _off)| {
-                            format!("{}:{}", file.to_string_lossy(), line)
-                        })
-                        .unwrap_or(String::new());
-
-                    let name = symbol.name.to_string_lossy();
-                    println!(
-                        "exception {:#x} at 0x{:016x} {}+{} {}",
-                        er.ExceptionCode, address, name, off, file_pos
-                    );
+                    let (line, _off) = symbols.line_from_address(address)
+                        .expect("failed to get line");
 
                     let instruction = stack.AddrPC.Offset as usize;
+                    let mut locals = vec![];
                     symbols.enumerate_symbols(instruction, |symbol, size| {
                         if size == 0 { return true; }
 
@@ -138,13 +144,31 @@ fn main() {
                                     8 => unsafe { *(buffer.as_ptr() as *const u64) as u64 },
                                     _ => unsafe { *(buffer.as_ptr() as *const u32) as u64 },
                                 };
-                                println!("    {} = {:x}", name, value);
+                                locals.push(format!("{} = {:x}", name, value));
                             }
-                            Err(_) => println!("    {} = ?", name),
+                            Err(_) => locals.push(format!("{} = ?", name)),
                         }
 
                         true
                     }).expect("failed to enumerate symbols");
+
+                    println!("{}: {}", line.line, locals.join("; "));
+
+                    debug_continue = true;
+                } else if er.ExceptionCode == winapi::EXCEPTION_SINGLE_STEP {
+                    let address = last_breakpoint.take().unwrap();
+                    let breakpoint = child.set_breakpoint(address)
+                        .expect("failed to restore breakpoint");
+                    breakpoints.insert(address, Some(breakpoint));
+
+                    let mut context = debug::get_thread_context(
+                        threads[&event.thread_id], winapi::CONTEXT_FULL
+                    ).expect("failed to get thread context");
+                    context.EFlags &= !0x100;
+                    debug::set_thread_context(threads[&event.thread_id], &context)
+                        .expect("failed to set thread context");
+
+                    debug_continue = true;
                 }
             }
 
