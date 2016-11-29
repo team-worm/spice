@@ -13,6 +13,8 @@
     <!--Spice Modules (These will be loaded dynamically for non -->
     <script src="modules/spice.js"></script>
     <script src="modules/launcher/launcher.js"></script>
+    <script src="modules/functionPicker/functionPicker.js"></script>
+    <script src="modules/debugViewer/debugViewer.js"></script>
     <script src="modules/debugger-service.js"></script>
     <!--CSS-->
     <link rel="stylesheet" href="node_modules/angular-material/angular-material.css">
@@ -23,7 +25,20 @@
     <md-content layout-fill>
         <md-toolbar>
             <div class="md-toolbar-tools">
-                <h2><b>Spice Debugger</b></h2>
+                <h1 style="position:absolute"><b>Spice Debugger</b></h1>
+                <span flex></span>
+                <md-button ng-disabled="mode == 0" ng-click="mode = 0" aria-label="Launcher">
+                    Launcher
+                </md-button>
+                <i class="fa fa-arrow-right" aria-hidden="true"></i>
+                <md-button ng-disabled="mode == 1" ng-click="mode = 1" aria-label="Configuration">
+                    Configuration
+                </md-button>
+                <i class="fa fa-arrow-right" aria-hidden="true"></i>
+                <md-button ng-disabled="mode == 2" ng-click="mode = 2" aria-label="Debugger">
+                    Debugging
+                </md-button>
+                <span flex></span>
             </div>
         </md-toolbar>
         <md-progress-linear md-mode="determinate" class="md-warn" value="{{MockLoader}}"></md-progress-linear>
@@ -32,7 +47,9 @@
                 Prototype
             </span>
         </div>
-        <spice-launcher></spice-launcher>
+        <spice-launcher ng-if="mode == 0"></spice-launcher>
+        <spice-function-picker ng-if="mode == 1"></spice-function-picker>
+        <spice-debug-viewer ng-if="mode == 2"></spice-debug-viewer>
     </md-content>
 </body>
 </html>

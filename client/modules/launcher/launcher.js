@@ -54,6 +54,7 @@
 	}])
 	.directive('spiceLauncher', function() {
 		return {
+			restrict: 'E',
 			templateUrl: 'modules/launcher/launcherTemplate.html'
 		}
 	});

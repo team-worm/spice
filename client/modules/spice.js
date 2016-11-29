@@ -1,12 +1,14 @@
 angular.module('Spice', ['ngMaterial', 'ngMessages'])
     .controller('MainCtrl', ['$scope', '$interval', function($scope, $interval) {
 
-        $scope.MockLoader = 0;
+        $scope.mode = 0;
 
-        $interval(function() {
-            $scope.MockLoader = ($scope.MockLoader+1) % 100;
+        $scope.MockLoader = 57;
 
-        }, 100, 0 ,true)
+        //$interval(function() {
+        //    $scope.MockLoader = ($scope.MockLoader+1) % 100;
+        //
+        //}, 100, 0 ,true)
     }])
     .config(function($mdThemingProvider) {
 
