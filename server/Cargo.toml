@@ -9,7 +9,7 @@ build = "build.rs"
 [dependencies]
 debug = { path = "debug" }
 hyper = { version = "0.9", default-features = false }
-reroute = { git = "https://github.com/team-worm/reroute", default-features = false }
+reroute = { version = "0.2.4", default-features = false }
 serde = "0.8"
 serde_json = "0.8"
 
