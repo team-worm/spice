@@ -112,8 +112,8 @@ fn main() {
                     let mut context = debug::get_thread_context(
                         threads[&event.thread_id], winapi::CONTEXT_FULL
                     ).expect("failed to get thread context");
-                    context.Rip = er.ExceptionAddress as winapi::DWORD64;
-                    context.EFlags |= 0x100;
+                    context.set_instruction_pointer(er.ExceptionAddress as usize);
+                    context.set_singlestep(true);
                     debug::set_thread_context(threads[&event.thread_id], &context)
                         .expect("failed to set thread context");
 
@@ -164,7 +164,7 @@ fn main() {
                     let mut context = debug::get_thread_context(
                         threads[&event.thread_id], winapi::CONTEXT_FULL
                     ).expect("failed to get thread context");
-                    context.EFlags &= !0x100;
+                    context.set_singlestep(false);
                     debug::set_thread_context(threads[&event.thread_id], &context)
                         .expect("failed to set thread context");
 

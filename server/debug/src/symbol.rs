@@ -173,7 +173,7 @@ impl SymbolHandler {
     /// a debug event.
     pub fn walk_stack(&mut self, thread: winapi::HANDLE) -> io::Result<StackFrames> {
         unsafe {
-            let context = ::get_thread_context(thread, winapi::CONTEXT_FULL)?;
+            let context = ::get_thread_context(thread, winapi::CONTEXT_FULL)?.into_raw();
 
             fn flat(address: winapi::DWORD64) -> winapi::ADDRESS64 {
                 winapi::ADDRESS64 { Offset: address, Mode: winapi::AddrModeFlat, Segment: 0 }

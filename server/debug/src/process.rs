@@ -56,12 +56,6 @@ impl Child {
     }
 }
 
-/// An enabled breakpoint in a child process
-pub struct Breakpoint {
-    address: usize,
-    saved: [u8; 1],
-}
-
 impl AsRawHandle for Child {
     fn as_raw_handle(&self) -> RawHandle { self.0 }
 }
@@ -70,10 +64,33 @@ impl IntoRawHandle for Child {
     fn into_raw_handle(self) -> RawHandle { self.0 }
 }
 
+/// An enabled breakpoint in a child process
+pub struct Breakpoint {
+    address: usize,
+    saved: [u8; 1],
+}
+
+/// The state of a suspended thread
+pub struct Context(winapi::CONTEXT);
+
+impl Context {
+    pub fn set_instruction_pointer(&mut self, address: usize) {
+        self.0.Rip = address as winapi::DWORD64;
+    }
+
+    pub fn set_singlestep(&mut self, singlestep: bool) {
+        if singlestep {
+            self.0.EFlags |= 0x100;
+        } else {
+            self.0.EFlags &= !0x100;
+        }
+    }
+
+    pub fn into_raw(self) -> winapi::CONTEXT { self.0 }
+}
+
 /// Read a suspended thread's CPU state
-pub fn get_thread_context(
-    thread: winapi::HANDLE, flags: winapi::DWORD
-) -> io::Result<winapi::CONTEXT> {
+pub fn get_thread_context(thread: winapi::HANDLE, flags: winapi::DWORD) -> io::Result<Context> {
     unsafe {
         let mut context = winapi::CONTEXT {
             ContextFlags: flags,
@@ -83,14 +100,14 @@ pub fn get_thread_context(
             return Err(io::Error::last_os_error());
         }
 
-        Ok(context)
+        Ok(Context(context))
     }
 }
 
 /// Write a suspended thread's CPU state
-pub fn set_thread_context(thread: winapi::HANDLE, context: &winapi::CONTEXT) -> io::Result<()> {
+pub fn set_thread_context(thread: winapi::HANDLE, context: &Context) -> io::Result<()> {
     unsafe {
-        if kernel32::SetThreadContext(thread, context) == winapi::FALSE {
+        if kernel32::SetThreadContext(thread, &context.0) == winapi::FALSE {
             return Err(io::Error::last_os_error());
         }
 
