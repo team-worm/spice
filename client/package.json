@@ -5,7 +5,9 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "sass": "node node_modules/node-sass/bin/node-sass styles/spice.scss spice.css"
+    "sass": "node node_modules/node-sass/bin/node-sass styles/spice.scss spice.css",
+    "sass-watch": "node node_modules/node-sass/bin/node-sass --watch styles/spice.scss spice.css",
+    "serve": "http-server -p 8000 -c-1"
   },
   "author": "",
   "license": "ISC",

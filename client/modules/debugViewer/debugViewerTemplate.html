@@ -1,8 +1,23 @@
-<md-content ng-controller="DebugViewerCtrl">
-    <div>
-        Am a the debugger.
-    </div>
-    <div>
-        {{test}}
-    </div>
+<md-content ng-controller="DebugViewerCtrl" class="debugger">
+	<reactive-height-grid layout="row">
+		<div flex class="source-code-viewer">
+			<div layout="row">
+				<div flex="none" class="line-number-column debug-column">
+					<reactive-height-cell ng-repeat="line in lines" row=$index col=0>
+						<span flex>{{$index + 1}}</span>
+					</reactive-height-cell>
+				</div>
+				<div flex class="code-column debug-column">
+					<reactive-height-cell ng-repeat="line in lines" row=$index col=1>
+						<pre flex>{{line.code}}</pre>
+					</reactive-height-cell>
+				</div>
+			</div>
+		</div>
+		<div flex class="state-viewer debug-column">
+			<reactive-height-cell ng-repeat="line in lines" row=$index col=2>
+				<pre flex>{{line.state}}</pre>
+			</reactive-height-cell>
+		</div>
+	</reactive-height-grid>
 </md-content>
