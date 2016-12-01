@@ -1,40 +1,80 @@
+$background-color-0: #2B2B2B;
+$background-color-1: #313335;
+$background-color-2: #3C3F41;
+$background-color-3: #ca934d;
+
+$foreground-color-0: #B5B5B5;
+
+$foreground-color-3: #ffffff;
+
+$highlight-primary-color-0: #feb75b;
+$highlight-secondary-color-0: #2069c7;
+
+$background-highlight-primary-color-0: #715034;
+$background-highlight-secondary-color-0: #b26f34;
+
 .mockup {
-  color:gray;
-  padding-top:1em;
-  width:100%;
-  text-align: center;
-  font-size: larger;
+	color:gray;
+	padding-top:1em;
+	width:100%;
+	text-align: center;
+	font-size: larger;
 }
 .launcher {
-  &.bottom-right {
-    position: absolute;
-    bottom: 0;
-    right: 0;
-  }
+	&.bottom-right {
+		position: absolute;
+		bottom: 0;
+		right: 0;
+	}
 
-  &.filesystem {
-    .file {
-      &:hover {
-        cursor: pointer;
-        color:black;
-        background-color: white;
-      }
-      &.lit {
-        color:black;
-        background-color: white;
-      }
-    }
-  }
+	&.filesystem {
+		.file {
+			&:hover {
+				cursor: pointer;
+				color:black;
+				background-color: white;
+			}
+			&.lit {
+				color:black;
+				background-color: white;
+			}
+		}
+	}
 }
 
 .debugger {
+	background: $background-color-0;
+	font-family: Courier, 'NewCourier', monospace;
+	font-size: 1em;
+
 	.reactive-height-cell {
 		padding-top: 1px;
 		margin-top: -1px;
 		padding-bottom: 1px;
 		margin-bottom: -1px;
+
+		padding-left: 8px;
+		padding-right: 8px;;
+
+		background: $background-color-0;
+
+		pre {
+			margin: 5px;
+		}
 	}
+
 	.debug-column > reactive-height-cell:nth-of-type(odd) .reactive-height-cell {
-		background: #202020
+		background: $background-color-1;
+	}
+
+	.line-number-column {
+		background: $background-color-1;
+		border-left: 2px solid $background-color-2;
+		border-right: 2px solid $background-color-2;
+		text-align: right;
+	}
+
+	.code-column {
+		border-right: 2px solid $background-color-2;
 	}
 }

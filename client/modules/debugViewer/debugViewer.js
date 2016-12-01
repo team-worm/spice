@@ -44,7 +44,7 @@ angular.module('Spice')
 				};
 
 				this.unregisterCell = function(row, col) {
-					if($scope.cells[row] && cells[row].cols[col]) {
+					if($scope.cells[row] && $scope.cells[row].cols[col]) {
 						delete $scope.cells[row].cols[col];
 						this.onCellHeightUpdated(row, col);
 					}
