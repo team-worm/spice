@@ -41,7 +41,32 @@ $background-highlight-secondary-color-0: #b26f34;
 		}
 	}
 }
+.configuration {
 
+	#console {
+		background: black;
+		color:white;
+		margin-top: 1em;
+		font-family: Courier, 'NewCourier', monospace;
+		border: 1px solid gray;
+	}
+
+	#function-list {
+		height: 18em;
+		width: 100%;
+		max-width: 400px;
+		border: 1px solid rgb(233,30,99);
+		margin-top:1em;
+
+		.repeated-item {
+			border-bottom: 1px solid #aaa;
+			cursor:pointer;
+			padding-top: 10px;
+			padding-left: 5px;
+			height:2em;
+		}
+	}
+}
 .debugger {
 	background: $background-color-0;
 	font-family: Courier, 'NewCourier', monospace;

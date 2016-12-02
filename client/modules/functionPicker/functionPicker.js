@@ -1,5 +1,5 @@
 angular.module('Spice')
-    .controller('FunctionPickerCtrl', ['$scope',function($scope) {
+    .controller('FunctionPickerCtrl', ['$scope', '$timeout', '$interval', function($scope, $timeout, $interval) {
 
         var self = this;
 
@@ -10,7 +10,26 @@ angular.module('Spice')
             this.line = line;
         };
 
-        self.FunctionList = ['binary_search', 'insertion_sort', 'binary-search.c']
+        $timeout(function() {
+            //after the page renders, redigest so the ReactiveHeightCells can set height
+            $scope.$digest()
+        });
+
+        $interval(function() {
+            if(self.running && $scope.mockloader.progress < 100) {
+
+                $scope.mockloader.progress++ ;
+            }
+
+        },35, 0, true);
+
+        self.FunctionList = ['binary_search', 'insertion_sort', 'binary-search.c'];
+
+        for(var i = 0; i < 30; i++) {
+            self.FunctionList.push('some_function'+i);
+        }
+
+        self.running = false;
 
         self.lines = [
             {code: '#include <stdio.h>'},
@@ -54,10 +73,22 @@ angular.module('Spice')
             {code: '    return 0;'},
             {code: '}'}
         ];
+
+        self.runFunction = function() {
+            self.running = true
+        };
+
+        self.killFunction = function() {
+            self.running = false
+            $scope.mockloader.progress = 0
+        }
     }])
     .directive('spiceFunctionPicker', function() {
         return {
             restrict: 'E',
+            scope: {
+                mockloader: '=mockloader'
+            },
             templateUrl: 'modules/functionPicker/functionPickerTemplate.html'
         }
     });

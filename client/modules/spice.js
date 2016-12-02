@@ -1,9 +1,9 @@
 angular.module('Spice', ['ngMaterial', 'ngMessages'])
     .controller('MainCtrl', ['$scope', '$interval', function($scope, $interval) {
 
-        $scope.mode = 2;
+        $scope.mode = 1;
 
-        $scope.MockLoader = 57;
+        $scope.MockLoader = {progress: 0};
 
         //$interval(function() {
         //    $scope.MockLoader = ($scope.MockLoader+1) % 100;

@@ -3,7 +3,7 @@
 		$scope.nobinary = true;
 		$scope.binClicked = function () {
 			$scope.nobinary = false;
-		}
+		};
 
 		/* Stream example code
 		var stream = new DebuggerService.Stream();

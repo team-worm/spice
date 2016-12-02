@@ -41,15 +41,15 @@
                 <span flex></span>
             </div>
         </md-toolbar>
-        <md-progress-linear md-mode="determinate" class="md-warn" value="{{MockLoader}}"></md-progress-linear>
+        <md-progress-linear md-mode="determinate" class="md-warn" value="{{MockLoader.progress}}"></md-progress-linear>
         <div class="mockup">
             <span>
                 Prototype
             </span>
         </div>
-        <spice-launcher mode="mode" ng-if="mode == 0"></spice-launcher>
-        <spice-function-picker ng-if="mode == 1"></spice-function-picker>
-        <spice-debug-viewer ng-if="mode == 2"></spice-debug-viewer>
+        <spice-launcher mode="mode" ng-show="mode == 0" ng-cloak></spice-launcher>
+        <spice-function-picker ng-show="mode == 1" mockloader="MockLoader" ng-cloak></spice-function-picker>
+        <spice-debug-viewer ng-show="mode == 2" ng-cloak></spice-debug-viewer>
     </md-content>
 </body>
 </html>
