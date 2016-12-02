@@ -55,9 +55,9 @@ angular.module('Spice')
 
 		/**
 		 * @constructor
-		 * @param {integer} index
-		 * @param {integer} tType
-		 * @param {integer} line
+		 * @param {number} index
+		 * @param {number} tType
+		 * @param {number} line
 		 * @param {object} data
 		 */
 		var Trace = function(index, tType, line, data) {

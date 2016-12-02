@@ -1,7 +1,7 @@
 angular.module('Spice', ['ngMaterial', 'ngMessages'])
     .controller('MainCtrl', ['$scope', '$interval', function($scope, $interval) {
 
-        $scope.mode = 0;
+        $scope.mode = 1;
 
         $scope.MockLoader = 57;
 

@@ -1,8 +1,57 @@
-<md-content ng-controller="FunctionPickerCtrl">
-    <div>
-        Am a the function Picker.
-    </div>
-    <div>
-        {{test}}
-    </div>
+<md-content ng-controller="FunctionPickerCtrl as ctrl">
+    <md-button class="md-raised md-primary" aria-label="Help with Launch a Binary">
+        Run Function <i class="fa fa-play" aria-hidden="true"></i>
+    </md-button>
+    <md-button class="md-raised md-primary" ng-disabled="true" aria-label="Help with Launch a Binary">
+        Kill Running Function <i class="fa fa-window-close" aria-hidden="true"></i>
+    </md-button>
+    <hr>
+    <md-content>
+        <md-content class="md-padding">
+            <md-toolbar class="md-accent">
+                <div class="md-toolbar-tools">
+                    <b>binary-search.exe</b>
+                    <i class="fa fa-caret-right" style="margin-left:1em; margin-right:1em" aria-hidden="true"> </i>
+                    <b>binary-search.c</b>
+                    <i class="fa fa-caret-right" style="margin-left:1em; margin-right:1em" aria-hidden="true"> </i>
+                    <b>binarySearch</b> (int,int*,int)
+                </div>
+            </md-toolbar>
+            <md-content flex="100" layout="row" layout-xs="column" class="md-padding md-whiteframe-3dp">
+                <md-content flex="25" flex-xs="100" class="md-padding " >
+                    <md-autocomplete
+                            flex
+                            md-items="item in ctrl.FunctionList"
+                            md-min-length="0"
+                            placeholder="Search a File or Function ">
+                        <md-item-template>
+                            <span>{{item}}</span>
+                        </md-item-template>
+                        <md-not-found>
+                            No states matching "{{ctrl.searchText}}" were found.
+                            <a ng-click="ctrl.newState(ctrl.searchText)">Create a new one!</a>
+                        </md-not-found>
+                    </md-autocomplete>
+                </md-content>
+                <md-content flex="75" flex-xs="100" class="md-whiteframe-3dp debugger">
+                    <reactive-height-grid layout="row">
+                        <div flex class="source-code-viewer">
+                            <div layout="row">
+                                <div flex="none" class="line-number-column debug-column">
+                                    <reactive-height-cell ng-repeat="line in ctrl.lines" row=$index col=0>
+                                        <span flex>{{$index + 1}}</span>
+                                    </reactive-height-cell>
+                                </div>
+                                <div flex class="code-column debug-column">
+                                    <reactive-height-cell ng-repeat="line in ctrl.lines" row=$index col=1>
+                                        <pre flex>{{line.code}}</pre>
+                                    </reactive-height-cell>
+                                </div>
+                            </div>
+                        </div>
+                    </reactive-height-grid>
+                </md-content>
+            </md-content>
+        </md-content>
+    </md-content>
 </md-content>
