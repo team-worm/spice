@@ -30,7 +30,7 @@ angular.module('Spice')
 			this.id = id;
 
 			this.executions = {}; // map[executionId]Execution
-			this.breakpoints = []; //Breakpoint[]
+			this.breakpoints = {}; //map[address]Breakpoint
 			this.functions = {}; // map[address]SourceFunction
 		}
 
@@ -72,9 +72,14 @@ angular.module('Spice')
 		 * @param {integer} address
 		 * @param {string} name
 		 */
-		var SourceFunction = function(address, name) {
+		var SourceFunction = function(address, name, sourcePath, lineNumber, lineCount, parameters, localVariables) {
 			this.address = address;
 			this.name = name;
+			this.sourcePath = sourcePath;
+			this.lineNumber = lineNumber;
+			this.lineCount = lineCount;
+			this.parameters = parameters;
+			this.localVariables = localVariables;
 		}
 
 		/**
@@ -85,10 +90,28 @@ angular.module('Spice')
 		 * @param {integer} address
 		 */
 		var SourceVariable = function(id, name, sType, address) {
-			this.id = name;
+			this.id = id;
 			this.name = name;
-			this.sType = name;
+			this.sType = sType;
 			this.address = address;
+		}
+
+		/**
+		 * TODO: make this not a placeholder type
+		 * @constructor
+		 * @param {string} name
+		 */
+		var SourceType = function(name) {
+			this.name = name;
+		}
+
+		/**
+		 * @constructor
+		 * @param {string} name
+		 */
+		var Breakpoint = function(functionId, metadata) {
+			this.functionId = functionId;
+			this.metadata = metadata;
 		}
 
 		var StreamClosedError = function(message) {
@@ -214,12 +237,117 @@ angular.module('Spice')
 				});
 		}
 
+		/**
+		 * @returns {Promise<map[functionId]SourceFunction>}
+		 */
+		function getFunctions() {
+			if(attachedDebugState === null) {
+				return $q.reject(new SpiceError(0, 'NotAttachedError', 'Not currently attached to a process'));
+			}
+
+			return _getFunctions(attachedDebugState)
+				.then(function(functions) {
+					attachedDebugState.functions = functions.reduce(function(fs, func) {
+						fs[func.address] = func;
+						return fs;
+					}, {});
+					return attachedDebugState.functions;
+				});
+		}
+
+		/**
+		 * @param {function id} id
+		 * @returns {Promise<SourceFunction>}
+		 */
+		function getFunction(id) {
+			if(attachedDebugState === null) {
+				return $q.reject(new SpiceError(0, 'NotAttachedError', 'Not currently attached to a process'));
+			}
+
+			return _getFunction(attachedDebugState, id)
+				.then(function(func) {
+					attachedDebugState.functions[func.address] = func;
+					return func;
+				});
+		}
+
+		/**
+		 * @returns {Promise<map[functionId]Breakpoint>}
+		 */
+		function getBreakpoints() {
+			if(attachedDebugState === null) {
+				return $q.reject(new SpiceError(0, 'NotAttachedError', 'Not currently attached to a process'));
+			}
+
+			return _getBreakpoints(attachedDebugState)
+				.then(function(breakpoints) {
+					attachedDebugState.breakpoints = breakpoints.reduce(function(bs, breakpoint) {
+						bs[breakpoint.functionId] = breakpoint;
+						return bs;
+					}, {});
+					return attachedDebugState.breakpoints;
+				});
+		}
+
+		/**
+		 * @param {FunctionId} functionId
+		 * @returns {Promise<Breakpoint>}
+		 */
+		function setBreakpoint(functionId) {
+			if(attachedDebugState === null) {
+				return $q.reject(new SpiceError(0, 'NotAttachedError', 'Not currently attached to a process'));
+			}
+
+			return _setBreakpoint(attachedDebugState, functionId)
+				.then(function(breakpoint) {
+					attachedDebugState.breakpoint[breakpoint.functionId] = breakpoint;
+					return breakpoint;
+				});
+		}
+
+		/**
+		 * @param {FunctionId} functionId
+		 * @returns {Promise<Breakpoint>}
+		 */
+		function removeBreakpoint(functionId) {
+			if(attachedDebugState === null) {
+				return $q.reject(new SpiceError(0, 'NotAttachedError', 'Not currently attached to a process'));
+			}
+
+			return _removeBreakpoint(attachedDebugState, functionId)
+				.then(function() {
+					delete attachedDebugState.breakpoint[functionId];
+				});
+		}
+
+		/**
+		 * @param {string} args
+		 * @param {string} env
+		 * @returns {Promise<Execution>}
+		 */
 		function execute(args, env) {
 			if(attachedDebugState === null) {
 				return $q.reject(new SpiceError(0, 'NotAttachedError', 'Not currently attached to a process'));
 			}
 
 			return _execute(attachedDebugState, args, env)
+				.then(function(execution) {
+					attachedDebugState.executions[execution.id] = execution;
+					return execution;
+				});
+		}
+
+		/**
+		 * @param {FunctionId} functionId
+		 * @param {object} parameters
+		 * @returns {Promise<Execution>}
+		 */
+		function executeFunction(functionId, parameters) {
+			if(attachedDebugState === null) {
+				return $q.reject(new SpiceError(0, 'NotAttachedError', 'Not currently attached to a process'));
+			}
+
+			return _executeFunction(attachedDebugState, functionId, parameters)
 				.then(function(execution) {
 					attachedDebugState.executions[execution.id] = execution;
 					return execution;
@@ -282,6 +410,55 @@ angular.module('Spice')
 			return $q.resolve(new Execution(0, 'process', 'done', 10, {nextExecution: 1}));
 		}
 
+		/**
+		 * @param {DebugState} debugState
+		 * @param {FunctionId} functionId
+		 * @param {object} parameters
+		 * @returns {Promise<Execution>}
+		 */
+		function _executeFunction(debugState, functionId, parameters) {
+			//TODO: use $http POST /debug/:debugId/functions/:function/execute
+			if(functionId === 0) {
+				return $q.resolve(new Execution(2, 'function', 'done', 10, { sourceFunction: 0}));
+			}
+			else {
+				return $q.reject(new SpiceError(0, 'NotFoundError', 'Function ' + id + ' not found', {id: id}));
+			}
+		}
+
+		/*** SourceFunctions ***/
+		function _getFunctions(debugState) {
+			//TODO: use $http GET /debug/:debugId/functions
+			return $q.resolve([new SourceFunction(0, 'helloFunc', 'hello.cpp', 4, 4, [new SourceVariable(0, 'a', new SourceType('int'), 0)], [new SourceVariable(1, 'str', new SourceType('std::string'), 1)])]);
+		}
+
+		function _getFunction(debugState, id) {
+			//TODO: use $http GET /debug/:debugId/functions/:function
+			if(id === 0) {
+				return $q.resolve(new SourceFunction(0, 'helloFunc', 'hello.cpp', 4, 4, [new SourceVariable(0, 'a', new SourceType('int'), 0)], [new SourceVariable(1, 'str', new SourceType('std::string'), 1)]));
+			}
+			else {
+				return $q.reject(new SpiceError(0, 'NotFoundError', 'Function ' + id + ' not found', {id: id}));
+			}
+		}
+
+		/*** Breakpoints **/
+
+		function _getBreakpoints(debugState) {
+			//TODO: use $http GET /debug/:debugId/breakpoints
+			return $q.resolve([new Breakpoint(0, {})]);
+		}
+
+		function _setBreakpoint(debugState, functionId) {
+			//TODO: use $http PUT /debug/:debugId/breakpoints/:function
+			return $q.resolve([new Breakpoint(0, {})]);
+		}
+
+		function _removeBreakpoint(debugState, functionId) {
+			//TODO: use $http DELETE /debug/:debugId/breakpoints/:function
+			return $q.resolve();
+		}
+
 		/*** Executions ***/
 
 		/**
@@ -291,7 +468,18 @@ angular.module('Spice')
 		 */
 		function _getExecution(debugState, id) {
 			//TODO: use $http GET /debug/:debugId/executions/:executionId
-			return $q.resolve(new Execution(1, 'function', 'done', 10, {sourceFunction: new SourceFunction(0, 'helloFunc')}));
+			if(id === 0) {
+				return $q.resolve(new Execution(0, 'process', 'done', 10, {nextExecution: 1}));
+			}
+			else if(id === 1) {
+				return $q.resolve(new Execution(1, 'function', 'done', 10, {sourceFunction: 0}));
+			}
+			else if(id === 2) {
+				return $q.resolve(new Execution(2, 'function', 'done', 10, {sourceFunction: 0}));
+			}
+			else {
+				return $q.reject(new SpiceError(0, 'NotFoundError', 'Function ' + id + ' not found', {id: id}));
+			}
 		}
 
 		/**
@@ -310,8 +498,16 @@ angular.module('Spice')
 			else if(executionId === 1) {
 				traceStream.write(new Trace(0, 0, 4, {state: [{variable: 0, value: 1}]}));
 				traceStream.write(new Trace(1, 0, 5, {state: [{variable: 0, value: 2}]}));
-				traceStream.write(new Trace(2, 1, 6, {output: '2'}));
-				traceStream.write(new Trace(3, 2, 7, {cause: 'ended', returnValue: 3}));
+				traceStream.write(new Trace(2, 0, 6, {state: [{variable: 1, value: 'hello'}]}));
+				traceStream.write(new Trace(3, 1, 7, {output: '2'}));
+				traceStream.write(new Trace(4, 2, 8, {cause: 'ended', returnValue: 3}));
+			}
+			else if(executionId === 2) {
+				traceStream.write(new Trace(0, 0, 4, {state: [{variable: 0, value: 2}]}));
+				traceStream.write(new Trace(1, 0, 5, {state: [{variable: 0, value: 4}]}));
+				traceStream.write(new Trace(2, 0, 6, {state: [{variable: 1, value: 'hello'}]}));
+				traceStream.write(new Trace(3, 1, 7, {output: '8'}));
+				traceStream.write(new Trace(4, 2, 8, {cause: 'ended', returnValue: 9}));
 			}
 			else {
 				throw new SpiceError(0, 'NotFoundError', 'Execution ' + executionId + ' not found', {id: executionId});
@@ -324,7 +520,13 @@ angular.module('Spice')
 			Stream: Stream, // TODO: move this into its own module
 			getAttachedDebugState: getAttachedDebugState,
 			attachBinary: attachBinary,
+			getFunctions: getFunctions,
+			getFunction: getFunction,
+			getBreakpoints: getBreakpoints,
+			setBreakpoint: setBreakpoint,
+			removeBreakpoint: removeBreakpoint,
 			execute: execute,
+			executeFunction: executeFunction,
 			getTrace: getTrace
 		};
 	}]);

@@ -44,8 +44,21 @@
 		}
 
 		DebuggerService.attachBinary('hello')
-			.then(function() {
+			.then(function(debugState) {
+				console.log('debugState: ', debugState);
+				return DebuggerService.getFunctions();
+			}).then(function(functions) {
+				console.log('functions: ', functions);
+				return DebuggerService.getBreakpoints();
+			}).then(function(breakpoints) {
+				console.log('breakpoints: ', breakpoints);
+				console.log('execute program...');
 				return DebuggerService.execute('', '');
+			}).then(function(execution) {
+				return followExecution(execution.id);
+			}).then(function() {
+				console.log('execute function 0');
+				return DebuggerService.executeFunction(0, {});
 			}).then(function(execution) {
 				return followExecution(execution.id);
 			});
