@@ -1,27 +1,89 @@
 angular.module('Spice')
-	.controller('DebugViewerCtrl', ['$scope', '$timeout', function($scope, $timeout) {
-		$scope.lines = [
-			{ code: 'void insertion_sort (int arr[], int length){', state: 'a=1' },
-			{ code: '		int j, temp;', state: 'a=1' },
-			{ code: '		', state: 'a=1' },
-			{ code: '	for (int i = 0; i < length; i++){', state: 'a=1' },
-			{ code: '		j = i;', state: 'a=1' },
-			{ code: '		', state: 'a=1' },
-			{ code: '		while (j > 0 && arr[j] < arr[j-1]){', state: 'a=1' },
-			{ code: '			temp = arr[j];', state: 'a=1' },
-			{ code: '			arr[j] = arr[j-1];', state: 'a=1' },
-			{ code: '			arr[j-1] = temp;', state: 'a=1' },
-			{ code: '			j--;', state: 'a=1' },
-			{ code: '			}', state: 'a=1' },
-			{ code: '		}', state: 'a=1' },
-			{ code: '}', state: 'a=1' }
+	.controller('DebugViewerCtrl', ['$scope', '$timeout', 'DebuggerService', 'FilesystemService', function($scope, $timeout, DebuggerService, FilesystemService) {
+		$scope.lines = [];
+		//$scope.lines = [
+			//{ code: 'void insertion_sort (int arr[], int length){', state: 'a=1' },
+			//{ code: '		int j, temp;', state: 'a=1' },
+			//{ code: '		', state: 'a=1' },
+			//{ code: '	for (int i = 0; i < length; i++){', state: 'a=1' },
+			//{ code: '		j = i;', state: 'a=1' },
+			//{ code: '		', state: 'a=1' },
+			//{ code: '		while (j > 0 && arr[j] < arr[j-1]){', state: 'a=1' },
+			//{ code: '			temp = arr[j];', state: 'a=1' },
+			//{ code: '			arr[j] = arr[j-1];', state: 'a=1' },
+			//{ code: '			arr[j-1] = temp;', state: 'a=1' },
+			//{ code: '			j--;', state: 'a=1' },
+			//{ code: '			}', state: 'a=1' },
+			//{ code: '		}', state: 'a=1' },
+			//{ code: '}', state: 'a=1' }
+		//];
 
-		];
+		//$timeout(function() {
+			////after the page renders, redigest so the ReactiveHeightCells can set height
+			//$scope.$digest()
+		//});
 
-		$timeout(function() {
-			//after the page renders, redigest so the ReactiveHeightCells can set height
-			$scope.$digest()
-		});
+		$scope.traceColCount = 0;
+		$scope.addTrace = function(trace) {
+			$scope.lines[trace.line-1].traces.push(trace);
+			var traceCount = $scope.lines[trace.line-1].traces.length;
+			if(traceCount > $scope.traceColCount) {
+				$scope.traceColCount++;
+			}
+		}
+
+		FilesystemService.getFileContents('hello.cpp')
+			.then(function(contents) {
+				$scope.lines = contents.split('\n').map(function(line) {
+					return { code: line, traces: []};
+				});
+			});
+
+		DebuggerService.attachBinary('hello')
+			.then(function(debugState) {
+				return DebuggerService.getFunctions();
+			}).then(function(functions) {
+				return DebuggerService.getBreakpoints();
+			}).then(function(breakpoints) {
+				return DebuggerService.execute('', '');
+			}).then(function(execution) {
+				return followExecution(execution.id);
+			//}).then(function() {
+				//return DebuggerService.executeFunction(0, {});
+			//}).then(function(execution) {
+				//return followExecution(execution.id);
+			});
+
+		function followExecution(executionId) {
+			var nextExecutionId = null;
+			return DebuggerService.getTrace(executionId)
+				.then(function(traceStream) {
+					return traceStream.read(function(trace) {
+						//console.log('Execution ' + executionId + ': ', trace.data);
+						$scope.addTrace(trace);
+						switch(trace.tType) {
+							case 0:
+							case 1:
+								//$scope.lines[trace.line].traces.push(trace);
+								break;
+							case 2:
+							switch(trace.data.cause) {
+								//case 'ended':
+									//$scope.lines[trace.line].trace.push(trace);
+									//break;
+								case 'breakpoint':
+									nextExecutionId = trace.data.nextExecution;
+									break;
+						}
+					}
+				}).done.then(function() {
+					if(nextExecutionId) {
+						return followExecution(nextExecutionId);
+					}
+				});
+			});
+		}
+
 	}])
 	.directive('spiceDebugViewer', function() {
 		return {
@@ -63,12 +125,10 @@ angular.module('Spice')
 						var max = Math.max.apply(null, $scope.cells[row].cols.map(function(cell) {
 							return cell.height;
 						}));
-						if(max !== $scope.cells[row].max) {
-							$scope.cells[row].max = max;
-							$scope.cells[row].cols.forEach(function(cell) {
-								cell.setMaxHeight(max);
-							});
-						}
+						$scope.cells[row].max = max;
+						$scope.cells[row].cols.forEach(function(cell) {
+							cell.setMaxHeight(max);
+						});
 					}
 					else {
 						throw new Error('reactiveHeightGrid: updateCellHeight: Cell does not exist');
@@ -89,7 +149,7 @@ angular.module('Spice')
 			},
 			link: function(scope, elem, attrs, gridCtrl) {
 				scope.cell = { height: outerHeight(elem.children()[0]) };
-				scope.cell.maxHeight = scope.cell.height;
+				scope.cell.maxHeight = 0;
 
 				scope.cell.setMaxHeight = function(height) {
 					scope.cell.maxHeight = height;
@@ -101,7 +161,9 @@ angular.module('Spice')
 				scope.$watch(function() {
 					elem.children().css({height: ""});
 					scope.cell.height = outerHeight(elem.children()[0]);
-					elem.children().css({height: scope.cell.maxHeight + 'px'});
+					if(scope.cell.maxHeight > 0) {
+						elem.children().css({height: scope.cell.maxHeight + 'px'});
+					}
 					gridCtrl.onCellHeightUpdated(scope.row, scope.col);
 				});
 
@@ -110,7 +172,21 @@ angular.module('Spice')
 				});
 			}
 		};
-	});
+	}).directive('trace', ['DebuggerService', function(DebuggerService) {
+		return {
+			restrict: 'E',
+			scope: {
+				trace: '='
+			},
+			templateUrl: 'modules/debugViewer/traceTemplate.html',
+			link: function(scope, elem, attrs) {
+				scope.getVariable = function(id) {
+					//TODO: create debuggerService function to do this
+					return DebuggerService.getAttachedDebugState().variables[id];
+				};
+			}
+		};
+	}]);
 
 function outerHeight(el) {
 	var height = el.offsetHeight;

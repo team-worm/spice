@@ -84,7 +84,7 @@ $background-highlight-secondary-color-0: #b26f34;
 		}
 	}
 
-	.debug-column > reactive-height-cell:nth-of-type(odd) .reactive-height-cell {
+	.debug-column reactive-height-cell:nth-of-type(odd) .reactive-height-cell {
 		background: $background-color-1;
 	}
 
@@ -97,5 +97,18 @@ $background-highlight-secondary-color-0: #b26f34;
 
 	.code-column {
 		border-right: 2px solid $background-color-2;
+	}
+
+	.state-column {
+		.trace {
+			.trace-state {
+				ul {
+					padding-left: 0px;
+				}
+				li {
+					list-style-type: none;
+				}
+			}
+		}
 	}
 }

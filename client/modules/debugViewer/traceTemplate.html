@@ -1,0 +1,13 @@
+<div class="trace">
+	<div ng-if="trace.tType===0" class="trace-state">
+		<ul>
+			<li ng-repeat="state in trace.data.state">{{getVariable(state.variable).name}}={{state.value}}</li>
+		</ul>
+	</div>
+	<div ng-if="trace.tType===1" class="trace-output">
+		output: {{trace.data.output}}
+	</div>
+	<div ng-if="trace.tType===2" class="trace-termianted">
+		terminated: {{trace.data.cause}}
+	</div>
+</div>

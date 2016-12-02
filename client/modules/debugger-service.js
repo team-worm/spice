@@ -1,25 +1,7 @@
 angular.module('Spice')
-	.factory('DebuggerService', ['$q', '$http', function($q, $http){
+	.factory('DebuggerService', ['$q', '$http', 'SpiceError', 'Stream', function($q, $http, SpiceError, Stream){
 
 		/*** Constructors ***/
-
-		/**
-		 * @constructor
-		 * @param {int} code
-		 * @param {string} name
-		 * @param {string} message
-		 * @param {object} data
-		 */
-		var SpiceError = function(code, name, message, data) {
-			this.code = code;
-			this.name = name;
-			this.message = message;
-			this.data = data;
-
-			this.stack = (new Error()).stack;
-		}
-
-		SpiceError.prototype = new Error();
 
 		/**
 		 * @constructor
@@ -32,6 +14,7 @@ angular.module('Spice')
 			this.executions = {}; // map[executionId]Execution
 			this.breakpoints = {}; //map[address]Breakpoint
 			this.functions = {}; // map[address]SourceFunction
+			this.variables = {} // map[id]Variable
 		}
 
 		/**
@@ -114,109 +97,6 @@ angular.module('Spice')
 			this.metadata = metadata;
 		}
 
-		var StreamClosedError = function(message) {
-			this.stack = (new Error()).stack;
-		}
-
-		StreamClosedError.prototype = new Error();
-		StreamClosedError.prototype.name = 'StreamClosedError';
-
-		/**
-		 * Represents data that may be streamed.
-		 * every write appends to the "data" array
-		 * @constructor
-		 */
-		var Stream = function() {
-			this.data = [];
-			this.closed = false;
-			this.closeError = undefined;
-
-			this.listeners = []; // map[int]function: new listener created for each "read" call
-			this.currentListenerId = 0; // incremented for each read call
-		}
-
-		Stream.prototype.write = function(newData) {
-			if(this.closed) {
-				throw new StreamClosedError('Stream.write: Cannot write to closed stream');
-			}
-
-			this.data.push(newData);
-			this._sendEvent({
-				type: 'write',
-				index: this.data.length - 1
-			});
-		};
-
-		Stream.prototype.close = function(err) {
-			if(this.closed) {
-				throw new StreamClosedError('Stream.close: Cannot close an already closed stream');
-			}
-
-			this.closed = true;
-			this.closeError = err;
-			this._sendEvent({
-				type: 'close',
-				error: err
-			});
-		};
-
-		Stream.prototype._sendEvent = function(event) {
-			var _this = this;
-			Object.keys(_this.listeners).forEach(function(key) {
-				_this.listeners[key](event);
-			});
-		}
-
-		/**
-		 * @returns {object}
-		 */
-		Stream.prototype.read = function(onData) {
-			var _this = this;
-			var listenerId = this.currentListenerId;
-			this.currentListenerId++;
-			return {
-				id: listenerId,
-				done: $q(function(resolve, reject) {
-					// call onData for all existing writes
-					for(var i = 0; i < _this.data.length; i++) {
-						onData(_this.data[i]);
-					}
-
-					if(_this.closed) {
-						if(_this.closeError) {
-							reject(_this.closeError);
-						}
-						else {
-							resolve();
-						}
-						return;
-					}
-
-					// listen for new events
-					_this.listeners[listenerId] = function(event) {
-						switch(event.type) {
-							case 'write':
-								onData(_this.data[event.index]);
-								break;
-							case 'close':
-								_this.cancelRead(listenerId);
-								if(event.error) {
-									reject(event.error);
-								}
-								else {
-									resolve();
-								}
-								break;
-						}
-					}
-				})
-			};
-		};
-
-		Stream.prototype.cancelRead = function(readId) {
-			delete this.listeners[readId];
-		}
-
 		/*** CurrentState ***/
 		var attachedDebugState = null;
 
@@ -249,6 +129,10 @@ angular.module('Spice')
 				.then(function(functions) {
 					attachedDebugState.functions = functions.reduce(function(fs, func) {
 						fs[func.address] = func;
+						// register variables in lookup
+						func.parameters.concat(func.localVariables).forEach(function(variable) {
+							attachedDebugState.variables[variable.id] = variable;
+						});
 						return fs;
 					}, {});
 					return attachedDebugState.functions;
@@ -267,6 +151,10 @@ angular.module('Spice')
 			return _getFunction(attachedDebugState, id)
 				.then(function(func) {
 					attachedDebugState.functions[func.address] = func;
+					// register variables in lookup
+					func.parameters.concat(func.localVariables).forEach(function(variable) {
+						attachedDebugState.variables[variable.id] = variable;
+					});
 					return func;
 				});
 		}
@@ -491,23 +379,23 @@ angular.module('Spice')
 			//TODO: use $http GET /debug/:debugId/executions/:executionId/trace (with streaming api)
 			var traceStream = new Stream();
 			if(executionId === 0) {
-				traceStream.write(new Trace(0, 1, 0, {output: 'print 1'}));
-				traceStream.write(new Trace(1, 1, 2, {output: 'print 2'}));
-				traceStream.write(new Trace(2, 2, 3, {cause: 'breakpoint', nextExecution: 1}));
+				traceStream.write(new Trace(0, 1, 2, {output: 'print 1'}));
+				traceStream.write(new Trace(1, 1, 3, {output: 'print 2'}));
+				traceStream.write(new Trace(2, 2, 4, {cause: 'breakpoint', nextExecution: 1}));
 			}
 			else if(executionId === 1) {
-				traceStream.write(new Trace(0, 0, 4, {state: [{variable: 0, value: 1}]}));
-				traceStream.write(new Trace(1, 0, 5, {state: [{variable: 0, value: 2}]}));
-				traceStream.write(new Trace(2, 0, 6, {state: [{variable: 1, value: 'hello'}]}));
-				traceStream.write(new Trace(3, 1, 7, {output: '2'}));
-				traceStream.write(new Trace(4, 2, 8, {cause: 'ended', returnValue: 3}));
+				traceStream.write(new Trace(0, 0, 8, {state: [{variable: 0, value: 1}]}));
+				traceStream.write(new Trace(1, 0, 9, {state: [{variable: 0, value: 2}]}));
+				traceStream.write(new Trace(2, 0, 10, {state: [{variable: 1, value: 'hello'}]}));
+				traceStream.write(new Trace(3, 1, 11, {output: '2'}));
+				traceStream.write(new Trace(4, 2, 12, {cause: 'ended', returnValue: 3}));
 			}
 			else if(executionId === 2) {
-				traceStream.write(new Trace(0, 0, 4, {state: [{variable: 0, value: 2}]}));
-				traceStream.write(new Trace(1, 0, 5, {state: [{variable: 0, value: 4}]}));
-				traceStream.write(new Trace(2, 0, 6, {state: [{variable: 1, value: 'hello'}]}));
-				traceStream.write(new Trace(3, 1, 7, {output: '8'}));
-				traceStream.write(new Trace(4, 2, 8, {cause: 'ended', returnValue: 9}));
+				traceStream.write(new Trace(0, 0, 8, {state: [{variable: 0, value: 2}]}));
+				traceStream.write(new Trace(1, 0, 9, {state: [{variable: 0, value: 4}]}));
+				traceStream.write(new Trace(2, 0, 10, {state: [{variable: 1, value: 'hello'}]}));
+				traceStream.write(new Trace(3, 1, 11, {output: '8'}));
+				traceStream.write(new Trace(4, 2, 12, {cause: 'ended', returnValue: 9}));
 			}
 			else {
 				throw new SpiceError(0, 'NotFoundError', 'Execution ' + executionId + ' not found', {id: executionId});
@@ -517,7 +405,6 @@ angular.module('Spice')
 		}
 
 		return {
-			Stream: Stream, // TODO: move this into its own module
 			getAttachedDebugState: getAttachedDebugState,
 			attachBinary: attachBinary,
 			getFunctions: getFunctions,

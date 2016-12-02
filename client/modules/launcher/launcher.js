@@ -20,50 +20,6 @@
 
 		stream.close();
 		*/
-
-		/* Debugger example code
-		var followExecution = function(executionId) {
-			var nextExecutionId = null;
-			return DebuggerService.getTrace(executionId)
-				.then(function(traceStream) {
-					return traceStream.read(function(trace) {
-						console.log('Execution ' + executionId + ': ', trace.data);
-					if(trace.tType === 2) {
-						switch(trace.data.cause) {
-							case 'breakpoint':
-								nextExecutionId = trace.data.nextExecution;
-								break;
-						}
-					}
-				}).done.then(function() {
-					if(nextExecutionId) {
-						return followExecution(nextExecutionId);
-					}
-				});
-			});
-		}
-
-		DebuggerService.attachBinary('hello')
-			.then(function(debugState) {
-				console.log('debugState: ', debugState);
-				return DebuggerService.getFunctions();
-			}).then(function(functions) {
-				console.log('functions: ', functions);
-				return DebuggerService.getBreakpoints();
-			}).then(function(breakpoints) {
-				console.log('breakpoints: ', breakpoints);
-				console.log('execute program...');
-				return DebuggerService.execute('', '');
-			}).then(function(execution) {
-				return followExecution(execution.id);
-			}).then(function() {
-				console.log('execute function 0');
-				return DebuggerService.executeFunction(0, {});
-			}).then(function(execution) {
-				return followExecution(execution.id);
-			});
-		*/
-
 	}])
 	.directive('spiceLauncher', function() {
 		return {
