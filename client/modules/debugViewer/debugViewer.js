@@ -1,5 +1,5 @@
 angular.module('Spice')
-	.controller('DebugViewerCtrl', ['$scope',function($scope) {
+	.controller('DebugViewerCtrl', ['$scope', '$timeout', function($scope, $timeout) {
 		$scope.lines = [
 			{ code: 'void insertion_sort (int arr[], int length){', state: 'a=1' },
 			{ code: '		int j, temp;', state: 'a=1' },
@@ -15,8 +15,13 @@ angular.module('Spice')
 			{ code: '			}', state: 'a=1' },
 			{ code: '		}', state: 'a=1' },
 			{ code: '}', state: 'a=1' }
+
 		];
 
+		$timeout(function() {
+			//after the page renders, redigest so the ReactiveHeightCells can set height
+			$scope.$digest()
+		});
 	}])
 	.directive('spiceDebugViewer', function() {
 		return {
@@ -61,7 +66,7 @@ angular.module('Spice')
 						if(max !== $scope.cells[row].max) {
 							$scope.cells[row].max = max;
 							$scope.cells[row].cols.forEach(function(cell) {
-								cell.setHeight(max);
+								cell.setMaxHeight(max);
 							});
 						}
 					}
@@ -83,16 +88,20 @@ angular.module('Spice')
 				
 			},
 			link: function(scope, elem, attrs, gridCtrl) {
-				scope.cell = { height: elem.children()[0].offsetHeight };
+				scope.cell = { height: outerHeight(elem.children()[0]) };
+				scope.cell.maxHeight = scope.cell.height;
 
-				scope.cell.setHeight = function(height) {
+				scope.cell.setMaxHeight = function(height) {
+					scope.cell.maxHeight = height;
 					elem.children().css({height: height + 'px'});
 				};
 
 				gridCtrl.registerCell(scope.row, scope.col, scope.cell);
 
 				scope.$watch(function() {
+					elem.children().css({height: ""});
 					scope.cell.height = outerHeight(elem.children()[0]);
+					elem.children().css({height: scope.cell.maxHeight + 'px'});
 					gridCtrl.onCellHeightUpdated(scope.row, scope.col);
 				});
 
