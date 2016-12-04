@@ -35,7 +35,7 @@ dependencies = [
 [[package]]
 name = "dbghelp-sys"
 version = "0.2.0"
-source = "git+https://github.com/team-worm/winapi-rs#4d8273c6337405f8ba76444a20b8888b473e4329"
+source = "git+https://github.com/team-worm/winapi-rs#4db5861cecb91f24da7fcbe81ede5a08d795f948"
 dependencies = [
  "winapi 0.2.8 (git+https://github.com/team-worm/winapi-rs)",
  "winapi-build 0.1.1 (git+https://github.com/team-worm/winapi-rs)",
@@ -107,7 +107,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "kernel32-sys"
 version = "0.2.2"
-source = "git+https://github.com/team-worm/winapi-rs#4d8273c6337405f8ba76444a20b8888b473e4329"
+source = "git+https://github.com/team-worm/winapi-rs#4db5861cecb91f24da7fcbe81ede5a08d795f948"
 dependencies = [
  "winapi 0.2.8 (git+https://github.com/team-worm/winapi-rs)",
  "winapi-build 0.1.1 (git+https://github.com/team-worm/winapi-rs)",
@@ -413,7 +413,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "winapi"
 version = "0.2.8"
-source = "git+https://github.com/team-worm/winapi-rs#4d8273c6337405f8ba76444a20b8888b473e4329"
+source = "git+https://github.com/team-worm/winapi-rs#4db5861cecb91f24da7fcbe81ede5a08d795f948"
 
 [[package]]
 name = "winapi"
@@ -423,7 +423,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "winapi-build"
 version = "0.1.1"
-source = "git+https://github.com/team-worm/winapi-rs#4d8273c6337405f8ba76444a20b8888b473e4329"
+source = "git+https://github.com/team-worm/winapi-rs#4db5861cecb91f24da7fcbe81ede5a08d795f948"
 
 [[package]]
 name = "winapi-build"

@@ -1,7 +1,7 @@
 use std::{io, slice, ptr, mem};
 use std::sync::Mutex;
-use std::ffi::OsString;
-use std::os::windows::ffi::OsStringExt;
+use std::ffi::{OsString, OsStr};
+use std::os::windows::ffi::{OsStringExt, OsStrExt};
 
 use winapi;
 use kernel32;
@@ -91,12 +91,38 @@ impl SymbolHandler {
             let name = slice::from_raw_parts(symbol.0.Name.as_ptr(), symbol.0.NameLen as usize);
             let name = OsString::from_wide(name);
 
-            Ok((Symbol { name, address: symbol.0.Address as usize }, displacement as usize))
+            Ok((Symbol {
+                name,
+                address: symbol.0.Address as usize,
+                size: symbol.0.Size as usize,
+                flags: symbol.0.Flags
+            }, displacement as usize))
         }
     }
 
-    /// Retrieve the filename, line number, and byte offset of an instruction address
-    pub fn line_from_address(&mut self, address: usize) -> io::Result<(OsString, u32, usize)> {
+    pub fn symbol_from_name<S: AsRef<OsStr>>(&mut self, name: S) -> io::Result<Symbol> {
+        let name_wide: Vec<u16> = name.as_ref().encode_wide().chain(Some(0)).collect();
+
+        unsafe {
+            let mut symbol = winapi::SYMBOL_INFOW {
+                SizeOfStruct: mem::size_of::<winapi::SYMBOL_INFOW>() as winapi::ULONG,
+                ..mem::zeroed()
+            };
+            if dbghelp::SymFromNameW(self.0, name_wide.as_ptr(), &mut symbol) == winapi::FALSE {
+                return Err(io::Error::last_os_error());
+            }
+
+            Ok(Symbol {
+                name: name.as_ref().to_owned(),
+                address: symbol.Address as usize,
+                size: symbol.Size as usize,
+                flags: symbol.Flags,
+            })
+        }
+    }
+
+    /// Retrieve the source line byte offset of an instruction address
+    pub fn line_from_address(&mut self, address: usize) -> io::Result<(Line, usize)> {
         unsafe {
             let mut displacement = 0;
             let mut line = winapi::IMAGEHLP_LINEW64 {
@@ -113,10 +139,31 @@ impl SymbolHandler {
             let mut len = 0;
             while *line.FileName.offset(len as isize) != 0 { len += 1; }
 
-            let name = slice::from_raw_parts(line.FileName, len);
-            let name = OsString::from_wide(name);
+            let file = slice::from_raw_parts(line.FileName, len);
+            let file = OsString::from_wide(file);
 
-            Ok((name, line.LineNumber, displacement as usize))
+            Ok((Line {
+                file, line: line.LineNumber, address: line.Address as usize
+            }, displacement as usize))
+        }
+    }
+
+    /// Iterate through the source lines of a function
+    pub fn lines_from_symbol(&mut self, symbol: &Symbol) -> io::Result<Lines> {
+        unsafe {
+            let mut displacement = 0;
+            let mut line = winapi::IMAGEHLP_LINEW64 {
+                SizeOfStruct: mem::size_of::<winapi::IMAGEHLP_LINEW64>() as winapi::DWORD,
+                ..mem::zeroed()
+            };
+
+            if dbghelp::SymGetLineFromAddrW64(
+                self.0, symbol.address as winapi::DWORD64, &mut displacement, &mut line
+            ) == winapi::FALSE {
+                return Err(io::Error::last_os_error());
+            }
+
+            Ok(Lines { process: self.0, line, end: symbol.address + symbol.size })
         }
     }
 
@@ -126,13 +173,7 @@ impl SymbolHandler {
     /// a debug event.
     pub fn walk_stack(&mut self, thread: winapi::HANDLE) -> io::Result<StackFrames> {
         unsafe {
-            let mut context = winapi::CONTEXT {
-                ContextFlags: winapi::CONTEXT_FULL,
-                ..mem::zeroed()
-            };
-            if kernel32::GetThreadContext(thread, &mut context) == winapi::FALSE {
-                return Err(io::Error::last_os_error());
-            }
+            let context = ::get_thread_context(thread, winapi::CONTEXT_FULL)?.into_raw();
 
             fn flat(address: winapi::DWORD64) -> winapi::ADDRESS64 {
                 winapi::ADDRESS64 { Offset: address, Mode: winapi::AddrModeFlat, Segment: 0 }
@@ -151,15 +192,18 @@ impl SymbolHandler {
     /// Enumerate the local symbols of a stack frame
     ///
     /// Addresses are base-pointer-relative.
-    pub fn enumerate_symbols<F>(&self, frame: &StackFrame, mut f: F) -> io::Result<()>
+    pub fn enumerate_symbols<F>(&self, instruction: usize, mut f: F) -> io::Result<()>
         where F: FnMut(&Symbol, usize) -> bool
     {
         unsafe {
             let mut stack_frame = winapi::IMAGEHLP_STACK_FRAME {
-                InstructionOffset: frame.stack.AddrPC.Offset,
+                InstructionOffset: instruction as winapi::DWORD64,
                 ..mem::zeroed()
             };
-            if dbghelp::SymSetContext(self.0, &mut stack_frame, ptr::null_mut()) == winapi::FALSE {
+            if
+                dbghelp::SymSetContext(self.0, &mut stack_frame, ptr::null_mut()) == winapi::FALSE
+                && kernel32::GetLastError() != winapi::ERROR_SUCCESS
+            {
                 return Err(io::Error::last_os_error());
             }
 
@@ -187,7 +231,12 @@ impl SymbolHandler {
             let wchars = slice::from_raw_parts(symbol.Name.as_ptr(), len);
             let name = OsString::from_wide(wchars);
 
-            let symbol = Symbol { name, address: symbol.Address as usize };
+            let symbol = Symbol {
+                name,
+                address: symbol.Address as usize,
+                size: SymbolSize as usize,
+                flags: symbol.Flags,
+            };
             if f(&symbol, SymbolSize as usize) { winapi::TRUE } else { winapi::FALSE }
         }
     }
@@ -211,6 +260,52 @@ impl Drop for SymbolHandler {
 pub struct Symbol {
     pub name: OsString,
     pub address: usize,
+    pub size: usize,
+    pub flags: winapi::ULONG,
+}
+
+/// The file, line number, and first instruction address of a source line
+pub struct Line {
+    pub file: OsString,
+    pub line: u32,
+    pub address: usize,
+}
+
+/// Iterator of source lines
+pub struct Lines {
+    process: winapi::HANDLE,
+    line: winapi::IMAGEHLP_LINEW64,
+    end: usize,
+}
+
+impl Iterator for Lines {
+    type Item = Line;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.line.Address as usize >= self.end {
+            return None;
+        }
+
+        let result = unsafe {
+            let line = &self.line;
+
+            let mut len = 0;
+            while *line.FileName.offset(len as isize) != 0 { len += 1; }
+
+            let file = slice::from_raw_parts(line.FileName, len);
+            let file = OsString::from_wide(file);
+
+            Line { file, line: line.LineNumber, address: line.Address as usize }
+        };
+
+        unsafe {
+            if dbghelp::SymGetLineNextW64(self.process, &mut self.line) == winapi::FALSE {
+                return None;
+            }
+        }
+
+        Some(result)
+    }
 }
 
 /// An iterator of the frames in a thread's stack

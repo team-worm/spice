@@ -11,12 +11,13 @@ use kernel32;
 pub struct Child(winapi::HANDLE);
 
 impl Child {
+    /// Read `buffer.len()` bytes from a process's address space at `address`
     pub fn read_memory(&self, address: usize, buffer: &mut [u8]) -> io::Result<usize> {
         unsafe {
             let mut read = 0;
             if kernel32::ReadProcessMemory(
                 self.0, address as winapi::LPCVOID,
-                buffer.as_mut_ptr() as winapi::PVOID, buffer.len() as winapi::DWORD64,
+                buffer.as_mut_ptr() as winapi::LPVOID, buffer.len() as winapi::SIZE_T,
                 &mut read
             ) == winapi::FALSE {
                 return Err(io::Error::last_os_error());
@@ -24,6 +25,34 @@ impl Child {
 
             Ok(read as usize)
         }
+    }
+
+    /// Write `buffer.len()` bytes into a process's address space at `address`
+    pub fn write_memory(&mut self, address: usize, buffer: &[u8]) -> io::Result<usize> {
+        unsafe {
+            let mut written = 0;
+            if kernel32::WriteProcessMemory(
+                self.0, address as winapi::LPVOID,
+                buffer.as_ptr() as winapi::LPCVOID, buffer.len() as winapi::SIZE_T,
+                &mut written
+            ) == winapi::FALSE {
+                return Err(io::Error::last_os_error());
+            }
+
+            Ok(written as usize)
+        }
+    }
+
+    pub fn set_breakpoint(&mut self, address: usize) -> io::Result<Breakpoint> {
+        let mut saved = [0u8; 1];
+        self.read_memory(address, &mut saved)?;
+        self.write_memory(address, &[0xCCu8])?;
+        Ok(Breakpoint { address, saved })
+    }
+
+    pub fn remove_breakpoint(&mut self, breakpoint: Breakpoint) -> io::Result<()> {
+        self.write_memory(breakpoint.address, &breakpoint.saved)?;
+        Ok(())
     }
 }
 
@@ -33,6 +62,57 @@ impl AsRawHandle for Child {
 
 impl IntoRawHandle for Child {
     fn into_raw_handle(self) -> RawHandle { self.0 }
+}
+
+/// An enabled breakpoint in a child process
+pub struct Breakpoint {
+    address: usize,
+    saved: [u8; 1],
+}
+
+/// The state of a suspended thread
+pub struct Context(winapi::CONTEXT);
+
+impl Context {
+    pub fn set_instruction_pointer(&mut self, address: usize) {
+        self.0.Rip = address as winapi::DWORD64;
+    }
+
+    pub fn set_singlestep(&mut self, singlestep: bool) {
+        if singlestep {
+            self.0.EFlags |= 0x100;
+        } else {
+            self.0.EFlags &= !0x100;
+        }
+    }
+
+    pub fn into_raw(self) -> winapi::CONTEXT { self.0 }
+}
+
+/// Read a suspended thread's CPU state
+pub fn get_thread_context(thread: winapi::HANDLE, flags: winapi::DWORD) -> io::Result<Context> {
+    unsafe {
+        let mut context = winapi::CONTEXT {
+            ContextFlags: flags,
+            ..mem::zeroed()
+        };
+        if kernel32::GetThreadContext(thread, &mut context) == winapi::FALSE {
+            return Err(io::Error::last_os_error());
+        }
+
+        Ok(Context(context))
+    }
+}
+
+/// Write a suspended thread's CPU state
+pub fn set_thread_context(thread: winapi::HANDLE, context: &Context) -> io::Result<()> {
+    unsafe {
+        if kernel32::SetThreadContext(thread, &context.0) == winapi::FALSE {
+            return Err(io::Error::last_os_error());
+        }
+
+        Ok(())
+    }
 }
 
 /// Custom implementation of `std::process::Command` to debug child processes.
