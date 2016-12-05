@@ -388,7 +388,13 @@ angular.module('Spice')
 				traceStream.write(new Trace(1, 0, 9, {state: [{variable: 0, value: 2}]}));
 				traceStream.write(new Trace(2, 0, 10, {state: [{variable: 1, value: 'hello'}]}));
 				traceStream.write(new Trace(3, 1, 11, {output: '2'}));
-				traceStream.write(new Trace(4, 2, 12, {cause: 'ended', returnValue: 3}));
+				traceStream.write(new Trace(4, 0, 9, {state: [{variable: 0, value: 3}]}));
+				traceStream.write(new Trace(5, 0, 10, {state: [{variable: 1, value: 'hello'}]}));
+				traceStream.write(new Trace(6, 1, 11, {output: '2'}));
+				traceStream.write(new Trace(7, 0, 9, {state: [{variable: 0, value: 3}]}));
+				traceStream.write(new Trace(8, 0, 10, {state: [{variable: 1, value: 'hello'}]}));
+				traceStream.write(new Trace(9, 1, 11, {output: '2'}));
+				traceStream.write(new Trace(10, 2, 12, {cause: 'ended', returnValue: 3}));
 			}
 			else if(executionId === 2) {
 				traceStream.write(new Trace(0, 0, 8, {state: [{variable: 0, value: 2}]}));

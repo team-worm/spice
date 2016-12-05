@@ -15,7 +15,7 @@
 				</div>
 			</div>
 		</div>
-		<div flex class="state-column debug-column" layout="column">
+		<div flex class="state-column debug-column" layout="row">
 			<div flex class="trace-column" ng-repeat="(colIndex, i) in [].constructor(traceColCount) track by $index">
 				<reactive-height-cell ng-repeat="line in lines" row="$index" col="$parent.$index+2">
 					<trace flex trace="line.traces[colIndex]"></trace>
