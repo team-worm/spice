@@ -48,9 +48,8 @@ pub struct Execution {
 pub struct Trace {
     pub index: i32,
     pub tType: i32,
-    pub line: i32,
-    // TODO: needs to be an object that contains data specific to this type
-    pub data: String,
+    pub line: u32,
+    pub data: Vec<String>, // example "variable: x, value: 7"
 }
 
 #[derive(Serialize, Deserialize)]
@@ -60,8 +59,7 @@ pub struct Function {
     pub sourcePath: String,
     pub lineNumber: i32,
     pub lineCount: i32,
-    // TODO: make this an array of function parameter objects { name: string, type: SourceType }
-    pub parameters: String,
+    pub parameters: Vec<Variable>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -80,9 +78,6 @@ pub struct Breakpoint {
 pub struct Variable {
     pub id: i32,
     pub name: String,
-    // TODO: make this SourceType once that struct is defined
-    pub vType: String,
+    pub sType: String, //TODO: this will become sourceType struct
     pub address: i32,
-    // TODO: make this an object that has info related to variable
-    pub data: String,
 }
