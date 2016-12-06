@@ -1,5 +1,5 @@
 <md-content ng-controller="FunctionPickerCtrl as ctrl">
-    <md-button class="md-raised md-primary" ng-disabled="ctrl.running" ng-click="ctrl.runFunction()" aria-label="Help with Launch a Binary">
+    <md-button class="md-raised md-primary" ng-disabled="ctrl.running || ctrl.selectedFunction != 'binarySearch (int,int*,int)'" ng-click="ctrl.runFunction()" aria-label="Help with Launch a Binary">
         Run Function <i class="fa fa-play" aria-hidden="true"></i>
     </md-button>
     <md-button class="md-raised md-primary" ng-disabled="!ctrl.running" ng-click="ctrl.killFunction()" aria-label="Help with Launch a Binary">
@@ -12,8 +12,10 @@
                 <b>binary-search.exe</b>
                 <i class="fa fa-caret-right" style="margin-left:1em; margin-right:1em" aria-hidden="true"> </i>
                 <b>binary-search.c</b>
-                <i class="fa fa-caret-right" style="margin-left:1em; margin-right:1em" aria-hidden="true"> </i>
-                <b>binarySearch</b> (int,int*,int)
+                <span ng-show="ctrl.selectedFunction == 'binarySearch (int,int*,int)'">
+                    <i class="fa fa-caret-right" style="margin-left:1em; margin-right:1em" aria-hidden="true"> </i>
+                    <b>binarySearch</b> (int,int*,int)
+                </span>
             </div>
         </md-toolbar>
         <md-content flex="100" layout="row" layout-xs="column" class="md-padding md-whiteframe-3dp">
@@ -32,13 +34,15 @@
                 </md-autocomplete>
                 <md-virtual-repeat-container id="function-list">
                     <div md-virtual-repeat="item in ctrl.FunctionList"
-                         class="repeated-item">
-                        {{item}}
+                         class="repeated-item"
+                         ng-click="ctrl.selectedFunction = item">
+                        <span>{{item}}</span>
                     </div>
                 </md-virtual-repeat-container>
                 <md-content id="console" layout-padding>
-                    <pre> > I am a console
- > I will print output of the running function
+                    <pre> > I am a console.
+ > I will print output of the running function.
+ > This will be functional in the final product.
  > ...</pre>
                 </md-content>
             </md-content>

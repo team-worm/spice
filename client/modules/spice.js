@@ -1,9 +1,36 @@
 angular.module('Spice', ['ngMaterial', 'ngMessages'])
     .controller('MainCtrl', ['$scope', '$interval', function($scope, $interval) {
 
-        $scope.mode = 0;
+        var self = this;
+
+        self.view = 0;
+
+        self.configUnlocked = false;
+        self.debuggingUnlocked = false;
 
         $scope.MockLoader = {progress: 0};
+
+        $scope.$on('changeView',function(event, viewArg) {
+            if(typeof viewArg != 'string') {
+                console.error('\'changeView\' event arg is not a string.', viewArg);
+                return;
+            }
+            switch(viewArg.toLowerCase()) {
+                case 'launcher':
+                    self.view = 0;
+                    break;
+                case 'configuration':
+                    self.configUnlocked = true;
+                    self.view = 1;
+                    break;
+                case 'debugging':
+                    self.debuggingUnlocked = true;
+                    self.view = 2;
+                    break;
+                default:
+                    console.error('\'changeView\' event arg is not a valid view.', viewArg);
+            }
+        });
 
         //$interval(function() {
         //    $scope.MockLoader = ($scope.MockLoader+1) % 100;

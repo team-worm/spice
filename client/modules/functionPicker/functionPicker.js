@@ -3,13 +3,6 @@ angular.module('Spice')
 
         var self = this;
 
-        var func = function(name, arguments, file, line) {
-            this.name = name;
-            this.arguments = arguments;
-            this.file = file;
-            this.line = line;
-        };
-
         $timeout(function() {
             //after the page renders, redigest so the ReactiveHeightCells can set height
             $scope.$digest()
@@ -18,15 +11,25 @@ angular.module('Spice')
         $interval(function() {
             if(self.running && $scope.mockloader.progress < 100) {
 
-                $scope.mockloader.progress++ ;
+                $scope.mockloader.progress+= 5 ;
+                if($scope.mockloader.progress == 5) {
+                    $scope.$emit('changeView','debugging');
+                }
+            }
+            if($scope.mockloader.progress >= 100) {
+                $scope.mockloader.progress = 0;
+                self.running = 0;
             }
 
-        },35, 0, true);
+        },100, 0, false);
 
-        self.FunctionList = ['binary_search', 'insertion_sort', 'binary-search.c'];
+        self.selectedFunction = '';
 
-        for(var i = 0; i < 30; i++) {
-            self.FunctionList.push('some_function'+i);
+        self.FunctionList = ['binarySearch (int,int*,int)', 'binary-search.c'];
+
+        // Just insert some other garbage for the mockup.
+        for(var i = 0; i < 10; i++) {
+            self.FunctionList.push('some_other_function_'+i+' ()');
         }
 
         self.running = false;

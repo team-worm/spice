@@ -1,4 +1,4 @@
-<md-content layout-padding="100" ng-controller="LauncherCtrl">
+<md-content layout-padding="100" ng-controller="LauncherCtrl as ctrl">
     <div layout="row" layout-sm="column" layout-margin>
         <md-content flex class="md-whiteframe-6dp">
             <md-toolbar>
@@ -31,7 +31,7 @@
                                     <i class="fa fa-file-text-o" aria-hidden="true"></i> sam.c
                                 </div>
                             </div>
-                            <div class="file" ng-class="{lit: !nobinary}" ng-click="binClicked()">
+                            <div class="file" ng-class="{lit: !ctrl.nobinary}" ng-click="ctrl.nobinary = !ctrl.nobinary">
                                 <i class="fa fa-file" aria-hidden="true"></i> binary-search.exe
                             </div>
                         </div>
@@ -47,7 +47,7 @@
                 </div>
             </md-content>
             <div class="launcher bottom-right" layout="row" layout-align="end end">
-                <md-button class="md-primary md-raised" ng-disabled="nobinary" ng-click="mode=1">Launch</md-button>
+                <md-button class="md-primary md-raised" ng-disabled="ctrl.nobinary" ng-click="ctrl.launchSelected()">Launch</md-button>
             </div>
         </md-content>
         <md-content flex class="md-whiteframe-6dp">

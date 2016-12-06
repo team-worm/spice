@@ -1,8 +1,26 @@
 	angular.module('Spice')
-	.controller('LauncherCtrl', ['$scope', 'DebuggerService', function($scope, DebuggerService){
-		$scope.nobinary = true;
-		$scope.binClicked = function () {
-			$scope.nobinary = false;
+	.controller('LauncherCtrl', ['$scope', '$interval', 'DebuggerService', function($scope, $interval, DebuggerService){
+
+		var self = this;
+
+		self.nobinary = true;
+		self.loadingBinary = false;
+
+        $interval(function() {
+            if(self.loadingBinary && $scope.mockloader.progress < 100) {
+
+                $scope.mockloader.progress+= 7;
+            }
+            if($scope.mockloader.progress >= 100) {
+                $scope.mockloader.progress = 0;
+                self.loadingBinary = 0;
+                $scope.$emit('changeView', 'configuration');
+            }
+
+        },100, 0, true);
+
+        self.launchSelected = function() {
+        	self.loadingBinary = true;
 		};
 
 		/* Stream example code
@@ -24,9 +42,9 @@
 	.directive('spiceLauncher', function() {
 		return {
 			restrict: 'E',
-			scope: {
-				mode: '='
-			},
+            scope: {
+                mockloader: '=mockloader'
+            },
 			templateUrl: 'modules/launcher/launcherTemplate.html'
 		}
 	});

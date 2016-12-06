@@ -5,6 +5,7 @@ $background-color-3: #ca934d;
 
 $foreground-color-0: #B5B5B5;
 
+$foreground-color-2: #dddddd;
 $foreground-color-3: #ffffff;
 
 $highlight-primary-color-0: #feb75b;
@@ -28,15 +29,20 @@ $background-highlight-secondary-color-0: #b26f34;
 	}
 
 	&.filesystem {
+		:focus {
+			outline: 0;
+		}
 		.file {
 			&:hover {
 				cursor: pointer;
 				color:black;
-				background-color: white;
+				background-color: $foreground-color-2;
 			}
 			&.lit {
 				color:black;
-				background-color: white;
+				padding: 2px;
+				border: 2px solid $highlight-secondary-color-0;
+				background-color: $foreground-color-2;
 			}
 		}
 	}
@@ -54,7 +60,6 @@ $background-highlight-secondary-color-0: #b26f34;
 	#function-list {
 		height: 18em;
 		width: 100%;
-		max-width: 400px;
 		border: 1px solid rgb(233,30,99);
 		margin-top:1em;
 
