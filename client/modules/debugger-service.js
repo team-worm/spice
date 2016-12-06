@@ -317,13 +317,15 @@ angular.module('Spice')
 		/*** SourceFunctions ***/
 		function _getFunctions(debugState) {
 			//TODO: use $http GET /debug/:debugId/functions
-			return $q.resolve([new SourceFunction(0, 'helloFunc', 'hello.cpp', 4, 4, [new SourceVariable(0, 'a', new SourceType('int'), 0)], [new SourceVariable(1, 'str', new SourceType('std::string'), 1)])]);
+			return $q.resolve([new SourceFunction(0, 'helloFunc', 'hello.cpp', 4, 4, [new SourceVariable(0, 'a', new SourceType('int'), 0),
+				new SourceVariable(1, 'b', new SourceType('int'), 1)], [new SourceVariable(2, 'i', new SourceType('int'), 2)])]);
 		}
 
 		function _getFunction(debugState, id) {
 			//TODO: use $http GET /debug/:debugId/functions/:function
 			if(id === 0) {
-				return $q.resolve(new SourceFunction(0, 'helloFunc', 'hello.cpp', 4, 4, [new SourceVariable(0, 'a', new SourceType('int'), 0)], [new SourceVariable(1, 'str', new SourceType('std::string'), 1)]));
+			return $q.resolve([new SourceFunction(0, 'helloFunc', 'hello.cpp', 4, 4, [new SourceVariable(0, 'a', new SourceType('int'), 0),
+				new SourceVariable(1, 'b', new SourceType('int'), 1)], [new SourceVariable(2, 'i', new SourceType('int'), 2)])]);
 			}
 			else {
 				return $q.reject(new SpiceError(0, 'NotFoundError', 'Function ' + id + ' not found', {id: id}));
@@ -384,17 +386,53 @@ angular.module('Spice')
 				traceStream.write(new Trace(2, 2, 4, {cause: 'breakpoint', nextExecution: 1}));
 			}
 			else if(executionId === 1) {
-				traceStream.write(new Trace(0, 0, 8, {state: [{variable: 0, value: 1}]}));
-				traceStream.write(new Trace(1, 0, 9, {state: [{variable: 0, value: 2}]}));
-				traceStream.write(new Trace(2, 0, 10, {state: [{variable: 1, value: 'hello'}]}));
-				traceStream.write(new Trace(3, 1, 11, {output: '2'}));
-				traceStream.write(new Trace(4, 0, 9, {state: [{variable: 0, value: 3}]}));
-				traceStream.write(new Trace(5, 0, 10, {state: [{variable: 1, value: 'hello'}]}));
-				traceStream.write(new Trace(6, 1, 11, {output: '2'}));
-				traceStream.write(new Trace(7, 0, 9, {state: [{variable: 0, value: 3}]}));
-				traceStream.write(new Trace(8, 0, 10, {state: [{variable: 1, value: 'hello'}]}));
-				traceStream.write(new Trace(9, 1, 11, {output: '2'}));
-				traceStream.write(new Trace(10, 2, 12, {cause: 'ended', returnValue: 3}));
+				//function(a=2, b=2)
+				traceStream.write(new Trace(0, 0, 8, {state: [{variable: 0, value: 2},{variable: 1, value: 2}]}));
+				//for(int i = 0; i < 4; i++)
+				traceStream.write(new Trace(1, 0, 9, {state: [{variable: 2, value: 0}]}));
+				//b += 2
+				traceStream.write(new Trace(3, 0, 10, {state: [{variable: 1, value: 4}]}));
+				//if x % 2 === 0 { a *= 2 }
+				traceStream.write(new Trace(4, 0, 12, {state: [{variable: 0, value: 4}]}));
+				//else { a-= 1 }
+				//loop
+				traceStream.write(new Trace(5, 0, 9, {state: [{variable: 2, value: 1}]}));
+				//b += 2
+				traceStream.write(new Trace(6, 0, 10, {state: [{variable: 1, value: 6}]}));
+				//if x % 2 === 0 { a *= 2 }
+				//else { a-= 1 }
+				traceStream.write(new Trace(7, 0, 14, {state: [{variable: 0, value: 3}]}));
+				//loop
+				traceStream.write(new Trace(8, 0, 9, {state: [{variable: 2, value: 2}]}));
+				//b += 2
+				traceStream.write(new Trace(9, 0, 10, {state: [{variable: 1, value: 8}]}));
+				//if x % 2 === 0 { a *= 2 }
+				traceStream.write(new Trace(10, 0, 12, {state: [{variable: 0, value: 6}]}));
+				//else { a-= 1 }
+				//loop
+				traceStream.write(new Trace(11, 0, 9, {state: [{variable: 2, value: 3}]}));
+				//b += 2
+				traceStream.write(new Trace(12, 0, 10, {state: [{variable: 1, value: 10}]}));
+				//if x % 2 === 0 { a *= 2 }
+				//else { a-= 1 }
+				traceStream.write(new Trace(13, 0, 14, {state: [{variable: 0, value: 5}]}));
+				//end loop
+				//b /= 2
+				traceStream.write(new Trace(14, 0, 16, {state: [{variable: 1, value: 5}]}));
+				// return a + b
+				traceStream.write(new Trace(15, 2, 17, {cause: 'ended', returnValue: 10}));
+
+				//traceStream.write(new Trace(0, 0, 8, {state: [{variable: 0, value: 1}]}));
+				//traceStream.write(new Trace(1, 0, 9, {state: [{variable: 0, value: 2}]}));
+				//traceStream.write(new Trace(2, 0, 10, {state: [{variable: 1, value: 'hello'}]}));
+				//traceStream.write(new Trace(3, 1, 11, {output: '2'}));
+				//traceStream.write(new Trace(4, 0, 9, {state: [{variable: 0, value: 3}]}));
+				//traceStream.write(new Trace(5, 0, 10, {state: [{variable: 1, value: 'hello'}]}));
+				//traceStream.write(new Trace(6, 1, 11, {output: '2'}));
+				//traceStream.write(new Trace(7, 0, 9, {state: [{variable: 0, value: 3}]}));
+				//traceStream.write(new Trace(8, 0, 10, {state: [{variable: 1, value: 'hello'}]}));
+				//traceStream.write(new Trace(9, 1, 11, {output: '2'}));
+				//traceStream.write(new Trace(10, 2, 12, {cause: 'ended', returnValue: 3}));
 			}
 			else if(executionId === 2) {
 				traceStream.write(new Trace(0, 0, 8, {state: [{variable: 0, value: 2}]}));

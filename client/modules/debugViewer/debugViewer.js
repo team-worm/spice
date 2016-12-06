@@ -23,19 +23,34 @@ angular.module('Spice')
 			//$scope.$digest()
 		//});
 
+		//0 | 1 2
+		//0 | 1
+		//
+		//0,0
+		
 		$scope.traceColCount = 0;
+		$scope.currentTraceCol = -1;
 		$scope.addTrace = function(trace) {
-			$scope.lines[trace.line-1].traces.push(trace);
-			var traceCount = $scope.lines[trace.line-1].traces.length;
-			if(traceCount > $scope.traceColCount) {
-				$scope.traceColCount++;
+			var line = $scope.lines[trace.line-1];
+			if(line.traceMaxIteration >= $scope.currentTraceCol) {
+				line.traceMaxIteration++;
+				$scope.currentTraceCol = line.traceMaxIteration;
+			}
+
+			line.traces[$scope.currentTraceCol] = trace;
+			if(line.traceMaxIteration < $scope.currentTraceCol) {
+				line.traceMaxIteration = $scope.currentTraceCol;
+			}
+
+			if($scope.currentTraceCol >= $scope.traceColCount) {
+				$scope.traceColCount = $scope.currentTraceCol + 1;
 			}
 		}
 
 		FilesystemService.getFileContents('binary-search.c')
 			.then(function(contents) {
 				$scope.lines = contents.split('\n').map(function(line) {
-					return { code: line, traces: []};
+					return { code: line, traces: [], traceMaxIteration: -1};
 				});
 			});
 

@@ -5,8 +5,8 @@ angular.module('Spice', ['ngMaterial', 'ngMessages'])
 
         self.view = 0;
 
-        self.configUnlocked = false;
-        self.debuggingUnlocked = false;
+        self.configUnlocked = true;
+        self.debuggingUnlocked = true;
 
         $scope.MockLoader = {progress: 0};
 
