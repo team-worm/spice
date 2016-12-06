@@ -55,7 +55,7 @@ angular.module('Spice')
 				});
 			});
 
-		DebuggerService.attachBinary('hello')
+		DebuggerService.attachBinary('binary-search.exe')
 			.then(function(debugState) {
 				return DebuggerService.getFunctions();
 			}).then(function(functions) {

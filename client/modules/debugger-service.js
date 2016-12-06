@@ -312,17 +312,17 @@ angular.module('Spice')
 			//TODO: use $http POST /debug/attach/bin/:path*
 			//VERIFY
 
-			var promise = $q.defer();
+			var deferred = $q.defer();
 
 			$http.post('debug/attach/bin/'+path, {})
 				.then(function(response){ //Success
 					var debugInfo = response.data;
-					promise.resolve(new DebugState(debugInfo.id));
+					deferred.resolve(new DebugState(debugInfo.id));
 				}, function(response) { //Error
-					promise.reject(response.data);
+					deferred.reject(response.data);
 				});
 
-			return promise;
+			return deferred.promise;
 
 			//return $q.resolve(new DebugState(0));
 
@@ -338,7 +338,7 @@ angular.module('Spice')
 			//TODO: use $http POST /debug/:debugId/execute
 			//VERIFY
 
-            var promise = $q.defer();
+            var deferred = $q.defer();
 
             var reqBody = {
             	args: arguments,
@@ -348,12 +348,12 @@ angular.module('Spice')
             $http.post('debug/'+debugState.id+'/execute', reqBody)
                 .then(function(response){ //Success
                     var execution = response.data;
-                    promise.resolve(execution);
+					deferred.resolve(execution);
                 }, function(response) { //Error
-                    promise.reject(response.data);
+					deferred.reject(response.data);
                 });
 
-            return promise;
+            return deferred.promise;
 
 
 			//return $q.resolve(new Execution(0, 'process', 'done', 10, {nextExecution: 1}));
