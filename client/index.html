@@ -45,9 +45,9 @@
             </div>
         </md-toolbar>
         <md-progress-linear md-mode="determinate" class="md-warn" value="{{MockLoader.progress}}"></md-progress-linear>
-        <spice-launcher mode="mode" ng-show="ctrl.view == 0" mockloader="MockLoader" ng-cloak></spice-launcher>
-        <spice-function-picker ng-show="ctrl.view == 1" mockloader="MockLoader" ng-cloak></spice-function-picker>
-        <spice-debug-viewer ng-show="ctrl.view == 2" ng-cloak></spice-debug-viewer>
+        <spice-launcher mode="mode" ng-if="ctrl.view == 0" mockloader="MockLoader" ng-cloak></spice-launcher>
+        <spice-function-picker ng-if="ctrl.view == 1" mockloader="MockLoader" ng-cloak></spice-function-picker>
+        <spice-debug-viewer ng-if="ctrl.view == 2" ng-cloak></spice-debug-viewer>
         <div class="mockup">
             <span>
                 Prototype

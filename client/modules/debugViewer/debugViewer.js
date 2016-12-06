@@ -32,7 +32,7 @@ angular.module('Spice')
 			}
 		}
 
-		FilesystemService.getFileContents('hello.cpp')
+		FilesystemService.getFileContents('binary-search.c')
 			.then(function(contents) {
 				$scope.lines = contents.split('\n').map(function(line) {
 					return { code: line, traces: []};

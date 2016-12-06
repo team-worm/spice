@@ -1,5 +1,5 @@
 	angular.module('Spice')
-	.controller('LauncherCtrl', ['$scope', '$interval', 'DebuggerService', function($scope, $interval, DebuggerService){
+	.controller('LauncherCtrl', ['$scope', '$interval', function($scope, $interval){
 
 		var self = this;
 

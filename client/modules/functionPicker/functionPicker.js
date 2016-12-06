@@ -1,5 +1,5 @@
 angular.module('Spice')
-    .controller('FunctionPickerCtrl', ['$scope', '$timeout', '$interval', function($scope, $timeout, $interval) {
+    .controller('FunctionPickerCtrl', ['$scope', '$timeout', '$interval', 'FilesystemService', function($scope, $timeout, $interval, FilesystemService) {
 
         var self = this;
 
@@ -25,7 +25,7 @@ angular.module('Spice')
 
         self.selectedFunction = '';
 
-        self.FunctionList = ['binarySearch (int,int*,int)', 'binary-search.c'];
+        self.FunctionList = ['main (int,char*)', 'binarySearch (int,int*,int)', 'binary-search.c'];
 
         // Just insert some other garbage for the mockup.
         for(var i = 0; i < 10; i++) {
@@ -34,48 +34,16 @@ angular.module('Spice')
 
         self.running = false;
 
-        self.lines = [
-            {code: '#include <stdio.h>'},
-            {code: 'int binarySearch(int key, int *array, int length);'},
-            {code: 'int mergeSort(int* array);'},
-            {code: 'int quickSort(int* array);'},
-            {code: ''},
-            {code: 'int main(int argc, char *argv[]) {'},
-            {code: '   int array[] = { 1, 3, 4, 6, 7, 9, 11, 15 };'},
-            {code: '   printf("%d\\n", binarySearch(7, array, sizeof(array) / sizeof(*array)));'},
-            {code: '   '},
-            {code: '   return 0;'},
-            {code: '}'},
-            {code: '\n'},
-            {code: 'int binarySearch(int key, int *array, int length) {'},
-            {code: '    int low = 0;'},
-            {code: '    int high = length - 1;'},
-            {code: '\n'},
-            {code: '    while (low <= high) {'},
-            {code: '        int mid = low + (high - low) / 2;'},
-            {code: '        int value = array[mid];'},
-            {code: '\n'},
-            {code: '        if (value < key) {'},
-            {code: '            low = mid + 1;'},
-            {code: '        } else if (value > key) {'},
-            {code: '            high = mid - 1;'},
-            {code: '        } else {'},
-            {code: '            return mid;'},
-            {code: '        }'},
-            {code: '    }'},
-            {code: '    return -1;'},
-            {code: '}'},
-            {code: '\n'},
-            {code: 'int mergeSort(int* array) {'},
-            {code: '    //Implementation...'},
-            {code: '    return 0;'},
-            {code: '}'},
-            {code: '\n'},
-            {code: 'int quickSort(int* array) {'},
-            {code: '    //Implementation...'},
-            {code: '    return 0;'},
-            {code: '}'}
-        ];
+        self.lines = [];
+
+        FilesystemService.getFileContents('binary-search.c').then(function(file) {
+            self.lines = file.split('\n').map(function(line) {
+                return { code: line };
+            });
+        }, function(error) {
+            alert('Failed to get file');
+            console.error(error);
+        });
 
         self.runFunction = function() {
             self.running = true

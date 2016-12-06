@@ -5,21 +5,48 @@ angular.module('Spice')
 
 		function getFileContents(path) {
 			//TODO: use $http GET /files/:path*
-			if(path === 'hello.cpp') {
+			if(path === 'binary-search.c') {
 				return $q.resolve(
-					'function main() {\n' +
-					'	printf("print 1");\n' +
-					'	printf("print 2");\n' +
-					'	helloFunc(1);\n' +
-					'	return 0;\n' +
-					'}\n' +
-					'\n' +
-					'function helloFunc(int a) {\n' +
-					'	a *= 2;\n' +
-					'	std::string str = "hello";\n' +
-					'	printf("%d", a*2);\n' +
-					'	return a*2 + 1;\n' +
-					'}\n'
+                    '#include <stdio.h>\n' +
+                    'int binarySearch(int key, int *array, int length);\n' +
+                    'int mergeSort(int* array);\n' +
+                    'int quickSort(int* array);\n' +
+                    '\n' +
+                    'int main(int argc, char *argv[]) {\n' +
+                    '   int array[] = { 1, 3, 4, 6, 7, 9, 11, 15 };\n' +
+                    '   printf("%d\\n", binarySearch(7, array, sizeof(array) / sizeof(*array)));\n' +
+                    '   \n' +
+                    '   return 0;\n' +
+                    '}\n' +
+                    '\n\n' +
+                    'int binarySearch(int key, int *array, int length) {\n' +
+                    '    int low = 0;\n' +
+                    '    int high = length - 1;\n' +
+                    '\n\n' +
+                    '    while (low <= high) {\n' +
+                    '        int mid = low + (high - low) / 2;\n' +
+                    '        int value = array[mid];\n' +
+                    '\n\n' +
+                    '        if (value < key) {\n' +
+                    '            low = mid + 1;\n' +
+                    '        } else if (value > key) {\n' +
+                    '            high = mid - 1;\n' +
+                    '        } else {\n' +
+                    '            return mid;\n' +
+                    '        }\n' +
+                    '    }\n' +
+                    '    return -1;\n' +
+                    '}\n' +
+                    '\n\n' +
+                    'int mergeSort(int* array) {\n' +
+                    '    //Implementation...\n' +
+                    '    return 0;\n' +
+                    '}\n' +
+                    '\n\n' +
+                    'int quickSort(int* array) {\n' +
+                    '    //Implementation...\n' +
+                    '    return 0;\n' +
+                    '}'
 				);
 			}
 			else {
