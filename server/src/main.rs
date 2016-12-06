@@ -9,142 +9,93 @@ extern crate debug;
 extern crate winapi;
 extern crate kernel32;
 
-use std::{fs, io, mem, ptr};
-use std::path::Path;
-use std::io::BufRead;
-use std::sync::mpsc;
+use std::{io, fs};
 use std::sync::{Mutex, Arc};
-use std::collections::HashMap;
-use std::borrow::{Borrow};
-use std::cmp::PartialEq;
+use std::io::{BufRead, Write};
+use std::path::{PathBuf, Path};
 
+use hyper::status::StatusCode;
 use hyper::server::{Server, Request, Response};
 use reroute::{Captures, Router};
-use std::os::windows::io::AsRawHandle;
+
+use serde_json::value::ToJson;
 
 use serde_types::*;
+use child::{ServerMessage, DebugMessage, DebugTrace};
 
 mod serde_types {
-    #![allow(non_snake_case)]
-
     include!(concat!(env!("OUT_DIR"), "/serde_types.rs"));
 }
 
-/// messages the debug event loop sends to the server
-enum DebugMessage {
-    AttachInfo(AttachInfo),
-    Exec(Execution),
-    Err(Error),
-    BrkPnt(Breakpoint),
-    TraceInfo(Trace), //list of trace infos
-}
+mod child;
 
-/// messages the server sends to the debug event loop to request info
-enum ServerMessage {
-    Launch,
-    Execute,
-    Trace,
-    Function{func: String},
-}
-
-struct DebugState {
-    child: debug::Child,
-    options: winapi::DWORD,
-    threads: HashMap<u32, winapi::winnt::HANDLE>,
-    breakpoints: HashMap<usize, Option<debug::Breakpoint>>,
-    symbols: debug::SymbolHandler,
-    function: String,
-    attached: bool,
-    last_breakpoint: Option<usize>,
-    debug_continue: bool,
-    vars: HashMap<String, u64>,
-}
+type ChildThread = Arc<Mutex<Option<child::Thread>>>;
 
 fn main() {
-    //install routes
-    let file_sys_end_pt  = r"/api/v1/filesystem/([[:ascii:]]*)";
-    let process_end_pt = r"/api/v1/processes$";
-    let debug_atch_pid_end_pt = r"/api/v1/debug/attach/pid/([[:digit:]]*)";
-    let debug_atch_bin_end_pt = r"/api/v1/debug/attach/bin/([[:ascii:]]*)";
-    let debug_end_pt = r"/api/v1/debug$";
-    let debug_func_lst_end_pt = r"/api/v1/debug/functions$";
-    let debug_func_end_pt = r"/api/v1/debug/functions/([[:ascii:]]*)";
-    let brkpnt_end_pt = r"/api/v1/debug/breakpoints$";
-    let func_brkpnt_end_pt = r"/api/v1/debug/breakpoints/([[:ascii:]]*)";
-    let debug_exec_proc_end_pt = r"/api/v1/debug/([[:digit:]]*)/execute";
-    let debug_exec_func_end_pt = r"/api/v1/debug/functions/([[:ascii:]]*)/execute";
-
-    let debug_exec_lst_end_pt = r"/api/v1/debug/executions$";
-    let debug_exec_status_end_pt = r"/api/v1/debug/executions/([[:digit:]]*)";
-    let debug_exec_trace_end_pt = r"/api/v1/debug/executions/([[:digit:]]*)/trace";
-    let debug_exec_stop_end_pt = r"/api/v1/debug/executions/([[:digit:]]*)/stop";
-
+    // current child thread (only one at a time)
+    let child_thread = Arc::new(Mutex::new(None));
 
     let mut router = Router::new();
-    router.get("/greet", basic_handler); // debug line
 
-    // comm channels for threads. We need a pair of them so that both the main server thread
-    // and the debug thread can send and receive messages.
-    // Leave buffer size at at zero so the send blocks until the receiving thread processes
-    // the message.  This will change once rust has better async support
+    // host system info
 
-    // debug event send
-    let (d_sndr, s_rcvr) = mpsc::sync_channel::<DebugMessage>(0);
-    let d_sndr = Arc::new(Mutex::new(d_sndr));
-    let s_rcvr = Arc::new(Mutex::new(s_rcvr));
+    router.get(r"^/api/v1/filesystem/(.*)$", filesystem);
+    router.get(r"^/api/v1/processes$", process);
 
-    //server send
-    let (s_sndr, d_rcvr) = mpsc::sync_channel::<ServerMessage>(0);
-    let s_sndr = Arc::new(Mutex::new(s_sndr));
-    let d_rcvr = Arc::new(Mutex::new(d_rcvr));
+    // attaching
 
-    router.get(file_sys_end_pt, filesystem_handler);
-    router.get(process_end_pt, process_handler);
-    router.post(debug_atch_pid_end_pt, attach_pid_handler);
-
-    let s_rcvr2 = s_rcvr.clone();
-    router.post(debug_atch_bin_end_pt, move |req, res, c| {
-        attach_bin_handler(req, res, c, d_sndr.clone(), d_rcvr.clone(), s_rcvr2.clone());
+    let child = child_thread.clone();
+    router.post(r"^/api/v1/debug/attach/pid/([0-9]*)$", move |req, res, caps| {
+        debug_attach_pid(req, res, caps, child.clone());
     });
 
-    router.get(debug_end_pt, debug_info_handler);
-    router.get(debug_func_lst_end_pt, debug_list_handler);
-    router.get(debug_func_end_pt, function_info_handler);
-    router.get(brkpnt_end_pt, list_breakpoints_handler);
+    let child = child_thread.clone();
+    router.post(r"^/api/v1/debug/attach/bin/(.*)$", move |req, res, caps| {
+        debug_attach_bin(req, res, caps, child.clone());
+    });
+
+    let child = child_thread.clone();
+    router.get(r"^/api/v1/debug$", move |req, res, caps| {
+        debug(req, res, caps, child.clone());
+    });
+
+    // functions
+
+    router.get(r"^/api/v1/debug/([0-9]*)/functions$", debug_functions);
+    router.get(r"^/api/v1/debug/([0-9]*)/functions/(.*)$", debug_function);
+
+    // breakpoints
+
+    router.get(r"^/api/v1/debug/([0-9]*)/breakpoints$", debug_breakpoints);
+
+    let child = child_thread.clone();
+    router.put(r"^/api/v1/debug/([0-9]*)/breakpoints/([0-9]*)$", move |req, res, caps| {
+        debug_breakpoint_put(req, res, caps, child.clone());
+    });
+
+    let child = child_thread.clone();
+    router.delete(r"^/api/v1/debug/([0-9]*)/breakpoints/([0-9]*)$", move |req, res, caps| {
+        debug_breakpoint_delete(req, res, caps, child.clone());
+    });
+
+    let child = child_thread.clone();
+    router.post(r"^/api/v1/debug/([0-9]*)/execute$", move |req, res, caps| {
+        debug_execute(req, res, caps, child.clone());
+    });
+
+    router.put(r"^/api/v1/debug/([0-9]*)/functions/([0-9]*)/execute$", debug_function_execute);
     
-    
-    router.delete(func_brkpnt_end_pt, del_breakpoint_handler);
+    // executions
 
-    let s_sndr2 = s_sndr.clone();
-    let s_rcvr2 = s_rcvr.clone();
-    router.post(debug_exec_proc_end_pt, move |req, res, c| {
-        launch_process_handler(req, res, c, s_sndr2.clone(), s_rcvr2.clone());
+    router.get(r"^/api/v1/debug/([0-9]*)/executions$", debug_executions);
+    router.get(r"^/api/v1/debug/([0-9]*)/executions/([0-9]*)$", debug_execution);
+
+    let child = child_thread.clone();
+    router.get(r"^/api/v1/debug/([0-9]*)/executions/([0-9]*)/trace$", move |req, res, caps| {
+        debug_execution_trace(req, res, caps, child.clone());
     });
 
-    let s_sndr2 = s_sndr.clone();
-    let s_rcvr2 = s_rcvr.clone();
-
-    router.put(func_brkpnt_end_pt, move |req, res, c| {
-        set_breakpoint_handler(req, res, c, s_sndr2.clone(), s_rcvr2.clone());   
-    });
-
-    // function trace call
-    let s_sndr2 = s_sndr.clone();
-    let s_rcvr2 = s_rcvr.clone();
-    router.get(debug_exec_trace_end_pt, move |req, res, c| {
-        exec_trace_handler(req, res, c, s_sndr2.clone(), s_rcvr2.clone());   
-    });
-
-    // call launch with a function name
-    let s_sndr2 = s_sndr.clone();
-    let s_rcvr2 = s_rcvr.clone();    
-    router.post(debug_exec_func_end_pt, move |req, res, c| {
-        exec_func_handler(req, res, c, s_sndr2.clone(), s_rcvr2.clone());  
-    });
-    
-    router.get(debug_exec_lst_end_pt, list_execs_handler);
-    router.get(debug_exec_status_end_pt, exec_status_handler);
-    router.post(debug_exec_stop_end_pt, stop_exec_handler);
+    router.post(r"^/api/v1/debug/([0-9]*)/executions/([0-9]*)/stop$", debug_execution_stop);
 
     router.finalize().unwrap();
 
@@ -152,21 +103,14 @@ fn main() {
     server.handle(router).unwrap();
 }
 
-/// @ /greet
-fn basic_handler(_: Request, res: Response, _: Captures) {
-    res.send(b"He who controls the spice...").unwrap();
-}
-
-/// @ /filesystem/:path* -- return a list of files given a directory path
-fn filesystem_handler(_: Request, res: Response, c: Captures) {
-    println!("in filesystem_handler");
-
-    let caps = c.unwrap();
+/// GET /filesystem/:path* -- gets the file(s) within the given path
+fn filesystem(_: Request, res: Response, caps: Captures) {
+    let caps = caps.unwrap();
     let path = Path::new(&caps[1]);
 
-    let file_meta = fs::metadata(path).unwrap();
+    let meta = fs::metadata(path).unwrap();
 
-    let (file_type, contents) = if file_meta.is_dir() {
+    let (file_type, contents) = if meta.is_dir() {
         let entries = fs::read_dir(path).unwrap();
         let contents: Vec<_> = entries.map(|entry| {
             let entry = entry.unwrap();
@@ -179,7 +123,7 @@ fn filesystem_handler(_: Request, res: Response, c: Captures) {
             File {
                 name: entry.file_name().into_string().unwrap(),
                 path: entry.path().into_os_string().into_string().unwrap(),
-                fType: child_file_type.to_string(),
+                f_type: child_file_type.to_string(),
                 contents: vec![],
             }
         }).collect();
@@ -194,24 +138,19 @@ fn filesystem_handler(_: Request, res: Response, c: Captures) {
 
     let my_file = File {
         name: name.to_string(), path: path.to_string(),
-        fType: file_type.to_string(), contents
+        f_type: file_type.to_string(), contents
     };
 
-    let json_str = serde_json::to_string(&my_file).unwrap();
-
-    res.send(&json_str.into_bytes()).unwrap();
+    let json = serde_json::to_vec(&my_file).unwrap();
+    res.send(&json).unwrap();
 }
 
-/// @ /processes -- list the currently running processes on the host machine
-/// This assumes running on linux so reads proc dir
-/// TODO: get list of running processes for windows
-fn process_handler(_: Request, res: Response, _: Captures) {
-    println!("in process_handler");
-
+/// GET /processes -- gets the list of processes running on the host machine
+fn process(_: Request, res: Response, _: Captures) {
     let curr_procs = read_proc_dir();
 
-    let json_str = serde_json::to_string(&curr_procs).unwrap();
-    res.send(&json_str.into_bytes()).unwrap();
+    let json = serde_json::to_vec(&curr_procs).unwrap();
+    res.send(&json).unwrap();
 }
 
 /// helper function to recursively go through /proc directory
@@ -260,720 +199,280 @@ fn read_proc_dir() -> Vec<Process> {
     processes
 }
 
-/// @ /debug/attach/pid/:pid -- attach to currently running process by pid
-fn attach_pid_handler(_:Request, res: Response, c: Captures) {
-    println!("in attach_pid_handler");
+/// POST /debug/attach/pid/:pid -- attach to a running process
+fn debug_attach_pid( _: Request, mut res: Response, caps: Captures, _child: ChildThread) {
+    let caps = caps.unwrap();
+    let _pid = caps[1].parse::<u64>().unwrap();
 
-    let caps = c.unwrap();
-    let ref pid = caps[1];
-
-    let mut debug_str = "You attached to pid ".to_string();
-    debug_str.push_str(&pid);
-    res.send(debug_str.as_bytes()).unwrap(); //TODO: attach to process based on pid
+    *res.status_mut() = StatusCode::NotImplemented;
+    res.send(b"").unwrap();
 }
 
+/// POST /debug/attach/bin/:path -- attach to a binary
+fn debug_attach_bin(_: Request, mut res: Response, caps: Captures, child: ChildThread) {
+    let caps = caps.unwrap();
+    let path = PathBuf::from(&caps[1]);
 
-/// @ /debug/attach/bin/:path -- attach to a binary that resides at :path
-/// Attaches to a binary executable and returns the name of the binary if success
-/// This will spawn the debug event loop thread if it isn't currently running.
-/// All other endpoints will just communicate with the thread to gather info
-/// Otherwise returns an Error
-/// d_snd = debug thread sending channel
-/// serv_rec = servers receiving comm channel
-fn attach_bin_handler(
-    _req: Request, res: Response, c: Captures,
-    d_sndr: Arc<Mutex<mpsc::SyncSender<DebugMessage>>>,
-    d_rcvr: Arc<Mutex<mpsc::Receiver<ServerMessage>>>,
-    s_rcvr: Arc<Mutex<mpsc::Receiver<DebugMessage>>>,
-) {
-    let mut caps = c.unwrap();
-    let path = mem::replace(&mut caps[1], String::new());
+    let attached_process = caps[1].clone();
 
-    // need a way to return out of this if we are already running so we don't spawn
-    // tons of threads if users call this multiple times
-    std::thread::spawn(move || {
-        debug_attach_helper(path, d_sndr, d_rcvr);
-    });
+    let mut child = child.lock().unwrap();
+    if let Some(child) = child.take() {
+        child.tx.send(ServerMessage::Quit).unwrap();
+        child.thread.join().unwrap();
+    }
+    *child = Some(child::Thread::launch(path));
 
-    // unwrap the arc -> lock the receiver -> unwrap the result ->
-    let msg = match s_rcvr.lock().unwrap().recv() {
-        Ok(m) => m,
-        Err(_) => {
-            DebugMessage::Err(Error{code: 411, name: "Comm channel closed".to_string(),
-                  message: "There was an error receiving message from debug thread".to_string(),
-                  data: 1})
+    let child = child.as_mut().unwrap();
+
+    let json = match child.rx.recv() {
+        Ok(DebugMessage::Attached) => {
+            let message = DebugInfo {
+                id: 0,
+                attached_process: Process {
+                    id: 0,
+                    name: attached_process.clone(),
+                },
+                source_path: attached_process,
+            };
+
+            serde_json::to_vec(&message).unwrap()
+        }
+
+        Ok(DebugMessage::Error(_)) | _ => {
+            *res.status_mut() = StatusCode::NotFound;
+            let message = Error {
+                code: 0, message: format!("binary {} not found", attached_process), data: 0
+            };
+
+            serde_json::to_vec(&message).unwrap()
         }
     };
-
-    send_json_msg(msg, res);
+    res.send(&json).unwrap();
 }
 
-///This will be called in it's own thread
-/// This attachs to a binary and then sits in a debug event loop until the process exits
-/// It receives commands from the server which tells the debug event loop what action to
-/// perform
-fn debug_attach_helper(
-    path: String, d_sndr: Arc<Mutex<mpsc::SyncSender<DebugMessage>>>,
-    d_rcvr: Arc<Mutex<mpsc::Receiver<ServerMessage>>>
-) {
-    let mut launched = false;
-    // It is a success if we get a child object back.
-    // This means we have successfully attached.  We don't have a pid yet b/c we aren't
-    // executing that process
-    
-    let child = match debug::Command::new(&path)
-        .env_clear()
-        .debug() {
-            Ok(c) => {
-                d_sndr.lock().unwrap()
-                    .send(DebugMessage::AttachInfo(AttachInfo {
-                        id: 1, attachedProcess: path
-                    }))
-                    .expect("failed to send");
-                c
-            }
-            Err(_) => {
-                d_sndr.lock().unwrap()
-                    .send(DebugMessage::Err(Error {
-                        code: 411,
-                        name: "Failed to attach".to_string(),
-                        message: "Could not attach to binary".to_string(),
-                        data: 1
-                    }))
-                    .expect("failed to send");
-                return;
-                // do we need to kill the thread??
-            }
-        };
+/// GET /debug
+fn debug(_: Request, mut res: Response, _: Captures, _child: ChildThread) {
+    *res.status_mut() = StatusCode::NotImplemented;
+    res.send(b"").unwrap();
+}
 
-    
-    let options = debug::SymbolHandler::get_options();
-    debug::SymbolHandler::set_options(winapi::SYMOPT_DEBUG | winapi::SYMOPT_LOAD_LINES | options);
+/// GET /debug/:id/functions -- return a list of debuggable functions
+fn debug_functions(_: Request, res: Response, _: Captures) {
+    let functions = vec![hardcoded_function()];
 
-    let mut threads = HashMap::new();
-    let mut breakpoints = HashMap::new();
-    let mut vars = HashMap::new();
-    let mut symbols = debug::SymbolHandler::initialize(child.as_raw_handle())
-        .expect("failed to initialize symbol handler");
+    let json = serde_json::to_vec(&functions).unwrap();
+    res.send(&json).unwrap();
+}
 
-    // pass this struct around to keep track of all debug state info
-    let mut debug_state = DebugState{
-        child: child,
-        options: options,
-        threads: threads,
-        breakpoints: breakpoints,
-        symbols: symbols,
-        function: "".to_string(),
-        attached: false,
-        last_breakpoint: None,
-        debug_continue: false,
-        vars: vars,
-    };
-
-    loop {
-        let event = debug::DebugEvent::wait_event()
-            .expect("failed to get debug event");
-
-        // wait for the server to tell us what it wants
-        match d_rcvr.lock().unwrap().recv().unwrap() {
-            ServerMessage::Launch => {
-                if launched {
-                    d_sndr.lock().unwrap()
-                        .send(DebugMessage::Err(Error {
-                            code: 411, name: "Already launched".to_string(),
-                            message: "A process has already been launched can't launch another".to_string(),
-                            data: 1
-                        }))
-                        .expect("failed to send");
-                } else {
-                    let msg = match_debug_event(
-                        &event, &mut debug_state
-                    );
-
-                    d_sndr.lock().unwrap().send(msg)
-                        .expect("failed to send");
-                    launched = true;
-                }
-            } 
-
-
-            //TODO
-            ServerMessage::Execute => {}
-
-            ServerMessage::Trace => {
-                let msg = match_debug_event(
-                    &event, &mut debug_state
-                );
-
-                d_sndr.lock().unwrap().send(msg)
-                    .expect("failed to send to server thread");
-            }
-
-            //set a breakpoint on a function with function name 'func'
-            // basically record the name of the function so we can set breakpoints on it
-            // in the match_debug_event function call
-            // Still in TODO mode, partially hardcoded
-            // This needs to be called before calling Trace
-            ServerMessage::Function{func} => {
-                debug_state.function = func;
-                let mut params = vec![];
-
-                params.push(Variable{
-                    id: 0, name: "key".to_string(), sType: "int".to_string(), address: 12345
-                });
-
-                params.push(Variable{
-                    id: 1, name: "array".to_string(), sType: "int*".to_string(), address: 12346
-                });
-
-                params.push(Variable{
-                    id: 2, name: "length".to_string(), sType: "int".to_string(), address: 12347
-                });
-
-                d_sndr.lock().unwrap().send(DebugMessage::BrkPnt(Breakpoint{
-                    function:
-                    Function{address: 123, name: debug_state.function.clone(),
-                             sourcePath: "some/path/to/src".to_string(),
-                             lineNumber: 47, lineCount: 21,
-                             parameters: params},
-                    metadata: "TODO".to_string()
-                }))
-                    .expect("failed to send to server thread");
-
-            }
-        }
-
-        println!("[DEL] calling continue on the event");
-        match event.continue_event(debug_state.debug_continue) {
-            Ok(a) => a,
-            Err(_) => {
-                d_sndr.lock().unwrap()
-                    .send(DebugMessage::Err(Error {
-                        code: 411, name: "Failed to continue".to_string(),
-                        message: "Failed to continue thread".to_string(),
-                        data: 1
-                    }))
-                    .expect("failed to send");
-            }
-        };
+fn hardcoded_function() -> Function {
+    Function {
+        address: 0x00007ff64ebe1790usize,
+        name: String::from("binarySearch"),
+        source_path: String::from("binary-search.c"),
+        line_number: 15,
+        line_count: 19,
+        parameters: vec![
+            Variable {
+                id: 0, name: String::from("key"), s_type: String::from("int"), address: 12345,
+            },
+            Variable {
+                id: 1, name: String::from("array"), s_type: String::from("int*"), address: 12346,
+            },
+            Variable {
+                id: 2, name: String::from("length"), s_type: String::from("int"), address: 12347,
+            },
+        ],
+        local_variables: vec![
+            Variable {
+                id: 3, name: String::from("low"), s_type: String::from("int"), address: 12348,
+            },
+            Variable {
+                id: 4, name: String::from("high"), s_type: String::from("int"), address: 12349,
+            },
+            Variable {
+                id: 5, name: String::from("mid"), s_type: String::from("int"), address: 12340,
+            },
+            Variable {
+                id: 6, name: String::from("value"), s_type: String::from("int"), address: 12341,
+            },
+        ],
     }
 }
 
-/// @ /api/v1/debug/<debug_id>/execute -- Launches process if not running.  Continues otherwise
-/// sends the Launch ServerMessage to the debug event loop
-fn launch_process_handler(
-    _req: Request, res: Response, c: Captures,
-    s_sndr: Arc<Mutex<mpsc::SyncSender<ServerMessage>>>,
-    s_rcvr: Arc<Mutex<mpsc::Receiver<DebugMessage>>>
-) {
-    println!("in launch_process_handler");
+/// GET /debug/:id/functions/:function
+fn debug_function(_: Request, res: Response, _: Captures) {
+    let message = hardcoded_function();
 
-    let caps = c.unwrap();
-    let debug_id = match caps[1].parse::<i32>() {
-        Ok(x) => x,
-        Err(_) => {
-            send_json_msg(DebugMessage::Err(Error {
-                code: 411, name: "bad id".to_string(),
-                message: "no debug process with that id".to_string(),
-                data: 1
-            }), res);
-            return;
-        }
-    };
-
-    if debug_id == 1 { // this could be buggy if they provide url with 1 and we arent attached
-        s_sndr.lock().unwrap()
-            .send(ServerMessage::Launch)
-            .expect("failed to send");
-
-        let msg = match s_rcvr.lock().unwrap().recv() {
-            Ok(m) => m,
-            Err(_) => {
-                DebugMessage::Err(Error {
-                    code: 411, name: "Comm channel closed".to_string(),
-                    message: "There was an error receiving message from debug thread".to_string(),
-                    data: 1
-                })
-            }
-        };
-        send_json_msg(msg, res);
-    }
+    let json = serde_json::to_vec(&message).unwrap();
+    res.send(&json).unwrap();
 }
 
-/// @ /debug/executions/executionId/trace -- Get trace data for execution
-/// executionId is chosen by the server and should correspond to the currently attached
-/// process execution step
-/// continually call trace until we get the termination trace line
-fn exec_trace_handler(
-    _:Request, res: Response, c: Captures,
-    s_sndr: Arc<Mutex<mpsc::SyncSender<ServerMessage>>>,
-    s_rcvr: Arc<Mutex<mpsc::Receiver<DebugMessage>>>    
-) {
+/// GET /debug/:id/breakpoints
+fn debug_breakpoints(_: Request, mut res: Response, _: Captures) {
+    *res.status_mut() = StatusCode::NotImplemented;
+    res.send(b"").unwrap();
+}
 
-    let caps = c.unwrap();
-    let id = &caps[1].parse::<i32>();
+/// PUT /debug/:id/breakpoints/:function
+fn debug_breakpoint_put(_: Request, res: Response, caps: Captures, child: ChildThread) {
+    let caps = caps.unwrap();
+    let address = caps[2].parse::<usize>().unwrap();
 
-    let mut traces = vec![];
+    let mut child = child.lock().unwrap();
+    let child = child.as_mut().unwrap();
+
+    child.tx.send(ServerMessage::SetBreakpoint { address }).unwrap();
+
+    let message = Breakpoint {
+        function: hardcoded_function(),
+        metadata: String::new(),
+    };
+
+    let json = serde_json::to_vec(&message).unwrap();
+    res.send(&json).unwrap();
+}
+
+/// DELETE /debug/:id/breakpoints/:function
+fn debug_breakpoint_delete(_: Request, res: Response, caps: Captures, child: ChildThread) {
+    let caps = caps.unwrap();
+    let address = caps[2].parse::<usize>().unwrap();
+
+    let mut child = child.lock().unwrap();
+    let child = child.as_mut().unwrap();
+
+    child.tx.send(ServerMessage::ClearBreakpoint { address }).unwrap();
+
+    res.send(b"").unwrap();
+}
+
+/// POST /debug/:id/execute -- starts or continues process
+fn debug_execute(_: Request, mut res: Response, caps: Captures, child: ChildThread) {
+    let caps = caps.unwrap();
+    let _debug_id = caps[1].parse::<u64>().unwrap();
+
+    let mut child = child.lock().unwrap();
+    let child = child.as_mut().unwrap();
+
+    child.tx.send(ServerMessage::Continue).unwrap();
+
+    let json = match child.rx.recv() {
+        Ok(DebugMessage::Executing) => {
+            let message = Execution {
+                id: 0,
+                e_type: String::from("process"),
+                status: String::from("executing"),
+                execution_time: 0,
+                data: ExecutionData { next_execution: 0 },
+            };
+
+            serde_json::to_vec(&message).unwrap()
+        }
+
+        _ => {
+            *res.status_mut() = StatusCode::InternalServerError;
+
+            let message = Error {
+                code: 0,
+                message: String::from("failed to execute process"),
+                data: 0,
+            };
+
+            serde_json::to_vec(&message).unwrap()
+        }
+    };
+    res.send(&json).unwrap();
+}
+
+/// POST /debug/:id/functions/:function/execute
+fn debug_function_execute(_: Request, mut res: Response, _: Captures) {
+    *res.status_mut() = StatusCode::NotImplemented;
+    res.send(b"").unwrap();
+}
+
+/// POST /debug/:id/executions
+fn debug_executions(_: Request, mut res: Response, _: Captures) {
+    *res.status_mut() = StatusCode::NotImplemented;
+    res.send(b"").unwrap();
+}
+
+/// GET /debug/:id/executions/:execution -- get information about execution status
+fn debug_execution(_: Request, mut res: Response, _: Captures) {
+    *res.status_mut() = StatusCode::NotImplemented;
+    res.send(b"").unwrap();
+}
+
+/// GET /debug/:id/executions/:execution/trace -- Get trace data for execution
+fn debug_execution_trace(_: Request, res: Response, caps: Captures, child: ChildThread) {
+    let caps = caps.unwrap();
+    let _id = caps[1].parse::<u64>().unwrap();
+    let execution = caps[2].parse::<u64>().unwrap();
+
+    // TODO: this is a hack for the prototype; implement process executions
+    if execution == 0 {
+        use serde_json::{Value, Map};
+
+        let mut map = Map::new();
+        map.insert(String::from("cause"), Value::String(String::from("breakpoint")));
+        map.insert(String::from("next_execution"), Value::U64(1));
+        let object = Value::Object(map);
+
+        let message = vec![
+            Trace { index: 0, t_type: 2, line: 0, data: object },
+        ];
+
+        let json = serde_json::to_vec(&message).unwrap();
+        res.send(&json).unwrap();
+        return;
+    }
+
+    let mut child = child.lock().unwrap();
+    let child = child.as_mut().unwrap();
+
+    child.tx.send(ServerMessage::Trace).unwrap();
+
+    let mut prev_locals = vec![];
+
+    let mut res = res.start().unwrap();
+    res.write_all(b"[\n").unwrap();
 
     let mut index = 0;
-    while true {
-        s_sndr.lock().unwrap()
-            .send(ServerMessage::Trace)
-            .expect("failed to send");
+    let mut done = false;
+    while !done {
+        let message = match child.rx.recv() {
+            Ok(DebugMessage::Trace(DebugTrace::Line(line, locals))) => {
+                let this_index = index;
+                index += 1;
 
-        let msg = match s_rcvr.lock().unwrap().recv() {
-            Ok(m) => m,
-            Err(_) => {
-                DebugMessage::Err(Error {
-                    code: 411, name: "Comm channel closed".to_string(),
-                    message: "There was an error receiving message from debug thread".to_string(),
-                    data: 1
-                })
-            } 
-        };
-
-        match msg {
-            DebugMessage::TraceInfo(mut t) => {
-                t.index = index;
-                traces.push(t);
-                index = index + 1;
-            },
-            DebugMessage::AttachInfo(ai) => {continue;},
-            DebugMessage::BrkPnt(b) => {continue;},
-            DebugMessage::Exec(exec) => {continue;},
-            DebugMessage::Err(e) => {continue;}, // need to actually do something with an error
-        }
-    }
-    
-    let json_str = serde_json::to_string(&traces).unwrap();
-    res.send(&json_str.into_bytes()).unwrap();            
-}
-
-/// @ /debug/functions/:function/execute -- executes function with parameters in POST body
-/// This will currently not pass parameters to the function just gather trace information on
-/// the function and return trace info
-/// gets the function name and calls launch
-fn exec_func_handler(
-    _:Request, res: Response, c: Captures,
-    s_sndr: Arc<Mutex<mpsc::SyncSender<ServerMessage>>>,
-    s_rcvr: Arc<Mutex<mpsc::Receiver<DebugMessage>>>,
-) {
-    let caps = c.unwrap();
-    let id = &caps[1];
-
-
-    s_sndr.lock().unwrap()
-        .send(ServerMessage::Launch)
-        .expect("failed to send");
-
-        // more logic to determine if we have a termination trace
-        let msg = match s_rcvr.lock().unwrap().recv() {
-            Ok(m) => m,
-            Err(_) => {
-                DebugMessage::Err(Error {
-                    code: 411, name: "Comm channel closed".to_string(),
-                    message: "There was an error receiving message from debug thread".to_string(),
-                    data: 1
-                })
-            }
-        };
-
-    send_json_msg(msg, res);
-
-}
-
-
-
-/// Helper function to send debug event loop messages to the client
-fn send_json_msg(msg: DebugMessage, res: Response) {
-    println!("in send_json_msg");
-    match msg {
-        DebugMessage::AttachInfo(ai) => {
-            let json_str = serde_json::to_string(&ai).unwrap();
-            res.send(&json_str.into_bytes()).unwrap();
-        }
-        DebugMessage::Exec(e) => {
-            let json_str = serde_json::to_string(&e).unwrap();
-            res.send(&json_str.into_bytes()).unwrap();
-        }
-        DebugMessage::Err(e) => {
-            let json_str = serde_json::to_string(&e).unwrap();
-            res.send(&json_str.into_bytes()).unwrap();            
-        }
-        DebugMessage::BrkPnt(b) => {
-            let json_str = serde_json::to_string(&b).unwrap();
-            res.send(&json_str.into_bytes()).unwrap();            
-        }
-        DebugMessage::TraceInfo(t) => {
-            let json_str = serde_json::to_string(&t).unwrap();
-            res.send(&json_str.into_bytes()).unwrap();            
-        }
-    };
-
-}
-
-fn match_debug_event(
-    event: &debug::DebugEvent, debug_state: &mut DebugState,
-) -> DebugMessage {
-    println!("in match_debug_event");
-
-    use debug::DebugEventInfo::*;
-    let message = match event.info {
-        // FIXME: currently this ignores cp.hProcess and thus only supports a single child
-        CreateProcess(cp) => {
-            println!("[m_d_e] matched on CreateProcess debug event");
-            debug_state.threads.insert(event.thread_id, cp.hThread); //<u32, HANDLE
-
-            debug_state.symbols.load_module(cp.hFile, cp.lpBaseOfImage as usize)
-                .expect("failed to load module");
-
-            if cp.hFile != ptr::null_mut() {
-                unsafe { kernel32::CloseHandle(cp.hFile) };
-            }
-
-            //TODO:
-            // need a way to generate an execution id and then increment as stuff happens
-            // figure out how to determine if it is a process or function execution
-            // figure out how to get status
-            // figure out how to get current execution time from debug lib
-            DebugMessage::Exec(Execution{
-                id: 16, eType: "function".to_string(), status: "executing".to_string(),
-                executionTime: 1, data: 1
-            })
-        }
-
-        ExitProcess(ep) => {
-            DebugMessage::TraceInfo(Trace {
-                index: 0, tType: 2, line: 99,
-                data: vec!["helloworld".to_string()] 
-            })
-        }
-
-        CreateThread(ct) => {
-            println!(
-                "create thread: {} {:#018x}",
-                event.thread_id,
-                unsafe { mem::transmute::<_, usize>(ct.lpStartAddress) }
-            );
-
-            debug_state.threads.insert(event.thread_id, ct.hThread);
-
-            DebugMessage::Err(Error {
-                code: 777, name: "TODO".to_string(),
-                message: "TODO".to_string(),
-                data: 1
-            })
-        }
-
-        ExitThread(et) => {
-            debug_state.threads.remove(&event.thread_id);
-
-            DebugMessage::Err(Error {
-                code: 777, name: "TODO".to_string(),
-                message: "TODO".to_string(),
-                data: 1
-            })
-
-        }
-
-        LoadDll(ld) => {
-            println!("load dll: {:#018x}", ld.lpBaseOfDll as usize);
-
-            debug_state.symbols.load_module(ld.hFile, ld.lpBaseOfDll as usize)
-                .expect("failed to load module");
-
-            if ld.hFile != ptr::null_mut() {
-                unsafe { kernel32::CloseHandle(ld.hFile) };
-            }
-            
-            DebugMessage::Err(Error {
-                code: 777, name: "TODO".to_string(),
-                message: "TODO".to_string(),
-                data: 1
-            })
-        }
-
-        UnloadDll(ud) => {
-            println!("unload dll: {:#018x}", ud.lpBaseOfDll as usize);
-            let _ = debug_state.symbols.unload_module(ud.lpBaseOfDll as usize);
-            DebugMessage::Err(Error {
-                code: 777, name: "TODO".to_string(),
-                message: "TODO".to_string(),
-                data: 1
-            })
-        }
-
-        OutputDebugString(ds) => {
-            let mut buffer = vec![0u8; ds.nDebugStringLength as usize];
-            debug_state.child.read_memory(ds.lpDebugStringData as usize, &mut buffer)
-                .expect("failed reading debug string");
-
-            let string = String::from_utf8_lossy(&buffer);
-            println!("{}", string);
-            
-            DebugMessage::Err(Error {
-                code: 777, name: "TODO".to_string(),
-                message: "TODO".to_string(),
-                data: 1
-            })
-        }
-
-        Exception(e) => {
-            let er = &e.ExceptionRecord;
-            let mut exception_msg = DebugMessage::Err(Error {
-                code: 777, name: "TODO".to_string(),
-                message: "TODO".to_string(),
-                data: 1
-            });
-            
-            if !debug_state.attached {
-                debug_state.attached = true;
-
-                let function = debug_state
-                    .symbols
-                    .symbol_from_name(&debug_state.function)
-                    .expect("failed to get symbol");
-                let mut parameters = vec![];
-                debug_state.symbols.enumerate_symbols(function.address, |symbol, _| {
-                    if symbol.flags & winapi::SYMFLAG_PARAMETER != 0 {
-                        parameters.push(symbol.name.to_string_lossy().into_owned());
+                let mut state = vec![];
+                for (id, &value) in locals.iter().enumerate() {
+                    if prev_locals.get(id).map(|&prev_value| value != prev_value).unwrap_or(true) {
+                        state.push(TraceState { variable: id as i32, value });
                     }
-                    true
-                }).expect("failed to enumerate symbols");
-
-                println!("{}({});", debug_state.function, parameters.join(", "));
-
-                let lines = debug_state.symbols.lines_from_symbol(&function)
-                    .expect("failed to get lines");
-                for line in lines {
-                    let breakpoint = debug_state.child.set_breakpoint(line.address)
-                        .expect("failed to set breakpoint");
-
-                    debug_state.breakpoints.insert(line.address, Some(breakpoint));
                 }
+                prev_locals = locals;
 
-                debug_state.debug_continue = true;
-                // need to return something here so caller knows it isn't trace it
-                // is interested in. Return some dummy DebugMessage
-            } else if e.dwFirstChance == 0 {
-                println!("passing on last chance exception");
-                // return some dummy DebugMessage
-            } else if er.ExceptionCode == winapi::EXCEPTION_BREAKPOINT {
-                let address = er.ExceptionAddress as usize;
-                let breakpoint = debug_state.breakpoints.get_mut(&address)
-                    .expect("hit untracked breakpoint")
-                    .take();
-                debug_state.child.remove_breakpoint(breakpoint.unwrap())
-                    .expect("failed to remove breakpoint");
-                debug_state.last_breakpoint = Some(address);
-
-                let mut context = debug::get_thread_context(
-                    debug_state.threads[&event.thread_id], winapi::CONTEXT_FULL
-                ).expect("failed to get thread context");
-                context.set_instruction_pointer(er.ExceptionAddress as usize);
-                context.set_singlestep(true);
-                debug::set_thread_context(debug_state.threads[&event.thread_id], &context)
-                    .expect("failed to set thread context");
-
-                let frame = debug_state.symbols.walk_stack(
-                    debug_state.threads[&event.thread_id])
-                    .expect("failed to get thread stack")
-                    .nth(0)
-                    .expect("failed to get stack frame");
-                let ref context = frame.context;
-                let ref stack = frame.stack;
-
-                let address = stack.AddrPC.Offset as usize;
-                let (line, _off) = debug_state.symbols.line_from_address(address)
-                    .expect("failed to get line");
-
-                let instruction = stack.AddrPC.Offset as usize;
-                // this is where we start to get var names and values
-                let mut locals = vec![];
-                let ref mut child = debug_state.child;
-                let ref mut vars = debug_state.vars;
-                debug_state.symbols.enumerate_symbols(instruction, |symbol, size| {
-                    if size == 0 { return true; }
-
-                    let name = symbol.name.to_string_lossy().into_owned();
-
-                    let mut buffer = vec![0u8; size];
-                    let address = context.Rbp as usize + symbol.address;
-                    match child.read_memory(address, &mut buffer) {
-                        Ok(_) => {
-                            let value = match size {
-                                4 => unsafe { *(buffer.as_ptr() as *const u32) as u64 },
-                                8 => unsafe { *(buffer.as_ptr() as *const u64) as u64 },
-                                _ => unsafe { *(buffer.as_ptr() as *const u32) as u64 },
-                            };
-
-                            // add stuff to variables hashmap in debugState
-                            let var_val = vars.get(&name).cloned();
-                            match var_val {
-                                Some(v) => {
-                                    if v != value {
-                                        vars.insert(name.clone(), value);
-                                        locals.push(format!("variable: {}, value: {:x}",
-                                                            name, value));
-                                    }
-                                },
-                                None => {
-                                    vars.insert(name.clone(), value);
-                                    locals.push(format!("variable: {}, value: {:x}",
-                                                        name, value));
-                                }
-                            }
-
-                            
-                            //locals.push(format!("{} = {:x}", name, value));
-                        }
-                        Err(_) => locals.push(format!("{} = ?", name)),
-                    }
-
-                    true
-                }).expect("failed to enumerate symbols");
-
-                // line number, variables
-                println!("{}: {}", line.line, locals.join("; "));
-
-                debug_state.debug_continue = true;
-
-                exception_msg = DebugMessage::TraceInfo(Trace{index: 0, tType: 0,
-                                                              line: line.line, data: locals});
-                
-            } else if er.ExceptionCode == winapi::EXCEPTION_SINGLE_STEP {
-                let address = debug_state.last_breakpoint.take().unwrap();
-                let breakpoint = debug_state.child.set_breakpoint(address)
-                    .expect("failed to restore breakpoint");
-                debug_state.breakpoints.insert(address, Some(breakpoint));
-
-                let mut context = debug::get_thread_context(
-                    debug_state.threads[&event.thread_id], winapi::CONTEXT_FULL
-                ).expect("failed to get thread context");
-                context.set_singlestep(false);
-                debug::set_thread_context(debug_state.threads[&event.thread_id], &context)
-                    .expect("failed to set thread context");
-
-                debug_state.debug_continue = true;
+                Trace { index: this_index, t_type: 0, line: line, data: state.to_json() }
             }
-            exception_msg
-        }
 
-        Rip(..) => {
-            DebugMessage::Err(Error {
-                code: 777, name: "TODO".to_string(),
-                message: "TODO".to_string(), data: 777
-            })
-        }
-    };
+            Ok(DebugMessage::Trace(DebugTrace::Terminated)) | _ => {
+                done = true;
 
-    message
-}
-
-/// @ /debug
-fn debug_info_handler(_:Request, res: Response, _: Captures) {
-    println!("in debug_info_handler");
-    res.send(b"He who controls the spice...").unwrap();
-}
-
-/// @ /debug/functions
-/// this will get a list of all functions for the currently attached process
-/// TODO:  This is currently hardcoded for binary-search.c
-fn debug_list_handler(_:Request, res: Response, _: Captures) {
-
-    let mut funcs = vec![];
-    let mut params = vec![];
-
-    params.push(Variable{
-        id: 0, name: "key".to_string(), sType: "int".to_string(), address: 12345
-    });
-
-    params.push(Variable{
-        id: 1, name: "array".to_string(), sType: "int*".to_string(), address: 12346
-    });
-
-    params.push(Variable{
-        id: 2, name: "length".to_string(), sType: "int".to_string(), address: 12347
-    });
-
-    funcs.push(Function {
-        address: 123, name: "binarySearch".to_string(), 
-        sourcePath: "/path/to/binary/search.cpp".to_string(), lineNumber: 47,
-        lineCount: 21, parameters: params
-    });
-
-    let json_str = serde_json::to_string(&funcs).unwrap();
-
-    res.send(&json_str.into_bytes()).unwrap();
-}
-
-/// @ /debug/functions/:function
-fn function_info_handler(_:Request, res: Response, _: Captures) {
-    println!("in function_info_handler");    
-    res.send(b"He who controls the spice...").unwrap();
-}
-
-/// @ /debug/breakpoints
-fn list_breakpoints_handler(_:Request, res: Response, _: Captures) {
-    println!("in list_breakpoints_handler");    
-    res.send(b"He who controls the spice...").unwrap();
-}
-
-/// @ /debug/breakpoints/:function -- Sets a breakpoint on given function
-/// a function is identified by its name
-fn set_breakpoint_handler(
-    _:Request, res: Response, c: Captures,
-    s_sndr: Arc<Mutex<mpsc::SyncSender<ServerMessage>>>,
-    s_rcvr: Arc<Mutex<mpsc::Receiver<DebugMessage>>>
-) {
-
-    let caps = c.unwrap();
-    let func_name = &caps[1];
-
-    s_sndr.lock().unwrap()
-        .send(ServerMessage::Function{func: func_name.to_string() })
-        .expect("failed to send");
-
-    // this should return a Breakpoint message
-    let msg = match s_rcvr.lock().unwrap().recv() {
-            Ok(m) => m,
-            Err(_) => {
-                DebugMessage::Err(Error {
-                    code: 411, name: "Comm channel closed".to_string(),
-                    message: "There was an error receiving message from debug thread".to_string(),
-                    data: 1
-                })
+                Trace { index: index, t_type: 2, line: 0, data: Vec::<Trace>::new().to_json() }
             }
         };
 
-    send_json_msg(msg, res);
+        let json = serde_json::to_vec(&message).unwrap();
+        res.write_all(&json).unwrap();
+        if !done { res.write_all(b",\n").unwrap(); }
+        res.flush().unwrap();
+    }
+
+    res.write_all(b"]").unwrap();
+    res.end().unwrap();
 }
 
-/// @ /debug/breakpoints/:function -- Deletes a breakpoint
-fn del_breakpoint_handler(_:Request, res: Response, _: Captures) {
-    println!("in del_breakpoint_handler");
-    res.send(b"He who controls the spice...").unwrap();
+/// POST /debug/:id/executions/:execution/stop -- Halts a running execution
+fn debug_execution_stop(_: Request, mut res: Response, _: Captures) {
+    *res.status_mut() = StatusCode::NotImplemented;
+    res.send(b"").unwrap();
 }
-
-
-
-/// @ /debug/executions -- returns list of executions 
-fn list_execs_handler(_:Request, res: Response, _: Captures) {
-    println!("in list_execs_handler");    
-    res.send(b"He who controls the spice...").unwrap();
-}
-
-/// @ /debug/executions/:executionId -- get information about execution status
-fn exec_status_handler(_:Request, res: Response, _: Captures) {
-    println!("in exec_status_handler");    
-    res.send(b"He who controls the spice...").unwrap();
-}
-
-
-/// @ /debug/executions/:executionId/stop -- Halts a running execution
-fn stop_exec_handler(_:Request, res: Response, _: Captures) {
-    println!("in stop_exec_handler");    
-    res.send(b"He who controls the spice...").unwrap();
-}
-
-
