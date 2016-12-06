@@ -52,7 +52,7 @@ angular.module('Spice')
         self.killFunction = function() {
             self.running = false
             $scope.mockloader.progress = 0
-        }
+        };
     }])
     .directive('spiceFunctionPicker', function() {
         return {

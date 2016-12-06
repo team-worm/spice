@@ -1,6 +1,7 @@
 angular.module('Spice')
 	.controller('DebugViewerCtrl', ['$scope', '$timeout', 'DebuggerService', 'FilesystemService', function($scope, $timeout, DebuggerService, FilesystemService) {
 		$scope.lines = [];
+
 		//$scope.lines = [
 			//{ code: 'void insertion_sort (int arr[], int length){', state: 'a=1' },
 			//{ code: '		int j, temp;', state: 'a=1' },

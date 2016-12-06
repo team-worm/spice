@@ -3,10 +3,30 @@ angular.module('Spice')
 
 		/*** Constructors ***/
 
-		/**
+        /***
+		 * A GUID uniquely identifying a debugging session.
+		 * @typedef {string} DebugId
+         */
+
+        /***
+         * A GUID uniquely identifying a running execution.
+         * @typedef {string} ExecutionId
+         */
+
+        /***
+         * A GUID uniquely identifying a variable in a running program.
+         * @typedef {string} VariableId
+         */
+
+        /***
+         * A GUID uniquely identifying a function.
+         * @typedef {string} FunctionId
+         */
+
+
+        /**
 		 * @constructor
 		 * @param {DebugId} id
-		 * @param {string} name
 		 */
 		var DebugState = function(id) {
 			this.id = id;
@@ -14,15 +34,15 @@ angular.module('Spice')
 			this.executions = {}; // map[executionId]Execution
 			this.breakpoints = {}; //map[address]Breakpoint
 			this.functions = {}; // map[address]SourceFunction
-			this.variables = {} // map[id]Variable
-		}
+			this.variables = {}; // map[id]Variable
+		};
 
 		/**
 		 * @constructor
-		 * @param {ExecutionId} executionId
+		 * @param {ExecutionId} id
 		 * @param {string} eType
 		 * @param {string} status
-		 * @param {integer} executionTime
+		 * @param {number} executionTime
 		 * @param {object} data
 		 */
 		var Execution = function(id, eType, status, executionTime, data) {
@@ -34,7 +54,7 @@ angular.module('Spice')
 
 			this.trace = null;
 
-		}
+		};
 
 		/**
 		 * @constructor
@@ -48,12 +68,17 @@ angular.module('Spice')
 			this.tType = tType;
 			this.line = line;
 			this.data = data;
-		}
+		};
 
 		/**
 		 * @constructor
-		 * @param {integer} address
+		 * @param {number} address
 		 * @param {string} name
+		 * @param {string} sourcePath
+		 * @param {number} lineNumber
+		 * @param {number} lineCount
+		 * @param {object} parameters
+		 * @param {object} localVariables
 		 */
 		var SourceFunction = function(address, name, sourcePath, lineNumber, lineCount, parameters, localVariables) {
 			this.address = address;
@@ -63,21 +88,21 @@ angular.module('Spice')
 			this.lineCount = lineCount;
 			this.parameters = parameters;
 			this.localVariables = localVariables;
-		}
+		};
 
 		/**
 		 * @constructor
-		 * @param {Variable id} id
+		 * @param {VariableId} id
 		 * @param {string} name
 		 * @param {SourceType} sType
-		 * @param {integer} address
+		 * @param {number} address
 		 */
 		var SourceVariable = function(id, name, sType, address) {
 			this.id = id;
 			this.name = name;
 			this.sType = sType;
 			this.address = address;
-		}
+		};
 
 		/**
 		 * TODO: make this not a placeholder type
@@ -86,16 +111,17 @@ angular.module('Spice')
 		 */
 		var SourceType = function(name) {
 			this.name = name;
-		}
+		};
 
 		/**
 		 * @constructor
-		 * @param {string} name
+		 * @param {FunctionId} functionId
+		 * @param {object} metadata
 		 */
 		var Breakpoint = function(functionId, metadata) {
 			this.functionId = functionId;
 			this.metadata = metadata;
-		}
+		};
 
 		/*** CurrentState ***/
 		var attachedDebugState = null;
@@ -140,7 +166,7 @@ angular.module('Spice')
 		}
 
 		/**
-		 * @param {function id} id
+		 * @param {functionId} id
 		 * @returns {Promise<SourceFunction>}
 		 */
 		function getFunction(id) {
@@ -284,18 +310,53 @@ angular.module('Spice')
 		 */
 		function _attachBinary(path) {
 			//TODO: use $http POST /debug/attach/bin/:path*
-			return $q.resolve(new DebugState(0));
+			//VERIFY
+
+			var promise = $q.defer();
+
+			$http.post('debug/attach/bin/'+path, {})
+				.then(function(response){ //Success
+					var debugInfo = response.data;
+					promise.resolve(new DebugState(debugInfo.id));
+				}, function(response) { //Error
+					promise.reject(response.data);
+				});
+
+			return promise;
+
+			//return $q.resolve(new DebugState(0));
+
 		}
 
 		/**
 		 * @param {DebugState} debugState
-		 * @param {string} args
-		 * @param {string} env
+		 * @param {string} arguments
+		 * @param {string} environmentVars
 		 * @returns {Promise<Execution>}
 		 */
-		function _execute(debugState, args, env) {
+		function _execute(debugState, arguments, environmentVars) {
 			//TODO: use $http POST /debug/:debugId/execute
-			return $q.resolve(new Execution(0, 'process', 'done', 10, {nextExecution: 1}));
+			//VERIFY
+
+            var promise = $q.defer();
+
+            var reqBody = {
+            	args: arguments,
+				env: environmentVars
+			};
+
+            $http.post('debug/'+debugState.id+'/execute', reqBody)
+                .then(function(response){ //Success
+                    var execution = response.data;
+                    promise.resolve(execution);
+                }, function(response) { //Error
+                    promise.reject(response.data);
+                });
+
+            return promise;
+
+
+			//return $q.resolve(new Execution(0, 'process', 'done', 10, {nextExecution: 1}));
 		}
 
 		/**
@@ -317,7 +378,8 @@ angular.module('Spice')
 		/*** SourceFunctions ***/
 		function _getFunctions(debugState) {
 			//TODO: use $http GET /debug/:debugId/functions
-			return $q.resolve([new SourceFunction(0, 'helloFunc', 'hello.cpp', 4, 4, [new SourceVariable(0, 'a', new SourceType('int'), 0),
+			return $q.resolve(
+				[new SourceFunction(0, 'helloFunc', 'hello.cpp', 4, 4, [new SourceVariable(0, 'a', new SourceType('int'), 0),
 				new SourceVariable(1, 'b', new SourceType('int'), 1)], [new SourceVariable(2, 'i', new SourceType('int'), 2)])]);
 		}
 
