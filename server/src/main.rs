@@ -1,7 +1,9 @@
 #![feature(field_init_shorthand)]
 
 extern crate hyper;
+extern crate unicase;
 extern crate reroute;
+
 extern crate serde;
 extern crate serde_json;
 
@@ -97,10 +99,42 @@ fn main() {
 
     router.post(r"^/api/v1/debug/([0-9]*)/executions/([0-9]*)/stop$", debug_execution_stop);
 
+    router.options(r"", move |_, mut res, _| {
+        {
+            use hyper::header::*;
+            use hyper::method::Method;
+            use unicase::UniCase;
+
+            let headers = res.headers_mut();
+            headers.set(AccessControlAllowOrigin::Any);
+            headers.set(AccessControlAllowMethods(vec![
+                Method::Get, Method::Post, Method::Put, Method::Delete
+            ]));
+            headers.set(AccessControlAllowHeaders(vec![
+                UniCase("Content-Type".to_owned())
+            ]));
+            headers.set(AccessControlMaxAge(10 * 60));
+        }
+
+        res.send(b"").unwrap();
+    });
+
     router.finalize().unwrap();
 
     let server = Server::http("127.0.0.1:3000").unwrap();
     server.handle(router).unwrap();
+}
+
+fn send(mut res: Response, body: &[u8]) -> io::Result<()> {
+    {
+        use hyper::header::*;
+
+        let headers = res.headers_mut();
+        headers.set(AccessControlAllowOrigin::Any);
+        headers.set(ContentType("application/json".parse().unwrap()));
+    }
+
+    res.send(body)
 }
 
 /// GET /filesystem/:path* -- gets the file(s) within the given path
@@ -142,7 +176,7 @@ fn filesystem(_: Request, res: Response, caps: Captures) {
     };
 
     let json = serde_json::to_vec(&my_file).unwrap();
-    res.send(&json).unwrap();
+    send(res, &json).unwrap();
 }
 
 /// GET /processes -- gets the list of processes running on the host machine
@@ -150,7 +184,7 @@ fn process(_: Request, res: Response, _: Captures) {
     let curr_procs = read_proc_dir();
 
     let json = serde_json::to_vec(&curr_procs).unwrap();
-    res.send(&json).unwrap();
+    send(res, &json).unwrap();
 }
 
 /// helper function to recursively go through /proc directory
@@ -205,7 +239,7 @@ fn debug_attach_pid( _: Request, mut res: Response, caps: Captures, _child: Chil
     let _pid = caps[1].parse::<u64>().unwrap();
 
     *res.status_mut() = StatusCode::NotImplemented;
-    res.send(b"").unwrap();
+    send(res, b"").unwrap();
 }
 
 /// POST /debug/attach/bin/:path -- attach to a binary
@@ -247,13 +281,13 @@ fn debug_attach_bin(_: Request, mut res: Response, caps: Captures, child: ChildT
             serde_json::to_vec(&message).unwrap()
         }
     };
-    res.send(&json).unwrap();
+    send(res, &json).unwrap();
 }
 
 /// GET /debug
 fn debug(_: Request, mut res: Response, _: Captures, _child: ChildThread) {
     *res.status_mut() = StatusCode::NotImplemented;
-    res.send(b"").unwrap();
+    send(res, b"").unwrap();
 }
 
 /// GET /debug/:id/functions -- return a list of debuggable functions
@@ -261,7 +295,7 @@ fn debug_functions(_: Request, res: Response, _: Captures) {
     let functions = vec![hardcoded_function()];
 
     let json = serde_json::to_vec(&functions).unwrap();
-    res.send(&json).unwrap();
+    send(res, &json).unwrap();
 }
 
 fn hardcoded_function() -> Function {
@@ -304,13 +338,13 @@ fn debug_function(_: Request, res: Response, _: Captures) {
     let message = hardcoded_function();
 
     let json = serde_json::to_vec(&message).unwrap();
-    res.send(&json).unwrap();
+    send(res, &json).unwrap();
 }
 
 /// GET /debug/:id/breakpoints
 fn debug_breakpoints(_: Request, mut res: Response, _: Captures) {
     *res.status_mut() = StatusCode::NotImplemented;
-    res.send(b"").unwrap();
+    send(res, b"").unwrap();
 }
 
 /// PUT /debug/:id/breakpoints/:function
@@ -329,7 +363,7 @@ fn debug_breakpoint_put(_: Request, res: Response, caps: Captures, child: ChildT
     };
 
     let json = serde_json::to_vec(&message).unwrap();
-    res.send(&json).unwrap();
+    send(res, &json).unwrap();
 }
 
 /// DELETE /debug/:id/breakpoints/:function
@@ -342,7 +376,7 @@ fn debug_breakpoint_delete(_: Request, res: Response, caps: Captures, child: Chi
 
     child.tx.send(ServerMessage::ClearBreakpoint { address }).unwrap();
 
-    res.send(b"").unwrap();
+    send(res, b"").unwrap();
 }
 
 /// POST /debug/:id/execute -- starts or continues process
@@ -380,25 +414,25 @@ fn debug_execute(_: Request, mut res: Response, caps: Captures, child: ChildThre
             serde_json::to_vec(&message).unwrap()
         }
     };
-    res.send(&json).unwrap();
+    send(res, &json).unwrap();
 }
 
 /// POST /debug/:id/functions/:function/execute
 fn debug_function_execute(_: Request, mut res: Response, _: Captures) {
     *res.status_mut() = StatusCode::NotImplemented;
-    res.send(b"").unwrap();
+    send(res, b"").unwrap();
 }
 
 /// POST /debug/:id/executions
 fn debug_executions(_: Request, mut res: Response, _: Captures) {
     *res.status_mut() = StatusCode::NotImplemented;
-    res.send(b"").unwrap();
+    send(res, b"").unwrap();
 }
 
 /// GET /debug/:id/executions/:execution -- get information about execution status
 fn debug_execution(_: Request, mut res: Response, _: Captures) {
     *res.status_mut() = StatusCode::NotImplemented;
-    res.send(b"").unwrap();
+    send(res, b"").unwrap();
 }
 
 /// GET /debug/:id/executions/:execution/trace -- Get trace data for execution
@@ -421,7 +455,7 @@ fn debug_execution_trace(_: Request, res: Response, caps: Captures, child: Child
         ];
 
         let json = serde_json::to_vec(&message).unwrap();
-        res.send(&json).unwrap();
+        send(res, &json).unwrap();
         return;
     }
 
@@ -474,5 +508,5 @@ fn debug_execution_trace(_: Request, res: Response, caps: Captures, child: Child
 /// POST /debug/:id/executions/:execution/stop -- Halts a running execution
 fn debug_execution_stop(_: Request, mut res: Response, _: Captures) {
     *res.status_mut() = StatusCode::NotImplemented;
-    res.send(b"").unwrap();
+    send(res, b"").unwrap();
 }
