@@ -5,103 +5,157 @@ extern crate reroute;
 extern crate serde;
 extern crate serde_json;
 
-use std::{fs, io};
-use std::io::BufRead;
+extern crate debug;
+extern crate winapi;
+extern crate kernel32;
+
+use std::{io, fs};
+use std::sync::{Mutex, Arc};
+use std::io::{BufRead, Write};
+use std::path::{PathBuf, Path};
+
+use hyper::status::StatusCode;
 use hyper::server::{Server, Request, Response};
 use reroute::{Captures, Router};
 
+use serde_json::value::ToJson;
+
 use serde_types::*;
+use child::{ServerMessage, DebugMessage, DebugTrace};
 
 mod serde_types {
-    #![allow(non_snake_case)]
-
     include!(concat!(env!("OUT_DIR"), "/serde_types.rs"));
 }
 
-//static VERSION : &'static str = "/api/v1/";
+mod child;
 
-//REST ENDPOINTS
-static FILE_SYS_END_PT: &'static str = r"/api/v1/filesystem/[[:ascii:]]*";
-static PROCESS_END_PT: &'static str = "/api/v1/processes";
-static DEBUG_ATCH_PID_END_PT: &'static str = r"/api/v1/debug/attach/pid/[[:digit:]]*";
-static DEBUG_ATCH_BIN_END_PT: &'static str = r"/api/v1/debug/attach/bin/[[:ascii:]]*";
-static DEBUG_END_PT: &'static str = "/api/v1/debug";
-static DEBUG_FUNC_LST_END_PT: &'static str = "/api/v1/debug/functions";
-static DEBUG_FUNC_END_PT: &'static str = r"/api/v1/debug/functions/[[:ascii:]]*";
-static BRKPNT_END_PT: &'static str = "/api/v1/debug/breakpoints";
-static FUNC_BRKPNT_END_PT: &'static str = r"/api/v1/debug/breakpoints/[[:ascii:]]*"; //PUT AND DELETE
-static DEBUG_EXEC_PROC_END_PT: &'static str = "/api/v1/debug/execute";
-static DEBUG_EXEC_FUNC_END_PT: &'static str = r"/api/v1/debug/functions/[[:ascii:]]*/execute";
+type ChildThread = Arc<Mutex<Option<child::Thread>>>;
 
-static DEBUG_EXEC_LST_END_PT: &'static str = "/api/v1/debug/executions";
-static DEBUG_EXEC_STATUS_END_PT: &'static str = r"/api/v1/debug/executions/[[:digit:]]*";
-static DEBUG_EXEC_TRACE_END_PT: &'static str = r"/api/v1/debug/executions/[[:digit:]]*/trace";
-static DEBUG_EXEC_STOP_END_PT: &'static str = r"/api/v1/debug/executions/[[:digit:]]*/stop";
+fn main() {
+    // current child thread (only one at a time)
+    let child_thread = Arc::new(Mutex::new(None));
 
-/// @ /greet
-fn basic_handler(_: Request, res: Response, c: Captures) {
-    println!("captures: {:?}", c);
-    res.send(b"He who controls the spice...").unwrap();
+    let mut router = Router::new();
+
+    // host system info
+
+    router.get(r"^/api/v1/filesystem/(.*)$", filesystem);
+    router.get(r"^/api/v1/processes$", process);
+
+    // attaching
+
+    let child = child_thread.clone();
+    router.post(r"^/api/v1/debug/attach/pid/([0-9]*)$", move |req, res, caps| {
+        debug_attach_pid(req, res, caps, child.clone());
+    });
+
+    let child = child_thread.clone();
+    router.post(r"^/api/v1/debug/attach/bin/(.*)$", move |req, res, caps| {
+        debug_attach_bin(req, res, caps, child.clone());
+    });
+
+    let child = child_thread.clone();
+    router.get(r"^/api/v1/debug$", move |req, res, caps| {
+        debug(req, res, caps, child.clone());
+    });
+
+    // functions
+
+    router.get(r"^/api/v1/debug/([0-9]*)/functions$", debug_functions);
+    router.get(r"^/api/v1/debug/([0-9]*)/functions/(.*)$", debug_function);
+
+    // breakpoints
+
+    router.get(r"^/api/v1/debug/([0-9]*)/breakpoints$", debug_breakpoints);
+
+    let child = child_thread.clone();
+    router.put(r"^/api/v1/debug/([0-9]*)/breakpoints/([0-9]*)$", move |req, res, caps| {
+        debug_breakpoint_put(req, res, caps, child.clone());
+    });
+
+    let child = child_thread.clone();
+    router.delete(r"^/api/v1/debug/([0-9]*)/breakpoints/([0-9]*)$", move |req, res, caps| {
+        debug_breakpoint_delete(req, res, caps, child.clone());
+    });
+
+    let child = child_thread.clone();
+    router.post(r"^/api/v1/debug/([0-9]*)/execute$", move |req, res, caps| {
+        debug_execute(req, res, caps, child.clone());
+    });
+
+    router.put(r"^/api/v1/debug/([0-9]*)/functions/([0-9]*)/execute$", debug_function_execute);
+    
+    // executions
+
+    router.get(r"^/api/v1/debug/([0-9]*)/executions$", debug_executions);
+    router.get(r"^/api/v1/debug/([0-9]*)/executions/([0-9]*)$", debug_execution);
+
+    let child = child_thread.clone();
+    router.get(r"^/api/v1/debug/([0-9]*)/executions/([0-9]*)/trace$", move |req, res, caps| {
+        debug_execution_trace(req, res, caps, child.clone());
+    });
+
+    router.post(r"^/api/v1/debug/([0-9]*)/executions/([0-9]*)/stop$", debug_execution_stop);
+
+    router.finalize().unwrap();
+
+    let server = Server::http("127.0.0.1:3000").unwrap();
+    server.handle(router).unwrap();
 }
 
-/// @ /filesystem/:path* -- return a list of files given a directory path
-fn filesystem_handler(_: Request, res: Response, c: Captures) {
-    let c_str = &c.unwrap()[0];
+/// GET /filesystem/:path* -- gets the file(s) within the given path
+fn filesystem(_: Request, res: Response, caps: Captures) {
+    let caps = caps.unwrap();
+    let path = Path::new(&caps[1]);
 
-    let path = c_str.split("/api/v1/filesystem").nth(1).unwrap().to_string();
+    let meta = fs::metadata(path).unwrap();
 
-    let file_meta = fs::metadata(&path).unwrap();
-
-    let file_type; 
-
-    let mut contents = vec![];
-    if file_meta.is_dir() {
-        file_type = "dir".to_string();
-        let paths = fs::read_dir(&path).unwrap();
-
-        for path in paths {
-            let dir_entry = path.unwrap();
-            let child_file_type; 
-
-            if dir_entry.file_type().unwrap().is_dir() {
-                child_file_type = "dir".to_string();
+    let (file_type, contents) = if meta.is_dir() {
+        let entries = fs::read_dir(path).unwrap();
+        let contents: Vec<_> = entries.map(|entry| {
+            let entry = entry.unwrap();
+            let child_file_type = if entry.file_type().unwrap().is_dir() {
+                "dir"
             } else {
-                child_file_type = "file".to_string();
+                "file"
+            };
+
+            File {
+                name: entry.file_name().into_string().unwrap(),
+                path: entry.path().into_os_string().into_string().unwrap(),
+                f_type: child_file_type.to_string(),
+                contents: vec![],
             }
+        }).collect();
 
-
-            contents.push(File {
-                name: dir_entry.file_name().into_string().unwrap(),
-                path: dir_entry.path().into_os_string().into_string().unwrap(),
-                fType: child_file_type,
-                contents: Vec::<File>::new()
-            });
-
-        } // end dir content iterator
+        ("dir", contents)
     } else {
-        file_type = "file".to_string();
-    }
+        ("file", vec![])
+    };
 
-    let my_file = File { name: path.clone(), path, fType: file_type, contents };
+    let name = path.file_name().unwrap().to_string_lossy();
+    let path = path.to_string_lossy();
 
-    let json_str = serde_json::to_string(&my_file).unwrap();
+    let my_file = File {
+        name: name.to_string(), path: path.to_string(),
+        f_type: file_type.to_string(), contents
+    };
 
-    res.send(&json_str.into_bytes()).unwrap();
+    let json = serde_json::to_vec(&my_file).unwrap();
+    res.send(&json).unwrap();
 }
 
-/// @ /processes -- list the currently running processes on the host machine
-/// This assumes running on linux
-fn process_handler(_: Request, res: Response, c: Captures) {
-    println!("captures: {:?}", c);
-
+/// GET /processes -- gets the list of processes running on the host machine
+fn process(_: Request, res: Response, _: Captures) {
     let curr_procs = read_proc_dir();
 
-    let json_str = serde_json::to_string(&curr_procs).unwrap();
-    res.send(&json_str.into_bytes()).unwrap();
+    let json = serde_json::to_vec(&curr_procs).unwrap();
+    res.send(&json).unwrap();
 }
 
 /// helper function to recursively go through /proc directory
 fn read_proc_dir() -> Vec<Process> {
+    println!("in read_proc_dir");
     let mut processes = Vec::<Process>::new();
     let paths = fs::read_dir("/proc").unwrap();
 
@@ -145,115 +199,280 @@ fn read_proc_dir() -> Vec<Process> {
     processes
 }
 
-/// @ /debug/attach/pid/:pid -- attach to currently running process by pid
-fn attach_pid_handler(_:Request, res: Response, c: Captures) {
-    let c_str = &c.unwrap()[0];
-    let pid = c_str.split("/api/v1/debug/attach/pid/").nth(1).unwrap();
+/// POST /debug/attach/pid/:pid -- attach to a running process
+fn debug_attach_pid( _: Request, mut res: Response, caps: Captures, _child: ChildThread) {
+    let caps = caps.unwrap();
+    let _pid = caps[1].parse::<u64>().unwrap();
 
-    let mut debug_str = "You attached to pid ".to_string();
-    debug_str.push_str(pid);
-    res.send(debug_str.as_bytes()).unwrap(); //TODO:  really attach to pid returns AttachInfo struct
-    // whichh has yet to be defined.
+    *res.status_mut() = StatusCode::NotImplemented;
+    res.send(b"").unwrap();
 }
 
+/// POST /debug/attach/bin/:path -- attach to a binary
+fn debug_attach_bin(_: Request, mut res: Response, caps: Captures, child: ChildThread) {
+    let caps = caps.unwrap();
+    let path = PathBuf::from(&caps[1]);
 
-/// @ /debug/attach/bin/:path -- attach to a binary that resides at :path
-fn attach_bin_handler(_:Request, res: Response, c: Captures) {
-    let c_str = &c.unwrap()[0];
+    let attached_process = caps[1].clone();
 
-    let path = c_str.split("/api/v1/debug/attach/bin/").nth(1).unwrap(); //TODO
+    let mut child = child.lock().unwrap();
+    if let Some(child) = child.take() {
+        child.tx.send(ServerMessage::Quit).unwrap();
+        child.thread.join().unwrap();
+    }
+    *child = Some(child::Thread::launch(path));
 
-    res.send(b"He who controls the spice...").unwrap();
+    let child = child.as_mut().unwrap();
+
+    let json = match child.rx.recv() {
+        Ok(DebugMessage::Attached) => {
+            let message = DebugInfo {
+                id: 0,
+                attached_process: Process {
+                    id: 0,
+                    name: attached_process.clone(),
+                },
+                source_path: attached_process,
+            };
+
+            serde_json::to_vec(&message).unwrap()
+        }
+
+        Ok(DebugMessage::Error(_)) | _ => {
+            *res.status_mut() = StatusCode::NotFound;
+            let message = Error {
+                code: 0, message: format!("binary {} not found", attached_process), data: 0
+            };
+
+            serde_json::to_vec(&message).unwrap()
+        }
+    };
+    res.send(&json).unwrap();
 }
 
-/// @ /debug
-fn debug_info_handler(_:Request, res: Response, c: Captures) {
-    res.send(b"He who controls the spice...").unwrap();
+/// GET /debug
+fn debug(_: Request, mut res: Response, _: Captures, _child: ChildThread) {
+    *res.status_mut() = StatusCode::NotImplemented;
+    res.send(b"").unwrap();
 }
 
-/// @ /debug/functions
-fn debug_list_handler(_:Request, res: Response, c: Captures) {
-    res.send(b"He who controls the spice...").unwrap();
+/// GET /debug/:id/functions -- return a list of debuggable functions
+fn debug_functions(_: Request, res: Response, _: Captures) {
+    let functions = vec![hardcoded_function()];
+
+    let json = serde_json::to_vec(&functions).unwrap();
+    res.send(&json).unwrap();
 }
 
-/// @ /debug/functions/:function
-fn function_info_handler(_:Request, res: Response, c: Captures) {
-    res.send(b"He who controls the spice...").unwrap();
+fn hardcoded_function() -> Function {
+    Function {
+        address: 0x00007ff64ebe1790usize,
+        name: String::from("binarySearch"),
+        source_path: String::from("binary-search.c"),
+        line_number: 15,
+        line_count: 19,
+        parameters: vec![
+            Variable {
+                id: 0, name: String::from("key"), s_type: String::from("int"), address: 12345,
+            },
+            Variable {
+                id: 1, name: String::from("array"), s_type: String::from("int*"), address: 12346,
+            },
+            Variable {
+                id: 2, name: String::from("length"), s_type: String::from("int"), address: 12347,
+            },
+        ],
+        local_variables: vec![
+            Variable {
+                id: 3, name: String::from("low"), s_type: String::from("int"), address: 12348,
+            },
+            Variable {
+                id: 4, name: String::from("high"), s_type: String::from("int"), address: 12349,
+            },
+            Variable {
+                id: 5, name: String::from("mid"), s_type: String::from("int"), address: 12340,
+            },
+            Variable {
+                id: 6, name: String::from("value"), s_type: String::from("int"), address: 12341,
+            },
+        ],
+    }
 }
 
-/// @ /debug/breakpoints
-fn list_breakpoints_handler(_:Request, res: Response, c: Captures) {
-    res.send(b"He who controls the spice...").unwrap();
+/// GET /debug/:id/functions/:function
+fn debug_function(_: Request, res: Response, _: Captures) {
+    let message = hardcoded_function();
+
+    let json = serde_json::to_vec(&message).unwrap();
+    res.send(&json).unwrap();
 }
 
-/// @ /debug/breakpoints/:function -- Sets a breakpoint on given function
-fn set_breakpoint_handler(_:Request, res: Response, c: Captures) {
-    res.send(b"He who controls the spice...").unwrap();
+/// GET /debug/:id/breakpoints
+fn debug_breakpoints(_: Request, mut res: Response, _: Captures) {
+    *res.status_mut() = StatusCode::NotImplemented;
+    res.send(b"").unwrap();
 }
 
-/// @ /debug/breakpoints/:function -- Deletes a breakpoint
-fn del_breakpoint_handler(_:Request, res: Response, c: Captures) {
-    res.send(b"He who controls the spice...").unwrap();
+/// PUT /debug/:id/breakpoints/:function
+fn debug_breakpoint_put(_: Request, res: Response, caps: Captures, child: ChildThread) {
+    let caps = caps.unwrap();
+    let address = caps[2].parse::<usize>().unwrap();
+
+    let mut child = child.lock().unwrap();
+    let child = child.as_mut().unwrap();
+
+    child.tx.send(ServerMessage::SetBreakpoint { address }).unwrap();
+
+    let message = Breakpoint {
+        function: hardcoded_function(),
+        metadata: String::new(),
+    };
+
+    let json = serde_json::to_vec(&message).unwrap();
+    res.send(&json).unwrap();
 }
 
-/// @ /debug/execute -- Launches process if not running.  Continues otherwise
-fn launch_process_handler(_:Request, res: Response, c: Captures) {
-    res.send(b"He who controls the spice...").unwrap();
+/// DELETE /debug/:id/breakpoints/:function
+fn debug_breakpoint_delete(_: Request, res: Response, caps: Captures, child: ChildThread) {
+    let caps = caps.unwrap();
+    let address = caps[2].parse::<usize>().unwrap();
+
+    let mut child = child.lock().unwrap();
+    let child = child.as_mut().unwrap();
+
+    child.tx.send(ServerMessage::ClearBreakpoint { address }).unwrap();
+
+    res.send(b"").unwrap();
 }
 
-/// @ /debug/functions/:function/execute -- executes function with parameters in POST body
-fn exec_func_handler(_:Request, res: Response, c: Captures) {
-    res.send(b"He who controls the spice...").unwrap();
+/// POST /debug/:id/execute -- starts or continues process
+fn debug_execute(_: Request, mut res: Response, caps: Captures, child: ChildThread) {
+    let caps = caps.unwrap();
+    let _debug_id = caps[1].parse::<u64>().unwrap();
+
+    let mut child = child.lock().unwrap();
+    let child = child.as_mut().unwrap();
+
+    child.tx.send(ServerMessage::Continue).unwrap();
+
+    let json = match child.rx.recv() {
+        Ok(DebugMessage::Executing) => {
+            let message = Execution {
+                id: 0,
+                e_type: String::from("process"),
+                status: String::from("executing"),
+                execution_time: 0,
+                data: ExecutionData { next_execution: 0 },
+            };
+
+            serde_json::to_vec(&message).unwrap()
+        }
+
+        _ => {
+            *res.status_mut() = StatusCode::InternalServerError;
+
+            let message = Error {
+                code: 0,
+                message: String::from("failed to execute process"),
+                data: 0,
+            };
+
+            serde_json::to_vec(&message).unwrap()
+        }
+    };
+    res.send(&json).unwrap();
 }
 
-/// @ /debug/executions -- returns list of executions 
-fn list_execs_handler(_:Request, res: Response, c: Captures) {
-    res.send(b"He who controls the spice...").unwrap();
+/// POST /debug/:id/functions/:function/execute
+fn debug_function_execute(_: Request, mut res: Response, _: Captures) {
+    *res.status_mut() = StatusCode::NotImplemented;
+    res.send(b"").unwrap();
 }
 
-/// @ /debug/executions/:executionId -- get information about execution status
-fn exec_status_handler(_:Request, res: Response, c: Captures) {
-    res.send(b"He who controls the spice...").unwrap();
+/// POST /debug/:id/executions
+fn debug_executions(_: Request, mut res: Response, _: Captures) {
+    *res.status_mut() = StatusCode::NotImplemented;
+    res.send(b"").unwrap();
 }
 
-/// @ /debug/executions/executionId/trace -- Get trace data for execution
-fn exec_trace_handler(_:Request, res: Response, c: Captures) {
-    res.send(b"He who controls the spice...").unwrap();
+/// GET /debug/:id/executions/:execution -- get information about execution status
+fn debug_execution(_: Request, mut res: Response, _: Captures) {
+    *res.status_mut() = StatusCode::NotImplemented;
+    res.send(b"").unwrap();
 }
 
-/// @ /debug/executions/:executionId/stop -- Halts a running execution
-fn stop_exec_handler(_:Request, res: Response, c: Captures) {
-    res.send(b"He who controls the spice...").unwrap();
+/// GET /debug/:id/executions/:execution/trace -- Get trace data for execution
+fn debug_execution_trace(_: Request, res: Response, caps: Captures, child: ChildThread) {
+    let caps = caps.unwrap();
+    let _id = caps[1].parse::<u64>().unwrap();
+    let execution = caps[2].parse::<u64>().unwrap();
+
+    // TODO: this is a hack for the prototype; implement process executions
+    if execution == 0 {
+        use serde_json::{Value, Map};
+
+        let mut map = Map::new();
+        map.insert(String::from("cause"), Value::String(String::from("breakpoint")));
+        map.insert(String::from("next_execution"), Value::U64(1));
+        let object = Value::Object(map);
+
+        let message = vec![
+            Trace { index: 0, t_type: 2, line: 0, data: object },
+        ];
+
+        let json = serde_json::to_vec(&message).unwrap();
+        res.send(&json).unwrap();
+        return;
+    }
+
+    let mut child = child.lock().unwrap();
+    let child = child.as_mut().unwrap();
+
+    child.tx.send(ServerMessage::Trace).unwrap();
+
+    let mut prev_locals = vec![];
+
+    let mut res = res.start().unwrap();
+    res.write_all(b"[\n").unwrap();
+
+    let mut index = 0;
+    let mut done = false;
+    while !done {
+        let message = match child.rx.recv() {
+            Ok(DebugMessage::Trace(DebugTrace::Line(line, locals))) => {
+                let this_index = index;
+                index += 1;
+
+                let mut state = vec![];
+                for (id, &value) in locals.iter().enumerate() {
+                    if prev_locals.get(id).map(|&prev_value| value != prev_value).unwrap_or(true) {
+                        state.push(TraceState { variable: id as i32, value });
+                    }
+                }
+                prev_locals = locals;
+
+                Trace { index: this_index, t_type: 0, line: line, data: state.to_json() }
+            }
+
+            Ok(DebugMessage::Trace(DebugTrace::Terminated)) | _ => {
+                done = true;
+
+                Trace { index: index, t_type: 2, line: 0, data: Vec::<Trace>::new().to_json() }
+            }
+        };
+
+        let json = serde_json::to_vec(&message).unwrap();
+        res.write_all(&json).unwrap();
+        if !done { res.write_all(b",\n").unwrap(); }
+        res.flush().unwrap();
+    }
+
+    res.write_all(b"]").unwrap();
+    res.end().unwrap();
 }
 
-
-fn main() {
-    //install routes
-
-    let mut router = Router::new();
-    router.get("/greet", basic_handler); // debug line
-
-
-    router.get(FILE_SYS_END_PT, filesystem_handler);
-    router.get(PROCESS_END_PT, process_handler);
-    router.post(DEBUG_ATCH_PID_END_PT, attach_pid_handler);
-    router.post(DEBUG_ATCH_BIN_END_PT, attach_bin_handler);
-    router.get(DEBUG_END_PT, debug_info_handler);
-    router.get(DEBUG_FUNC_LST_END_PT, debug_list_handler);
-    router.get(DEBUG_FUNC_END_PT, function_info_handler);
-    router.get(BRKPNT_END_PT, list_breakpoints_handler);
-    router.put(FUNC_BRKPNT_END_PT, set_breakpoint_handler);
-    router.delete(FUNC_BRKPNT_END_PT, del_breakpoint_handler);
-    router.post(DEBUG_EXEC_PROC_END_PT, launch_process_handler);
-    router.post(DEBUG_EXEC_FUNC_END_PT, exec_func_handler);
-    router.get(DEBUG_EXEC_LST_END_PT, list_execs_handler);
-    router.get(DEBUG_EXEC_STATUS_END_PT, exec_status_handler);
-    router.get(DEBUG_EXEC_TRACE_END_PT, exec_trace_handler);
-    router.post(DEBUG_EXEC_STOP_END_PT, stop_exec_handler);
-
-
-    router.finalize().unwrap();
-
-    let server = Server::http("127.0.0.1:3000").unwrap();
-    server.handle(router).unwrap();
+/// POST /debug/:id/executions/:execution/stop -- Halts a running execution
+fn debug_execution_stop(_: Request, mut res: Response, _: Captures) {
+    *res.status_mut() = StatusCode::NotImplemented;
+    res.send(b"").unwrap();
 }

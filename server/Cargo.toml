@@ -10,6 +10,8 @@ build = "build.rs"
 debug = { path = "debug" }
 hyper = { version = "0.9", default-features = false }
 reroute = { version = "0.2.4", default-features = false }
+winapi = { git = "https://github.com/team-worm/winapi-rs" }
+kernel32-sys = { git = "https://github.com/team-worm/winapi-rs" }
 serde = "0.8"
 serde_json = "0.8"
 
