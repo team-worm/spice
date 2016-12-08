@@ -312,21 +312,17 @@ angular.module('Spice')
 			//TODO: use $http POST /debug/attach/bin/:path*
 			//VERIFY
 
-			var deferred = $q.defer();
-
-			$http({
+			return $http({
 				method: 'POST',
 				url: 'http://localhost:3000/api/v1/debug/attach/bin/'+path,
             	data: {}
 				})
 				.then(function(response){ //Success
 					var debugInfo = response.data;
-					deferred.resolve(new DebugState(debugInfo.id));
+					return new DebugState(debugInfo.id)
 				}, function(response) { //Error
-					deferred.reject(response.data);
+					throw new SpiceError(response.code,response.name,response.message,response.data)
 				});
-
-			return deferred.promise;
 
 			//return $q.resolve(new DebugState(0));
 
@@ -342,26 +338,22 @@ angular.module('Spice')
 			//TODO: use $http POST /debug/:debugId/execute
 			//VERIFY
 
-            var deferred = $q.defer();
-
             var reqBody = {
             	args: arguments,
 				env: environmentVars
 			};
 
-            $http({
+            return $http({
                 method: 'POST',
-                url: 'localhost:3000/api/v1/debug/'+debugState.id+'/execute',
+                url: 'http://localhost:3000/api/v1/debug/'+debugState.id+'/execute',
                 data: reqBody
             	})
                 .then(function(response){ //Success
                     var execution = response.data;
-					deferred.resolve(execution);
+					return new Execution(execution.id,execution.eType,execution.status, execution.executionTime, execution.data)
                 }, function(response) { //Error
-					deferred.reject(response.data);
+                    throw new SpiceError(response.code,response.name,response.message,response.data)
                 });
-
-            return deferred.promise;
 
 
 			//return $q.resolve(new Execution(0, 'process', 'done', 10, {nextExecution: 1}));
@@ -392,7 +384,7 @@ angular.module('Spice')
 
             $http({
                 method: 'GET',
-                url: 'localhost:3000/api/v1/debug/'+debugState.id+'/functions'
+                url: 'http://localhost:3000/api/v1/debug/'+debugState.id+'/functions'
             })
                 .then(function(response){ //Success
                     var execution = response.data;
@@ -428,7 +420,22 @@ angular.module('Spice')
 
 		function _setBreakpoint(debugState, functionId) {
 			//TODO: use $http PUT /debug/:debugId/breakpoints/:function
-			return $q.resolve([new Breakpoint(0, {})]);
+
+			var deferred = $q.defer();
+
+            $http({
+                method: 'PUT',
+                url: 'http://localhost:3000/api/v1/debug/'+debugState.id+'/breakpoints/'+functionId
+            })
+                .then(function(response){ //Success
+                    var execution = response.data;
+                    deferred.resolve(execution);
+                }, function(response) { //Error
+                    deferred.reject(response.data);
+                });
+
+			return deferred.promise;
+
 		}
 
 		function _removeBreakpoint(debugState, functionId) {

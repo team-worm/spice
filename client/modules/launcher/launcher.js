@@ -14,13 +14,13 @@
             if($scope.mockloader.progress >= 100) {
                 $scope.mockloader.progress = 0;
                 self.loadingBinary = 0;
-                $scope.$emit('changeView', 'configuration');
             }
 
         },100, 0, true);
 
         self.launchSelected = function() {
         	self.loadingBinary = true;
+            $scope.$emit('changeView', 'configuration');
 		};
 
 		/* Stream example code

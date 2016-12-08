@@ -12,9 +12,6 @@ angular.module('Spice')
             if(self.running && $scope.mockloader.progress < 100) {
 
                 $scope.mockloader.progress+= 5 ;
-                if($scope.mockloader.progress == 5) {
-                    $scope.$emit('changeView','debugging');
-                }
             }
             if($scope.mockloader.progress >= 100) {
                 $scope.mockloader.progress = 0;
@@ -47,6 +44,7 @@ angular.module('Spice')
 
         self.runFunction = function() {
             self.running = true
+            $scope.$emit('changeView','debugging');
         };
 
         self.killFunction = function() {

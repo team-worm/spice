@@ -14,7 +14,7 @@ angular.module('Spice')
 			this.data = data;
 
 			this.stack = (new Error()).stack;
-		}
+		};
 
 		SpiceError.prototype = new Error();
 
