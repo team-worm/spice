@@ -138,9 +138,10 @@ fn send(mut res: Response, body: &[u8]) -> io::Result<()> {
 }
 
 /// GET /filesystem/:path* -- gets the file(s) within the given path
-fn filesystem(_: Request, res: Response, caps: Captures) {
+fn filesystem(mut req: Request, res: Response, caps: Captures) {
     let caps = caps.unwrap();
     let path = Path::new(&caps[1]);
+    io::copy(&mut req, &mut io::sink()).unwrap();
 
     let meta = fs::metadata(path).unwrap();
 
@@ -180,7 +181,9 @@ fn filesystem(_: Request, res: Response, caps: Captures) {
 }
 
 /// GET /processes -- gets the list of processes running on the host machine
-fn process(_: Request, res: Response, _: Captures) {
+fn process(mut req: Request, res: Response, _: Captures) {
+    io::copy(&mut req, &mut io::sink()).unwrap();
+
     let curr_procs = read_proc_dir();
 
     let json = serde_json::to_vec(&curr_procs).unwrap();
@@ -234,18 +237,20 @@ fn read_proc_dir() -> Vec<Process> {
 }
 
 /// POST /debug/attach/pid/:pid -- attach to a running process
-fn debug_attach_pid( _: Request, mut res: Response, caps: Captures, _child: ChildThread) {
+fn debug_attach_pid(mut req: Request, mut res: Response, caps: Captures, _child: ChildThread) {
     let caps = caps.unwrap();
     let _pid = caps[1].parse::<u64>().unwrap();
+    io::copy(&mut req, &mut io::sink()).unwrap();
 
     *res.status_mut() = StatusCode::NotImplemented;
     send(res, b"").unwrap();
 }
 
 /// POST /debug/attach/bin/:path -- attach to a binary
-fn debug_attach_bin(_: Request, mut res: Response, caps: Captures, child: ChildThread) {
+fn debug_attach_bin(mut req: Request, mut res: Response, caps: Captures, child: ChildThread) {
     let caps = caps.unwrap();
     let path = PathBuf::from(&caps[1]);
+    io::copy(&mut req, &mut io::sink()).unwrap();
 
     let attached_process = caps[1].clone();
 
@@ -285,13 +290,17 @@ fn debug_attach_bin(_: Request, mut res: Response, caps: Captures, child: ChildT
 }
 
 /// GET /debug
-fn debug(_: Request, mut res: Response, _: Captures, _child: ChildThread) {
+fn debug(mut req: Request, mut res: Response, _: Captures, _child: ChildThread) {
+    io::copy(&mut req, &mut io::sink()).unwrap();
+
     *res.status_mut() = StatusCode::NotImplemented;
     send(res, b"").unwrap();
 }
 
 /// GET /debug/:id/functions -- return a list of debuggable functions
-fn debug_functions(_: Request, res: Response, _: Captures) {
+fn debug_functions(mut req: Request, res: Response, _: Captures) {
+    io::copy(&mut req, &mut io::sink()).unwrap();
+
     let functions = vec![hardcoded_function()];
 
     let json = serde_json::to_vec(&functions).unwrap();
@@ -334,7 +343,9 @@ fn hardcoded_function() -> Function {
 }
 
 /// GET /debug/:id/functions/:function
-fn debug_function(_: Request, res: Response, _: Captures) {
+fn debug_function(mut req: Request, res: Response, _: Captures) {
+    io::copy(&mut req, &mut io::sink()).unwrap();
+
     let message = hardcoded_function();
 
     let json = serde_json::to_vec(&message).unwrap();
@@ -342,15 +353,18 @@ fn debug_function(_: Request, res: Response, _: Captures) {
 }
 
 /// GET /debug/:id/breakpoints
-fn debug_breakpoints(_: Request, mut res: Response, _: Captures) {
+fn debug_breakpoints(mut req: Request, mut res: Response, _: Captures) {
+    io::copy(&mut req, &mut io::sink()).unwrap();
+
     *res.status_mut() = StatusCode::NotImplemented;
     send(res, b"").unwrap();
 }
 
 /// PUT /debug/:id/breakpoints/:function
-fn debug_breakpoint_put(_: Request, res: Response, caps: Captures, child: ChildThread) {
+fn debug_breakpoint_put(mut req: Request, res: Response, caps: Captures, child: ChildThread) {
     let caps = caps.unwrap();
     let address = caps[2].parse::<usize>().unwrap();
+    io::copy(&mut req, &mut io::sink()).unwrap();
 
     let mut child = child.lock().unwrap();
     let child = child.as_mut().unwrap();
@@ -367,9 +381,10 @@ fn debug_breakpoint_put(_: Request, res: Response, caps: Captures, child: ChildT
 }
 
 /// DELETE /debug/:id/breakpoints/:function
-fn debug_breakpoint_delete(_: Request, res: Response, caps: Captures, child: ChildThread) {
+fn debug_breakpoint_delete(mut req: Request, res: Response, caps: Captures, child: ChildThread) {
     let caps = caps.unwrap();
     let address = caps[2].parse::<usize>().unwrap();
+    io::copy(&mut req, &mut io::sink()).unwrap();
 
     let mut child = child.lock().unwrap();
     let child = child.as_mut().unwrap();
@@ -380,9 +395,10 @@ fn debug_breakpoint_delete(_: Request, res: Response, caps: Captures, child: Chi
 }
 
 /// POST /debug/:id/execute -- starts or continues process
-fn debug_execute(_: Request, mut res: Response, caps: Captures, child: ChildThread) {
+fn debug_execute(mut req: Request, mut res: Response, caps: Captures, child: ChildThread) {
     let caps = caps.unwrap();
     let _debug_id = caps[1].parse::<u64>().unwrap();
+    io::copy(&mut req, &mut io::sink()).unwrap();
 
     let mut child = child.lock().unwrap();
     let child = child.as_mut().unwrap();
@@ -418,28 +434,35 @@ fn debug_execute(_: Request, mut res: Response, caps: Captures, child: ChildThre
 }
 
 /// POST /debug/:id/functions/:function/execute
-fn debug_function_execute(_: Request, mut res: Response, _: Captures) {
+fn debug_function_execute(mut req: Request, mut res: Response, _: Captures) {
+    io::copy(&mut req, &mut io::sink()).unwrap();
+
     *res.status_mut() = StatusCode::NotImplemented;
     send(res, b"").unwrap();
 }
 
 /// POST /debug/:id/executions
-fn debug_executions(_: Request, mut res: Response, _: Captures) {
+fn debug_executions(mut req: Request, mut res: Response, _: Captures) {
+    io::copy(&mut req, &mut io::sink()).unwrap();
+
     *res.status_mut() = StatusCode::NotImplemented;
     send(res, b"").unwrap();
 }
 
 /// GET /debug/:id/executions/:execution -- get information about execution status
-fn debug_execution(_: Request, mut res: Response, _: Captures) {
+fn debug_execution(mut req: Request, mut res: Response, _: Captures) {
+    io::copy(&mut req, &mut io::sink()).unwrap();
+
     *res.status_mut() = StatusCode::NotImplemented;
     send(res, b"").unwrap();
 }
 
 /// GET /debug/:id/executions/:execution/trace -- Get trace data for execution
-fn debug_execution_trace(_: Request, res: Response, caps: Captures, child: ChildThread) {
+fn debug_execution_trace(mut req: Request, res: Response, caps: Captures, child: ChildThread) {
     let caps = caps.unwrap();
     let _id = caps[1].parse::<u64>().unwrap();
     let execution = caps[2].parse::<u64>().unwrap();
+    io::copy(&mut req, &mut io::sink()).unwrap();
 
     // TODO: this is a hack for the prototype; implement process executions
     if execution == 0 {
@@ -506,7 +529,9 @@ fn debug_execution_trace(_: Request, res: Response, caps: Captures, child: Child
 }
 
 /// POST /debug/:id/executions/:execution/stop -- Halts a running execution
-fn debug_execution_stop(_: Request, mut res: Response, _: Captures) {
+fn debug_execution_stop(mut req: Request, mut res: Response, _: Captures) {
+    io::copy(&mut req, &mut io::sink()).unwrap();
+
     *res.status_mut() = StatusCode::NotImplemented;
     send(res, b"").unwrap();
 }
