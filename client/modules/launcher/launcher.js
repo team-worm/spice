@@ -9,7 +9,7 @@
         $interval(function() {
             if(self.loadingBinary && $scope.mockloader.progress < 100) {
 
-                $scope.mockloader.progress+= 7;
+                $scope.mockloader.progress+= 9;
             }
             if($scope.mockloader.progress >= 100) {
                 $scope.mockloader.progress = 0;

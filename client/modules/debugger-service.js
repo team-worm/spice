@@ -306,7 +306,7 @@ angular.module('Spice')
 
 		/**
 		 * @param {string} path
-		 * @returns {DebugState}
+		 * @returns {Promise<DebugState>}
 		 */
 		function _attachBinary(path) {
 			//TODO: use $http POST /debug/attach/bin/:path*
@@ -314,7 +314,11 @@ angular.module('Spice')
 
 			var deferred = $q.defer();
 
-			$http.post('debug/attach/bin/'+path, {})
+			$http({
+				method: 'POST',
+				url: 'http://localhost:3000/api/v1/debug/attach/bin/'+path,
+            	data: {}
+				})
 				.then(function(response){ //Success
 					var debugInfo = response.data;
 					deferred.resolve(new DebugState(debugInfo.id));
@@ -345,7 +349,11 @@ angular.module('Spice')
 				env: environmentVars
 			};
 
-            $http.post('debug/'+debugState.id+'/execute', reqBody)
+            $http({
+                method: 'POST',
+                url: 'localhost:3000/api/v1/debug/'+debugState.id+'/execute',
+                data: reqBody
+            	})
                 .then(function(response){ //Success
                     var execution = response.data;
 					deferred.resolve(execution);
@@ -378,9 +386,26 @@ angular.module('Spice')
 		/*** SourceFunctions ***/
 		function _getFunctions(debugState) {
 			//TODO: use $http GET /debug/:debugId/functions
-			return $q.resolve(
-				[new SourceFunction(0, 'helloFunc', 'hello.cpp', 4, 4, [new SourceVariable(0, 'a', new SourceType('int'), 0),
-				new SourceVariable(1, 'b', new SourceType('int'), 1)], [new SourceVariable(2, 'i', new SourceType('int'), 2)])]);
+			//VERIFY
+
+            var deferred = $q.defer();
+
+            $http({
+                method: 'GET',
+                url: 'localhost:3000/api/v1/debug/'+debugState.id+'/functions'
+            })
+                .then(function(response){ //Success
+                    var execution = response.data;
+                    deferred.resolve(execution);
+                }, function(response) { //Error
+                    deferred.reject(response.data);
+                });
+
+            return deferred.promise;
+
+			// return $q.resolve(
+			// 	[new SourceFunction(0, 'helloFunc', 'hello.cpp', 4, 4, [new SourceVariable(0, 'a', new SourceType('int'), 0),
+			// 	new SourceVariable(1, 'b', new SourceType('int'), 1)], [new SourceVariable(2, 'i', new SourceType('int'), 2)])]);
 		}
 
 		function _getFunction(debugState, id) {

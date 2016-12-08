@@ -36,16 +36,6 @@ angular.module('Spice')
                     '        }\n' +
                     '    }\n' +
                     '    return -1;\n' +
-                    '}\n' +
-                    '\n\n' +
-                    'int mergeSort(int* array) {\n' +
-                    '    //Implementation...\n' +
-                    '    return 0;\n' +
-                    '}\n' +
-                    '\n\n' +
-                    'int quickSort(int* array) {\n' +
-                    '    //Implementation...\n' +
-                    '    return 0;\n' +
                     '}'
 				);
 			}

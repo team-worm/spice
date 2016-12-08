@@ -25,7 +25,7 @@ angular.module('Spice')
 
         self.selectedFunction = '';
 
-        self.FunctionList = ['main (int,char*)', 'binarySearch (int,int*,int)', 'binary-search.c'];
+        self.FunctionList = ['main (int,char*[])', 'binarySearch (int,int*,int)', 'binary-search.c'];
 
         // Just insert some other garbage for the mockup.
         for(var i = 0; i < 10; i++) {

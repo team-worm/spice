@@ -55,11 +55,17 @@ angular.module('Spice')
 				});
 			});
 
-		DebuggerService.attachBinary('binary-search.exe')
+
+		//var path = 'C:/Users/Russell/Desktop/debug-c/x64/Debug/binary-search.exe';
+
+		var path = 'C:/Users/samda/Desktop/binary-search/x64/Debug/binary-search.exe';
+
+		DebuggerService.attachBinary(path)
 			.then(function(debugState) {
+				console.log(debugState);
 				return DebuggerService.getFunctions();
 			}).then(function(functions) {
-				return DebuggerService.getBreakpoints();
+				return DebuggerService.setBreakpoint('140695859763088');
 			}).then(function(breakpoints) {
 				return DebuggerService.execute('', '');
 			}).then(function(execution) {
