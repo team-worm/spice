@@ -99,7 +99,7 @@ fn main() {
 
     router.post(r"^/api/v1/debug/([0-9]*)/executions/([0-9]*)/stop$", debug_execution_stop);
 
-    router.options(r"", move |_, mut res, _| {
+    router.options(r"^.*$", move |_, mut res, _| {
         {
             use hyper::header::*;
             use hyper::method::Method;
