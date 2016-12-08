@@ -1,21 +1,25 @@
-use std::{io, slice, ptr, mem};
+use std::{io, mem, ptr};
+use std::fs::File;
 use std::sync::Mutex;
 use std::ffi::{OsString, OsStr};
-use std::os::windows::ffi::{OsStringExt, OsStrExt};
+use std::os::windows::ffi::OsStrExt;
+use std::os::windows::io::{RawHandle, AsRawHandle};
 
 use winapi;
 use kernel32;
 use dbghelp;
 
+use {Child, FromWide};
+
 lazy_static! {
     static ref HANDLE: Mutex<Handle> = Mutex::new(Handle(None));
 }
 
-struct Handle(Option<winapi::HANDLE>);
+struct Handle(Option<RawHandle>);
 unsafe impl Send for Handle {}
 unsafe impl Sync for Handle {}
 
-pub struct SymbolHandler(winapi::HANDLE);
+pub struct SymbolHandler(RawHandle);
 
 impl SymbolHandler {
     pub fn get_options() -> winapi::DWORD {
@@ -30,7 +34,9 @@ impl SymbolHandler {
     ///
     /// A process can only contain a single symbol handler. This function will fail if one already
     /// exists.
-    pub fn initialize(process: winapi::HANDLE) -> io::Result<SymbolHandler> {
+    pub fn initialize(process: &Child) -> io::Result<SymbolHandler> {
+        let process = process.as_raw_handle();
+
         let Handle(ref mut handle) = *HANDLE.lock().unwrap();
         if handle.is_some() {
             return Err(io::Error::new(io::ErrorKind::AlreadyExists, "symbol handler"));
@@ -47,11 +53,11 @@ impl SymbolHandler {
     }
 
     /// Load the symbols for a module
-    pub fn load_module(&mut self, file: winapi::HANDLE, base: usize) -> io::Result<()> {
+    pub fn load_module(&mut self, file: &File, base: usize) -> io::Result<()> {
         unsafe {
             // TODO: if we want to enable deferred symbol loading, we need to pass module size too
             if dbghelp::SymLoadModuleExW(
-                self.0, file, ptr::null(), ptr::null(),
+                self.0, file.as_raw_handle(), ptr::null(), ptr::null(),
                 base as winapi::DWORD64, 0, ptr::null_mut(), 0
             ) == 0 {
                 return Err(io::Error::last_os_error());
@@ -88,8 +94,9 @@ impl SymbolHandler {
                 return Err(io::Error::last_os_error());
             }
 
-            let name = slice::from_raw_parts(symbol.0.Name.as_ptr(), symbol.0.NameLen as usize);
-            let name = OsString::from_wide(name);
+            let name = OsString::from_wide_raw_len(
+                symbol.0.Name.as_ptr(), symbol.0.NameLen as usize
+            );
 
             Ok((Symbol {
                 name,
@@ -121,7 +128,7 @@ impl SymbolHandler {
         }
     }
 
-    /// Retrieve the source line byte offset of an instruction address
+    /// Retrieve the source line and byte offset of an instruction address
     pub fn line_from_address(&mut self, address: usize) -> io::Result<(Line, usize)> {
         unsafe {
             let mut displacement = 0;
@@ -136,14 +143,10 @@ impl SymbolHandler {
                 return Err(io::Error::last_os_error());
             }
 
-            let mut len = 0;
-            while *line.FileName.offset(len as isize) != 0 { len += 1; }
-
-            let file = slice::from_raw_parts(line.FileName, len);
-            let file = OsString::from_wide(file);
-
             Ok((Line {
-                file, line: line.LineNumber, address: line.Address as usize
+                file: OsString::from_wide_raw(line.FileName),
+                line: line.LineNumber,
+                address: line.Address as usize
             }, displacement as usize))
         }
     }
@@ -171,7 +174,7 @@ impl SymbolHandler {
     ///
     /// The thread should be part of an attached child process which is currently paused to handle
     /// a debug event.
-    pub fn walk_stack(&mut self, thread: winapi::HANDLE) -> io::Result<StackFrames> {
+    pub fn walk_stack(&mut self, thread: RawHandle) -> io::Result<StackFrames> {
         unsafe {
             let context = ::get_thread_context(thread, winapi::CONTEXT_FULL)?.into_raw();
 
@@ -225,14 +228,9 @@ impl SymbolHandler {
             let symbol = &*pSymInfo;
             let mut f = &mut *(UserContext as *mut F);
 
-            // for some reason, pSymInfo.NameLen includes the null terminator here
-            let mut len = 0;
-            while *symbol.Name.as_ptr().offset(len as isize) != 0 { len += 1; }
-            let wchars = slice::from_raw_parts(symbol.Name.as_ptr(), len);
-            let name = OsString::from_wide(wchars);
-
             let symbol = Symbol {
-                name,
+                // for some reason, pSymInfo.NameLen includes the null terminator here
+                name: OsString::from_wide_raw(symbol.Name.as_ptr()),
                 address: symbol.Address as usize,
                 size: SymbolSize as usize,
                 flags: symbol.Flags,
@@ -273,7 +271,7 @@ pub struct Line {
 
 /// Iterator of source lines
 pub struct Lines {
-    process: winapi::HANDLE,
+    process: RawHandle,
     line: winapi::IMAGEHLP_LINEW64,
     end: usize,
 }
@@ -286,16 +284,10 @@ impl Iterator for Lines {
             return None;
         }
 
-        let result = unsafe {
-            let line = &self.line;
-
-            let mut len = 0;
-            while *line.FileName.offset(len as isize) != 0 { len += 1; }
-
-            let file = slice::from_raw_parts(line.FileName, len);
-            let file = OsString::from_wide(file);
-
-            Line { file, line: line.LineNumber, address: line.Address as usize }
+        let result = Line {
+            file: unsafe { OsString::from_wide_raw(self.line.FileName) },
+            line: self.line.LineNumber,
+            address: self.line.Address as usize
         };
 
         unsafe {
@@ -310,8 +302,8 @@ impl Iterator for Lines {
 
 /// An iterator of the frames in a thread's stack
 pub struct StackFrames {
-    process: winapi::HANDLE,
-    thread: winapi::HANDLE,
+    process: RawHandle,
+    thread: RawHandle,
     context: winapi::CONTEXT,
     stack: winapi::STACKFRAME64,
 }

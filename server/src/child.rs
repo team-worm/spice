@@ -1,15 +1,14 @@
-use std::{io, ptr};
+use std::io;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::mpsc::{sync_channel, SyncSender, Receiver};
 use std::thread;
 use std::thread::JoinHandle;
-use std::os::windows::io::AsRawHandle;
+use std::os::windows::io::RawHandle;
 
 use debug;
 
 use winapi;
-use kernel32;
 
 pub struct Thread {
     pub thread: JoinHandle<()>,
@@ -71,7 +70,7 @@ struct DebugState {
     symbols: debug::SymbolHandler,
     attached: bool,
 
-    threads: HashMap<winapi::DWORD, winapi::HANDLE>,
+    threads: HashMap<winapi::DWORD, RawHandle>,
     breakpoints: HashMap<usize, Option<debug::Breakpoint>>,
     last_breakpoint: Option<usize>,
 }
@@ -84,7 +83,7 @@ fn run(path: PathBuf, tx: SyncSender<DebugMessage>, rx: Receiver<ServerMessage>)
     let options = debug::SymbolHandler::get_options();
     debug::SymbolHandler::set_options(winapi::SYMOPT_DEBUG | winapi::SYMOPT_LOAD_LINES | options);
 
-    let symbols = debug::SymbolHandler::initialize(child.as_raw_handle())?;
+    let symbols = debug::SymbolHandler::initialize(&child)?;
 
     let mut state = DebugState {
         child: child,
@@ -96,13 +95,10 @@ fn run(path: PathBuf, tx: SyncSender<DebugMessage>, rx: Receiver<ServerMessage>)
         last_breakpoint: None,
     };
 
-    let event = debug::DebugEvent::wait_event()?;
-    if let debug::DebugEventInfo::CreateProcess(cp) = event.info {
-        state.symbols.load_module(cp.hFile, cp.lpBaseOfImage as usize)?;
-        state.threads.insert(event.thread_id, cp.hThread);
-        if cp.hFile != ptr::null_mut() {
-            unsafe { kernel32::CloseHandle(cp.hFile) };
-        }
+    let event = debug::Event::wait_event()?;
+    if let debug::EventInfo::CreateProcess { ref file, main_thread, base, .. } = event.info {
+        state.symbols.load_module(file.as_ref().unwrap(), base)?;
+        state.threads.insert(event.thread_id, main_thread);
 
         tx.send(DebugMessage::Attached).unwrap();
     } else {
@@ -153,7 +149,7 @@ fn run(path: PathBuf, tx: SyncSender<DebugMessage>, rx: Receiver<ServerMessage>)
 
 fn trace_function(
     state: &mut DebugState, tx: &SyncSender<DebugMessage>
-) -> io::Result<debug::DebugEvent> {
+) -> io::Result<debug::Event> {
     let DebugState {
         ref mut child,
         ref mut symbols,
@@ -166,37 +162,29 @@ fn trace_function(
 
     let mut last_line = 0;
     loop {
-        let event = debug::DebugEvent::wait_event()?;
+        let event = debug::Event::wait_event()?;
 
-        use debug::DebugEventInfo::*;
+        use debug::EventInfo::*;
         match event.info {
-            ExitProcess(_ep) => {
+            ExitProcess { .. } => {
                 tx.send(DebugMessage::Trace(DebugTrace::Terminated(last_line))).unwrap();
                 return Ok(event);
             }
 
-            CreateThread(ct) => { threads.insert(event.thread_id, ct.hThread); }
-            ExitThread(..) => { threads.remove(&event.thread_id); }
+            CreateThread { thread, .. } => { threads.insert(event.thread_id, thread); }
+            ExitThread { .. } => { threads.remove(&event.thread_id); }
 
-            LoadDll(ld) => {
-                symbols.load_module(ld.hFile, ld.lpBaseOfDll as usize)?;
-                if ld.hFile != ptr::null_mut() {
-                    unsafe { kernel32::CloseHandle(ld.hFile) };
-                }
-            }
-            UnloadDll(ud) => {
-                symbols.unload_module(ud.lpBaseOfDll as usize)?;
-            }
+            LoadDll { ref file, base } => { symbols.load_module(file.as_ref().unwrap(), base)?; }
+            UnloadDll { base } => { symbols.unload_module(base)?; }
 
-            Exception(e) => {
-                let ref er = e.ExceptionRecord;
+            Exception { first_chance, code, address } => {
                 let thread = threads[&event.thread_id];
 
                 if !*attached {
                     *attached = true;
-                } else if er.ExceptionCode == winapi::EXCEPTION_BREAKPOINT {
+                } else if !first_chance {
+                } else if code == winapi::EXCEPTION_BREAKPOINT {
                     // disable and save the breakpoint
-                    let address = er.ExceptionAddress as usize;
                     let breakpoint = breakpoints.get_mut(&address).unwrap().take();
                     child.remove_breakpoint(breakpoint.unwrap())?;
                     *last_breakpoint = Some(address);
@@ -239,7 +227,7 @@ fn trace_function(
 
                     tx.send(DebugMessage::Trace(DebugTrace::Line(last_line, locals))).unwrap();
                     last_line = line.line;
-                } else if er.ExceptionCode == winapi::EXCEPTION_SINGLE_STEP {
+                } else if code == winapi::EXCEPTION_SINGLE_STEP {
                     // restore the disabled breakpoint
                     let address = last_breakpoint.take().unwrap();
                     let breakpoint = child.set_breakpoint(address)?;

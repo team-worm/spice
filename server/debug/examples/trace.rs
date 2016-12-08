@@ -1,11 +1,9 @@
 extern crate debug;
 
 extern crate winapi;
-extern crate kernel32;
 
-use std::{env, mem, ptr};
+use std::env;
 use std::collections::HashMap;
-use std::os::windows::io::AsRawHandle;
 
 fn main() {
     let child = debug::Command::new(env::args().nth(1).unwrap())
@@ -17,103 +15,88 @@ fn main() {
     debug::SymbolHandler::set_options(winapi::SYMOPT_DEBUG | winapi::SYMOPT_LOAD_LINES | options);
 
     let mut threads = HashMap::new();
-    let mut symbols = debug::SymbolHandler::initialize(child.as_raw_handle())
+    let mut symbols = debug::SymbolHandler::initialize(&child)
         .expect("failed to initialize symbol handler");
 
     let mut attached = false;
 
     let mut done = false;
     while !done {
-        let event = debug::DebugEvent::wait_event()
+        let event = debug::Event::wait_event()
             .expect("failed to get debug event");
 
         let mut debug_continue = false;
 
-        use debug::DebugEventInfo::*;
+        use debug::EventInfo::*;
         match event.info {
             // FIXME: currently this ignores cp.hProcess and thus only supports a single child
-            CreateProcess(cp) => {
-                threads.insert(event.thread_id, cp.hThread);
+            CreateProcess { ref file, main_thread, base, start_address, .. } => {
+                threads.insert(event.thread_id, main_thread);
 
-                symbols.load_module(cp.hFile, cp.lpBaseOfImage as usize)
+                symbols.load_module(file.as_ref().unwrap(), base)
                     .expect("failed to load module");
 
-                let address = unsafe { mem::transmute(cp.lpStartAddress) };
-                let (symbol, off) = symbols.symbol_from_address(address)
+                let (symbol, off) = symbols.symbol_from_address(start_address)
                     .expect("failed to get symbol");
 
                 let name = symbol.name.to_string_lossy();
                 println!("create process: {} {}+{}", event.process_id, name, off);
-
-                if cp.hFile != ptr::null_mut() {
-                    unsafe { kernel32::CloseHandle(cp.hFile) };
-                }
             }
 
-            ExitProcess(ep) => {
-                println!("exit process: {} ({})", event.process_id, ep.dwExitCode);
+            ExitProcess { exit_code } => {
+                println!("exit process: {} ({})", event.process_id, exit_code);
                 done = true;
             }
 
-            CreateThread(ct) => {
-                println!(
-                    "create thread: {} {:#018x}",
-                    event.thread_id, unsafe { mem::transmute::<_, usize>(ct.lpStartAddress) }
-                );
+            CreateThread { thread, start_address } => {
+                println!("create thread: {} {:#018x}", event.thread_id, start_address);
 
-                threads.insert(event.thread_id, ct.hThread);
+                threads.insert(event.thread_id, thread);
             }
 
-            ExitThread(et) => {
-                println!("exit thread: {} ({})", event.thread_id, et.dwExitCode);
+            ExitThread { exit_code } => {
+                println!("exit thread: {} ({})", event.thread_id, exit_code);
 
                 threads.remove(&event.thread_id);
             }
 
-            LoadDll(ld) => {
-                println!("load dll: {:#018x}", ld.lpBaseOfDll as usize);
+            LoadDll { ref file, base } => {
+                println!("load dll: {:#018x}", base);
 
-                symbols.load_module(ld.hFile, ld.lpBaseOfDll as usize)
+                symbols.load_module(file.as_ref().unwrap(), base)
                     .expect("failed to load module");
-
-                if ld.hFile != ptr::null_mut() {
-                    unsafe { kernel32::CloseHandle(ld.hFile) };
-                }
             }
 
-            UnloadDll(ud) => {
-                println!("unload dll: {:#018x}", ud.lpBaseOfDll as usize);
+            UnloadDll { base } => {
+                println!("unload dll: {:#018x}", base);
 
-                let _ = symbols.unload_module(ud.lpBaseOfDll as usize);
+                let _ = symbols.unload_module(base);
             }
 
-            OutputDebugString(ds) => {
-                let mut buffer = vec![0u8; ds.nDebugStringLength as usize];
-                child.read_memory(ds.lpDebugStringData as usize, &mut buffer)
+            OutputDebugString { data, length, .. } => {
+                let mut buffer = vec![0u8; length];
+                child.read_memory(data, &mut buffer)
                     .expect("failed reading debug string");
 
                 let string = String::from_utf8_lossy(&buffer);
                 println!("{}", string);
             }
 
-            Exception(e) => {
-                let er = &e.ExceptionRecord;
-
+            Exception { first_chance, code, address } => {
                 if !attached {
                     attached = true;
-                } else if e.dwFirstChance == 0 {
+                } else if !first_chance {
                     println!("passing on last chance exception");
                 } else {
-                    if er.ExceptionCode == winapi::EXCEPTION_BREAKPOINT {
+                    if code == winapi::EXCEPTION_BREAKPOINT {
                         debug_continue = true;
                     }
 
-                    let address = er.ExceptionAddress as usize;
                     let (symbol, off) = symbols.symbol_from_address(address)
                         .expect("failed to get symbol");
 
                     let name = symbol.name.to_string_lossy();
-                    println!("exception {:x} at {}+{}", er.ExceptionCode, name, off);
+                    println!("exception {:x} at {}+{}", code, name, off);
 
                     let walk = symbols.walk_stack(threads[&event.thread_id])
                         .expect("failed to walk thread stack");
@@ -161,7 +144,7 @@ fn main() {
                 }
             }
 
-            Rip(..) => println!("rip event"),
+            Rip { .. } => println!("rip event"),
         }
 
         event.continue_event(debug_continue)
