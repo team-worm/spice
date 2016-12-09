@@ -309,7 +309,7 @@ fn debug_functions(mut req: Request, res: Response, _: Captures) {
 
 fn hardcoded_function() -> Function {
     Function {
-        address: 0x00007ff64ebe1790usize,
+        address: 0x00007ff704051790usize,
         name: String::from("binarySearch"),
         source_path: String::from("binary-search.c"),
         line_number: 15,
