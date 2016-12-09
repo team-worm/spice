@@ -473,7 +473,7 @@ fn debug_execution(mut req: Request, mut res: Response, _: Captures) {
 }
 
 /// GET /debug/:id/executions/:execution/trace -- Get trace data for execution
-fn debug_execution_trace(mut req: Request, res: Response, caps: Captures, child: ChildThread) {
+fn debug_execution_trace(mut req: Request, mut res: Response, caps: Captures, child: ChildThread) {
     let caps = caps.unwrap();
     let _id = caps[1].parse::<u64>().unwrap();
     let execution = caps[2].parse::<u64>().unwrap();
@@ -503,6 +503,14 @@ fn debug_execution_trace(mut req: Request, res: Response, caps: Captures, child:
     child.tx.send(ServerMessage::Trace).unwrap();
 
     let mut prev_locals = HashMap::new();
+
+    {
+        use hyper::header::*;
+
+        let headers = res.headers_mut();
+        headers.set(AccessControlAllowOrigin::Any);
+        headers.set(ContentType("application/json".parse().unwrap()));
+    }
 
     let mut res = res.start().unwrap();
     res.write_all(b"[\n").unwrap();
