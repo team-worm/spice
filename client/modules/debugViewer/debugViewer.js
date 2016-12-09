@@ -96,7 +96,7 @@ angular.module('Spice')
 									//$scope.lines[trace.line].trace.push(trace);
 									//break;
 									case 'breakpoint':
-										nextExecutionId = trace.data.next_execution;
+										nextExecutionId = trace.data.nextExecution;
 										break;
 								}
 						}

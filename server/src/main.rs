@@ -485,7 +485,7 @@ fn debug_execution_trace(mut req: Request, mut res: Response, caps: Captures, ch
 
         let mut map = Map::new();
         map.insert(String::from("cause"), Value::String(String::from("breakpoint")));
-        map.insert(String::from("next_execution"), Value::U64(1));
+        map.insert(String::from("nextExecution"), Value::U64(1));
         let object = Value::Object(map);
 
         let message = vec![
@@ -501,6 +501,7 @@ fn debug_execution_trace(mut req: Request, mut res: Response, caps: Captures, ch
     let child = child.as_mut().unwrap();
 
     child.tx.send(ServerMessage::Trace).unwrap();
+    child.rx.recv().unwrap();
 
     let mut prev_locals = HashMap::new();
 
@@ -518,8 +519,6 @@ fn debug_execution_trace(mut req: Request, mut res: Response, caps: Captures, ch
     let mut index = 0;
     let mut done = false;
     while !done {
-        child.rx.recv().unwrap();
-
         let message = match child.rx.recv() {
             Ok(DebugMessage::Trace(DebugTrace::Line(line, locals))) => {
                 let this_index = index;
@@ -531,7 +530,7 @@ fn debug_execution_trace(mut req: Request, mut res: Response, caps: Captures, ch
                         state.push(TraceState { variable: name.clone(), value });
                     }
                 }
-                prev_locals = locals.into_iter().collect();
+                prev_locals.extend(locals.into_iter());
 
                 Trace { index: this_index, t_type: 0, line: line, data: state.to_json() }
             }
