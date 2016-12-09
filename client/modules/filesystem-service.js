@@ -8,9 +8,8 @@ angular.module('Spice')
 			if(path === 'binary-search.c') {
 				return $q.resolve(
                     '#include <stdio.h>\n' +
+                    '\n' +
                     'int binarySearch(int key, int *array, int length);\n' +
-                    'int mergeSort(int* array);\n' +
-                    'int quickSort(int* array);\n' +
                     '\n' +
                     'int main(int argc, char *argv[]) {\n' +
                     '   int array[] = { 1, 3, 4, 6, 7, 9, 11, 15 };\n' +
@@ -18,15 +17,15 @@ angular.module('Spice')
                     '   \n' +
                     '   return 0;\n' +
                     '}\n' +
-                    '\n\n' +
+                    '\n' +
                     'int binarySearch(int key, int *array, int length) {\n' +
                     '    int low = 0;\n' +
                     '    int high = length - 1;\n' +
-                    '\n\n' +
+                    '\n' +
                     '    while (low <= high) {\n' +
                     '        int mid = low + (high - low) / 2;\n' +
                     '        int value = array[mid];\n' +
-                    '\n\n' +
+                    '\n' +
                     '        if (value < key) {\n' +
                     '            low = mid + 1;\n' +
                     '        } else if (value > key) {\n' +
@@ -35,8 +34,9 @@ angular.module('Spice')
                     '            return mid;\n' +
                     '        }\n' +
                     '    }\n' +
+                    '\n' +
                     '    return -1;\n' +
-                    '}'
+                    '}\n'
 				);
 			}
 			else {
