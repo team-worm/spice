@@ -15,6 +15,7 @@ use std::{io, fs};
 use std::sync::{Mutex, Arc};
 use std::io::{BufRead, Write};
 use std::path::{PathBuf, Path};
+use std::collections::HashMap;
 
 use hyper::status::StatusCode;
 use hyper::server::{Server, Request, Response};
@@ -501,7 +502,7 @@ fn debug_execution_trace(mut req: Request, res: Response, caps: Captures, child:
 
     child.tx.send(ServerMessage::Trace).unwrap();
 
-    let mut prev_locals = vec![];
+    let mut prev_locals = HashMap::new();
 
     let mut res = res.start().unwrap();
     res.write_all(b"[\n").unwrap();
@@ -509,18 +510,20 @@ fn debug_execution_trace(mut req: Request, res: Response, caps: Captures, child:
     let mut index = 0;
     let mut done = false;
     while !done {
+        child.rx.recv().unwrap();
+
         let message = match child.rx.recv() {
             Ok(DebugMessage::Trace(DebugTrace::Line(line, locals))) => {
                 let this_index = index;
                 index += 1;
 
                 let mut state = vec![];
-                for (id, &value) in locals.iter().enumerate() {
-                    if prev_locals.get(id).map(|&prev_value| value != prev_value).unwrap_or(true) {
-                        state.push(TraceState { variable: id as i32, value });
+                for &(ref name, value) in locals.iter() {
+                    if prev_locals.get(name).map(|&prev_value| value != prev_value).unwrap_or(true) {
+                        state.push(TraceState { variable: name.clone(), value });
                     }
                 }
-                prev_locals = locals;
+                prev_locals = locals.into_iter().collect();
 
                 Trace { index: this_index, t_type: 0, line: line, data: state.to_json() }
             }

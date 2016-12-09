@@ -27,7 +27,7 @@ pub enum DebugMessage {
 }
 
 pub enum DebugTrace {
-    Line(u32, Vec<u64>),
+    Line(u32, Vec<(String, u64)>),
     Terminated,
 }
 
@@ -164,6 +164,7 @@ fn trace_function(
         ref mut last_breakpoint,
     } = *state;
 
+    let mut last_line = 0;
     loop {
         let event = debug::DebugEvent::wait_event()?;
 
@@ -222,19 +223,22 @@ fn trace_function(
                         let mut buffer = vec![0u8; size];
                         let address = context.Rbp as usize + symbol.address;
                         if let Ok(_) = child.read_memory(address, &mut buffer) {
+                            let name = symbol.name.to_string_lossy().into_owned();
+
                             let value = match size {
                                 4 => unsafe { *(buffer.as_ptr() as *const u32) as u64 },
                                 8 => unsafe { *(buffer.as_ptr() as *const u64) as u64 },
                                 _ => unsafe { *(buffer.as_ptr() as *const u32) as u64 },
                             };
 
-                            locals.push(value);
+                            locals.push((name, value));
                         }
 
                         true
                     })?;
 
-                    tx.send(DebugMessage::Trace(DebugTrace::Line(line.line, locals))).unwrap();
+                    tx.send(DebugMessage::Trace(DebugTrace::Line(last_line, locals))).unwrap();
+                    last_line = line.line;
                 } else if er.ExceptionCode == winapi::EXCEPTION_SINGLE_STEP {
                     // restore the disabled breakpoint
                     let address = last_breakpoint.take().unwrap();
