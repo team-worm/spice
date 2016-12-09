@@ -526,6 +526,10 @@ fn debug_execution_trace(mut req: Request, mut res: Response, caps: Captures, ch
 
                 let mut state = vec![];
                 for &(ref name, value) in locals.iter() {
+                    if value == 0xcccccccc {
+                        continue;
+                    }
+
                     if prev_locals.get(name).map(|&prev_value| value != prev_value).unwrap_or(true) {
                         state.push(TraceState { variable: name.clone(), value });
                     }
