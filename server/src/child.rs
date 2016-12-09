@@ -20,9 +20,10 @@ pub struct Thread {
 /// messages the debug event loop sends to the server
 pub enum DebugMessage {
     Attached,
-    Error(io::Error),
+    Breakpoint,
     Executing,
     Trace(DebugTrace),
+    Error(io::Error),
 }
 
 pub enum DebugTrace {
@@ -122,6 +123,8 @@ fn run(path: PathBuf, tx: SyncSender<DebugMessage>, rx: Receiver<ServerMessage>)
                     let breakpoint = state.child.set_breakpoint(line.address)?;
                     state.breakpoints.insert(line.address, Some(breakpoint));
                 }
+
+                tx.send(DebugMessage::Breakpoint).unwrap();
             }
 
             ServerMessage::ClearBreakpoint { .. } => {}

@@ -361,7 +361,7 @@ fn debug_breakpoints(mut req: Request, mut res: Response, _: Captures) {
 }
 
 /// PUT /debug/:id/breakpoints/:function
-fn debug_breakpoint_put(mut req: Request, res: Response, caps: Captures, child: ChildThread) {
+fn debug_breakpoint_put(mut req: Request, mut res: Response, caps: Captures, child: ChildThread) {
     let caps = caps.unwrap();
     let address = caps[2].parse::<usize>().unwrap();
     io::copy(&mut req, &mut io::sink()).unwrap();
@@ -370,13 +370,27 @@ fn debug_breakpoint_put(mut req: Request, res: Response, caps: Captures, child: 
     let child = child.as_mut().unwrap();
 
     child.tx.send(ServerMessage::SetBreakpoint { address }).unwrap();
+    let json = match child.rx.recv().unwrap() {
+        DebugMessage::Breakpoint => {
+            let message = Breakpoint {
+                function: hardcoded_function(),
+                metadata: String::new(),
+            };
 
-    let message = Breakpoint {
-        function: hardcoded_function(),
-        metadata: String::new(),
+            serde_json::to_vec(&message).unwrap()
+        }
+
+        DebugMessage::Error(e) => {
+            *res.status_mut() = StatusCode::InternalServerError;
+            let message = Error {
+                code: 0, message: format!("{}", e), data: 0
+            };
+
+            serde_json::to_vec(&message).unwrap()
+        }
+
+        _ => unreachable!()
     };
-
-    let json = serde_json::to_vec(&message).unwrap();
     send(res, &json).unwrap();
 }
 
