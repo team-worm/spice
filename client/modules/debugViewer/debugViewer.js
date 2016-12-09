@@ -46,6 +46,9 @@ angular.module('Spice')
 			if($scope.currentTraceCol >= $scope.traceColCount) {
 				$scope.traceColCount = $scope.currentTraceCol + 1;
 			}
+			$timeout(function() {
+				$scope.$broadcast('contentHeightUpdated', {row: trace.line-1, col: line.traceMaxIteration});
+			});
 		}
 
 		FilesystemService.getFileContents('binary-search.c')
@@ -160,7 +163,7 @@ angular.module('Spice')
 				};
 			}]
 		};
-	}).directive('reactiveHeightCell', function() {
+	}).directive('reactiveHeightCell', ['$timeout', function($timeout) {
 		return {
 			require: '^^reactiveHeightGrid',
 			restrict: 'E',
@@ -182,21 +185,41 @@ angular.module('Spice')
 
 				gridCtrl.registerCell(scope.row, scope.col, scope.cell);
 
-				scope.$watch(function() {
+				scope.onContentHeightUpdated = function() {
 					elem.children().css({height: ""});
 					scope.cell.height = outerHeight(elem.children()[0]);
 					if(scope.cell.maxHeight > 0) {
 						elem.children().css({height: scope.cell.maxHeight + 'px'});
 					}
 					gridCtrl.onCellHeightUpdated(scope.row, scope.col);
+				};
+
+				$timeout(function() {
+					//TODO: figure out how to do this without 10ms delay (0 delay sometimes fails)
+					console.log('hi');
+					scope.onContentHeightUpdated();
+				},10);
+
+				scope.$on('contentHeightUpdated', function(event, args) {
+					if(args.updateAll || args.row === scope.row) {
+						scope.onContentHeightUpdated();
+					}
 				});
+				//scope.$watch(function() {
+					//elem.children().css({height: ""});
+					//scope.cell.height = outerHeight(elem.children()[0]);
+					//if(scope.cell.maxHeight > 0) {
+						//elem.children().css({height: scope.cell.maxHeight + 'px'});
+					//}
+					//gridCtrl.onCellHeightUpdated(scope.row, scope.col);
+				//});
 
 				elem.on('$destroy', function() {
 					gridCtrl.unregisterCell(scope.row, scope.col);
 				});
 			}
 		};
-	}).directive('trace', ['DebuggerService', function(DebuggerService) {
+	}]).directive('trace', ['DebuggerService', function(DebuggerService) {
 		return {
 			restrict: 'E',
 			scope: {
@@ -216,6 +239,6 @@ function outerHeight(el) {
 	var height = el.offsetHeight;
 	var style = getComputedStyle(el);
 
-	height += parseInt(style.marginTop) + parseInt(style.marginBottom);
+	//height += parseInt(style.marginTop) + parseInt(style.marginBottom);
 	return height;
 }
