@@ -539,11 +539,13 @@ fn debug_execution_trace(mut req: Request, mut res: Response, caps: Captures, ch
                 Trace { index: this_index, t_type: 0, line: line, data: state.to_json() }
             }
 
-            Ok(DebugMessage::Trace(DebugTrace::Terminated)) | _ => {
+            Ok(DebugMessage::Trace(DebugTrace::Terminated(line))) => {
                 done = true;
 
-                Trace { index: index, t_type: 2, line: 0, data: Vec::<Trace>::new().to_json() }
+                Trace { index: index, t_type: 2, line: line, data: Vec::<Trace>::new().to_json() }
             }
+
+            _ => unreachable!()
         };
 
         let json = serde_json::to_vec(&message).unwrap();

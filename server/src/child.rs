@@ -28,7 +28,7 @@ pub enum DebugMessage {
 
 pub enum DebugTrace {
     Line(u32, Vec<(String, u64)>),
-    Terminated,
+    Terminated(u32),
 }
 
 /// messages the server sends to the debug event loop to request info
@@ -171,7 +171,7 @@ fn trace_function(
         use debug::DebugEventInfo::*;
         match event.info {
             ExitProcess(_ep) => {
-                tx.send(DebugMessage::Trace(DebugTrace::Terminated)).unwrap();
+                tx.send(DebugMessage::Trace(DebugTrace::Terminated(last_line))).unwrap();
                 return Ok(event);
             }
 
