@@ -3,7 +3,7 @@ angular.module('Spice', ['ngMaterial', 'ngMessages'])
 
         var self = this;
 
-        self.view = 'configuration';
+        self.view = 'launcher';
 
         self.getConfigUnlocked = function() {
             var debugState = DebuggerService.getAttachedDebugState();

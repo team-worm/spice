@@ -3,6 +3,8 @@ angular.module('Spice')
 
         $scope.lines = [];
 
+        $scope.error = '';
+
         $scope.traceColCount = 0;
         $scope.currentTraceCol = -1;
         $scope.addTrace = function (trace) {
@@ -32,10 +34,15 @@ angular.module('Spice')
                 });
         });
 
-        DebuggerService.execute('', '').then(function (execution) {
-            $scope.loader.Enable();
-            return followExecution(execution.id);
-        });
+        DebuggerService.execute('', '')
+            .then(function (execution) {
+                $scope.error = '';
+                $scope.loader.Enable();
+                return followExecution(execution.id);
+            }).catch(function(err) {
+                $scope.error = 'Error executing function, see console.';
+                console.error(err);
+            });
 
 
         function followExecution(executionId) {
@@ -53,6 +60,7 @@ angular.module('Spice')
                                 //$scope.lines[trace.line].traces.push(trace);
                                 break;
                             case 2:
+                                $scope.loader.Disable();
                                 switch (trace.data.cause) {
                                     //case 'ended':
                                     //$scope.lines[trace.line].trace.push(trace);

@@ -26,6 +26,10 @@ $text-color-error: rgb(220, 49, 32);
     font-size: larger;
 }
 
+.error-box {
+    text-align: center;
+}
+
 .error-text {
     color: $text-color-error;
     font-style:italic;
@@ -36,10 +40,6 @@ $text-color-error: rgb(220, 49, 32);
         position: absolute;
         bottom: 0;
         right: 0;
-    }
-
-    .error-box {
-        text-align: center;
     }
 
     .filesystem {
@@ -67,6 +67,11 @@ $text-color-error: rgb(220, 49, 32);
     .spacer {
         margin-left:1em;
         margin-right:1em;
+    }
+
+    .spacer-xs {
+        margin-left:0.25em;
+        margin-right:0.25em;
     }
     #console {
         background: black;

@@ -48,7 +48,7 @@
         <md-progress-linear md-mode="{{Loader.mode}}" class="md-warn" value="0"></md-progress-linear>
         <spice-launcher mode="mode" ng-if="ctrl.view == 'launcher'" loader="Loader" ng-cloak></spice-launcher>
         <spice-function-picker ng-if="ctrl.view == 'configuration'" loader="Loader" ng-cloak></spice-function-picker>
-        <spice-debug-viewer ng-if="ctrl.view == 'debugging'" ng-cloak></spice-debug-viewer>
+        <spice-debug-viewer ng-if="ctrl.view == 'debugging'" loader="Loader" ng-cloak></spice-debug-viewer>
         <div class="mockup">
             <span>
                 Prototype

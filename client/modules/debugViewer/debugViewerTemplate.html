@@ -1,6 +1,9 @@
-<h3>Output of binarySearch(int, int*, int)</h3>
-<md-content ng-controller="DebugViewerCtrl" class="debugger">
-    <reactive-height-grid layout="row">
+<md-content ng-controller="DebugViewerCtrl">
+    <h3>Output of binarySearch(int, int*, int)</h3>
+    <md-content class="error-box" layout-margin>
+        <span class="error-text">{{error}}</span>
+    </md-content>
+    <reactive-height-grid layout="row" class="debugger">
         <div flex class="source-code-viewer">
             <div layout="row">
                 <div flex="none" class="line-number-column debug-column">

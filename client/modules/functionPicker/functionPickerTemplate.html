@@ -17,7 +17,7 @@
                 <i class="spacer fa fa-caret-right" aria-hidden="true"> </i>
                 <b>binary-search.c</b>
                 <i class="spacer fa fa-caret-right"  ng-show="!!ctrl.selectedFunction" aria-hidden="true"> </i>
-                <b>{{ctrl.selectedFunction}}</b>
+                <b>{{ctrl.selectedFunction.func.name}}</b><span class="spacer-xs"></span>{{ctrl.getFuncPars()}}
             </div>
         </md-toolbar>
         <md-content flex="100" layout="row" layout-xs="column" class="md-padding md-whiteframe-3dp">
@@ -27,9 +27,10 @@
                         md-items="item in ctrl.FunctionList"
                         md-min-length="0"
                         md-selected-item="ctrl.selectedFunction"
+                        md-item-text="item.func.name + ' ' +ctrl.getFuncPars()"
                         placeholder="Search a File or Function ">
                     <md-item-template>
-                        <span>{{item}}</span>
+                        <span>{{item.func.name + ' ' + ctrl.getFuncPars(item)}}</span>
                     </md-item-template>
                     <md-not-found>
                         Function or File Not Found!
@@ -39,7 +40,7 @@
                     <div md-virtual-repeat="item in ctrl.FunctionList"
                          class="repeated-item"
                          ng-click="ctrl.setFunctionToRun(item)">
-                        <span>{{item}}</span>
+                        <span>{{item.func.name + ' ' + ctrl.getFuncPars(item)}}</span>
                     </div>
                 </md-virtual-repeat-container>
                 <md-content id="console" layout-padding>

@@ -7,12 +7,19 @@ angular.module('Spice')
 
         self.selectedFunction = '';
 
-        self.FunctionList = ['main (int,char*[])', 'binarySearch (int,int*,int)', 'binary-search.c'];
+        self.FunctionList = [];
 
         self.lines = [];
 
         DebuggerService.getFunctions().then(function(functions) {
-            self.FunctionList = functions;
+            var list = [];
+            for(pr in functions) {
+                if(functions.hasOwnProperty(pr)) {
+                    list.push({func: functions[pr],  address: pr})
+                }
+            }
+
+            self.FunctionList = list;
             self.error = '';
             init();
         }).catch(function(err) {
@@ -31,26 +38,46 @@ angular.module('Spice')
             });
         }
 
+        self.getFuncPars = function(item) {
+            var func = item;
+            if(!func) {
+                func = self.selectedFunction;
+            }
+            if(!func) {
+                return '';
+            }
+            var out = '(';
+            var start = true;
+            func.func.parameters.map(function(par){
+                if(!start) {
+                    out += ',';
+
+                }
+                start = false;
+
+                out += par.sType.name;
+            });
+
+            out += ')';
+
+            return out;
+        };
+
         self.getCanRunFunction = function() {
-            return !running && self.selectedFunction == 'binarySearch (int,int*,int)';
+            return !!self.selectedFunction;
         };
         self.getCanKillFunction = function() {
             return false;
         };
         self.setFunctionToRun = function(func) {
             self.selectedFunction = func;
-            if(func != 'binarySearch (int,int*,int)') {
-                self.error = 'Cannot run this function in the prototype.';
-            } else {
-                self.error = '';
-            }
         };
 
         self.runFunction = function () {
             running = true;
             $scope.loader.Enable();
 
-            DebuggerService.setBreakpoint(self.selectedFunction)
+            DebuggerService.setBreakpoint(self.selectedFunction.address)
                 .then(function() {
                     $scope.$emit('changeView', 'debugging');
                     running = false;
