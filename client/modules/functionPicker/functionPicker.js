@@ -1,62 +1,80 @@
 angular.module('Spice')
-    .controller('FunctionPickerCtrl', ['$scope', '$timeout', '$interval', 'FilesystemService', function ($scope, $timeout, $interval, FilesystemService) {
+    .controller('FunctionPickerCtrl', ['$scope', '$timeout', '$interval', 'FilesystemService', 'DebuggerService', function ($scope, $timeout, $interval, FilesystemService, DebuggerService) {
 
         var self = this;
 
-        $timeout(function () {
-            //after the page renders, redigest so the ReactiveHeightCells can set height
-            $scope.$digest()
-        });
-
-        $interval(function () {
-            if (self.running && $scope.mockloader.progress < 100) {
-
-                $scope.mockloader.progress += 5;
-            }
-            if ($scope.mockloader.progress >= 100) {
-                $scope.mockloader.progress = 0;
-                self.running = 0;
-            }
-
-        }, 100, 0, false);
+        var running = false;
 
         self.selectedFunction = '';
 
         self.FunctionList = ['main (int,char*[])', 'binarySearch (int,int*,int)', 'binary-search.c'];
 
-        // Just insert some other garbage for the mockup.
-        for (var i = 0; i < 10; i++) {
-            self.FunctionList.push('some_other_function_' + i + ' ()');
-        }
-
-        self.running = false;
-
         self.lines = [];
 
-        FilesystemService.getFileContents('binary-search.c').then(function (file) {
-            self.lines = file.split('\n').map(function (line) {
-                return {code: line};
-            });
-        }, function (error) {
-            alert('Failed to get file');
-            console.error(error);
+        DebuggerService.getFunctions().then(function(functions) {
+            self.FunctionList = functions;
+            self.error = '';
+            init();
+        }).catch(function(err) {
+            self.error = 'Error loading functions from binary, see console.';
         });
 
+        function init() {
+
+            FilesystemService.getFileContents('binary-search.c').then(function (file) {
+                self.lines = file.split('\n').map(function (line) {
+                    return {code: line};
+                });
+            }, function (error) {
+                alert('Failed to get file');
+                console.error(error);
+            });
+        }
+
+        self.getCanRunFunction = function() {
+            return !running && self.selectedFunction == 'binarySearch (int,int*,int)';
+        };
+        self.getCanKillFunction = function() {
+            return false;
+        };
+        self.setFunctionToRun = function(func) {
+            self.selectedFunction = func;
+            if(func != 'binarySearch (int,int*,int)') {
+                self.error = 'Cannot run this function in the prototype.';
+            } else {
+                self.error = '';
+            }
+        };
+
         self.runFunction = function () {
-            self.running = true
-            $scope.$emit('changeView', 'debugging');
+            running = true;
+            $scope.loader.Enable();
+
+            DebuggerService.setBreakpoint(self.selectedFunction)
+                .then(function() {
+                    $scope.$emit('changeView', 'debugging');
+                    running = false;
+                    $scope.loader.Disable();
+                }).catch(function(err) {
+                    console.error(err);
+                    running = false;
+                $scope.loader.Disable();
+                    self.error = 'Could not set breakpoint on function, see console.';
+
+                });
         };
 
         self.killFunction = function () {
-            self.running = false
-            $scope.mockloader.progress = 0
+            running = false;
+            $scope.loader.Disable();
+
         };
     }])
     .directive('spiceFunctionPicker', function () {
         return {
             restrict: 'E',
             scope: {
-                mockloader: '=mockloader'
+                loader: '=loader'
             },
             templateUrl: 'modules/functionPicker/functionPickerTemplate.html'
         }

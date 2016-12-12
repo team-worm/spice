@@ -1,33 +1,7 @@
 angular.module('Spice')
     .controller('DebugViewerCtrl', ['$scope', '$timeout', 'DebuggerService', 'FilesystemService', function ($scope, $timeout, DebuggerService, FilesystemService) {
+
         $scope.lines = [];
-
-        //$scope.lines = [
-        //{ code: 'void insertion_sort (int arr[], int length){', state: 'a=1' },
-        //{ code: '		int j, temp;', state: 'a=1' },
-        //{ code: '		', state: 'a=1' },
-        //{ code: '	for (int i = 0; i < length; i++){', state: 'a=1' },
-        //{ code: '		j = i;', state: 'a=1' },
-        //{ code: '		', state: 'a=1' },
-        //{ code: '		while (j > 0 && arr[j] < arr[j-1]){', state: 'a=1' },
-        //{ code: '			temp = arr[j];', state: 'a=1' },
-        //{ code: '			arr[j] = arr[j-1];', state: 'a=1' },
-        //{ code: '			arr[j-1] = temp;', state: 'a=1' },
-        //{ code: '			j--;', state: 'a=1' },
-        //{ code: '			}', state: 'a=1' },
-        //{ code: '		}', state: 'a=1' },
-        //{ code: '}', state: 'a=1' }
-        //];
-
-        //$timeout(function() {
-        ////after the page renders, redigest so the ReactiveHeightCells can set height
-        //$scope.$digest()
-        //});
-
-        //0 | 1 2
-        //0 | 1
-        //
-        //0,0
 
         $scope.traceColCount = 0;
         $scope.currentTraceCol = -1;
@@ -49,35 +23,20 @@ angular.module('Spice')
             $timeout(function () {
                 $scope.$broadcast('contentHeightUpdated', {row: trace.line - 1, col: line.traceMaxIteration});
             });
-        }
+        };
 
         FilesystemService.getFileContents('binary-search.c')
             .then(function (contents) {
                 $scope.lines = contents.split('\n').map(function (line) {
                     return {code: line, traces: [], traceMaxIteration: -1};
                 });
-            });
-
-
-        //var path = 'C:/Users/Russell/Desktop/debug-c/x64/Debug/binary-search.exe';
-
-        var path = 'C:/Users/Elliot/Downloads/binary-search/x64/Debug/binary-search.exe';
-
-        DebuggerService.attachBinary(path)
-            .then(function (debugState) {
-                console.log(debugState);
-                return DebuggerService.getFunctions();
-            }).then(function (functions) {
-            return DebuggerService.setBreakpoint(Object.keys(functions)[0]);
-        }).then(function (breakpoints) {
-            return DebuggerService.execute('', '');
-        }).then(function (execution) {
-            return followExecution(execution.id);
-            //}).then(function() {
-            //return DebuggerService.executeFunction(0, {});
-            //}).then(function(execution) {
-            //return followExecution(execution.id);
         });
+
+        DebuggerService.execute('', '').then(function (execution) {
+            $scope.loader.Enable();
+            return followExecution(execution.id);
+        });
+
 
         function followExecution(executionId) {
             var nextExecutionId = null;
@@ -115,6 +74,9 @@ angular.module('Spice')
     .directive('spiceDebugViewer', function () {
         return {
             restrict: 'E',
+            scope: {
+                loader: '=loader'
+            },
             templateUrl: 'modules/debugViewer/debugViewerTemplate.html'
         }
     }).directive('reactiveHeightGrid', function () {
@@ -196,7 +158,6 @@ angular.module('Spice')
 
             $timeout(function () {
                 //TODO: figure out how to do this without 10ms delay (0 delay sometimes fails)
-                console.log('hi');
                 scope.onContentHeightUpdated();
             }, 10);
 

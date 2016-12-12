@@ -1,41 +1,45 @@
 angular.module('Spice', ['ngMaterial', 'ngMessages'])
-    .controller('MainCtrl', ['$scope', '$interval', function ($scope, $interval) {
+    .controller('MainCtrl', ['$scope', 'DebuggerService', function ($scope, DebuggerService) {
 
         var self = this;
 
-        self.view = 2;
+        self.view = 'configuration';
 
-        self.configUnlocked = true;
-        self.debuggingUnlocked = true;
+        self.getConfigUnlocked = function() {
+            var debugState = DebuggerService.getAttachedDebugState();
+            return !!debugState;
+        };
+        self.getDebuggingUnlocked = function () {
+            var debugState = DebuggerService.getAttachedDebugState();
+            return !!debugState && Object.keys(debugState.breakpoints).length > 0;
+        };
 
-        $scope.MockLoader = {progress: 0};
+        $scope.Loader = {
+            mode: 'determinate',
+            Enable: function() {
+                this.mode = 'indeterminate';
+            },
+            Disable: function() {
+                this.mode = 'determinate';
+            }
+        };
 
         $scope.$on('changeView', function (event, viewArg) {
             if (typeof viewArg != 'string') {
                 console.error('\'changeView\' event arg is not a string.', viewArg);
                 return;
             }
-            switch (viewArg.toLowerCase()) {
+            var viewLc = viewArg.toLowerCase();
+            switch (viewLc) {
                 case 'launcher':
-                    self.view = 0;
-                    break;
                 case 'configuration':
-                    self.configUnlocked = true;
-                    self.view = 1;
-                    break;
                 case 'debugging':
-                    self.debuggingUnlocked = true;
-                    self.view = 2;
+                    self.view = viewLc;
                     break;
                 default:
-                    console.error('\'changeView\' event arg is not a valid view.', viewArg);
+                    console.error('\'changeView\' view is not a valid view.', viewArg);
             }
         });
-
-        //$interval(function() {
-        //    $scope.MockLoader = ($scope.MockLoader+1) % 100;
-        //
-        //}, 100, 0 ,true)
     }])
     .config(function ($mdThemingProvider) {
 

@@ -1,4 +1,4 @@
-<md-content layout-padding="100" ng-controller="LauncherCtrl as ctrl">
+<md-content layout-padding="100" ng-controller="LauncherCtrl as ctrl" class="launcher">
     <div layout="row" layout-sm="column" layout-margin>
         <md-content flex class="md-whiteframe-6dp">
             <md-toolbar>
@@ -11,10 +11,10 @@
                 </div>
             </md-toolbar>
             <md-content layout-padding>
-                <div class="launcher filesystem" layout="column" layout-wrap flex>
+                <div class="filesystem" layout="column" layout-wrap flex>
                     <div>
                         <div class="file">
-                            <i class="fa fa-folder-open-o" aria-hidden="true"></i> Cool App
+                            <i class="fa fa-folder-open-o" aria-hidden="true"></i> Binary Search Example
                         </div>
                         <div style="padding-left: 1rem">
                             <div class="file">
@@ -36,8 +36,11 @@
                     </div>
                 </div>
             </md-content>
-            <div class="launcher bottom-right" layout="row" layout-align="end end">
-                <md-button class="md-primary md-raised" ng-disabled="ctrl.nobinary" ng-click="ctrl.launchSelected()">
+            <md-content class="error-box" layout-padding>
+                <span class="error-text">{{ctrl.loadingError}}</span>
+            </md-content>
+            <div class="bottom-right" layout="row" layout-align="end end">
+                <md-button class="md-primary md-raised" ng-disabled="ctrl.getDisableLaunch()" ng-click="ctrl.launchSelected()">
                     Launch
                 </md-button>
             </div>

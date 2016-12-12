@@ -1,6 +1,9 @@
 angular.module('Spice')
     .factory('DebuggerService', ['$q', '$http', 'SpiceError', 'Stream', function ($q, $http, SpiceError, Stream) {
 
+
+        var HOST = 'http://localhost:3000';
+
         /*** Constructors ***/
 
         /***
@@ -124,7 +127,8 @@ angular.module('Spice')
             this.metadata = metadata;
         };
 
-        /*** CurrentState ***/
+        /** Current State
+         * @type {DebugState} */
         var attachedDebugState = null;
 
         /*** Public Functions ***/
@@ -312,7 +316,7 @@ angular.module('Spice')
         function _attachBinary(path) {
             return $http({
                 method: 'POST',
-                url: 'http://localhost:3000/api/v1/debug/attach/bin/' + path,
+                url: HOST + '/api/v1/debug/attach/bin/' + path,
                 data: {}
             }).then(function (response) {
                 var debugInfo = response.data;
@@ -336,7 +340,7 @@ angular.module('Spice')
 
             return $http({
                 method: 'POST',
-                url: 'http://localhost:3000/api/v1/debug/' + debugState.id + '/execute',
+                url: HOST + '/api/v1/debug/' + debugState.id + '/execute',
                 data: reqBody
             })
                 .then(function (response) { //Success
@@ -367,7 +371,7 @@ angular.module('Spice')
         function _getFunctions(debugState) {
             return $http({
                 method: 'GET',
-                url: 'http://localhost:3000/api/v1/debug/' + debugState.id + '/functions'
+                url: HOST + '/api/v1/debug/' + debugState.id + '/functions'
             }).then(function (response) { //Success
                 return response.data.map(function (func) {
                     return new SourceFunction(func.address, func.name, func.sourcePath, func.lineNumber, func.lineCount,
@@ -385,7 +389,7 @@ angular.module('Spice')
         function _getFunction(debugState, id) {
             return $http({
                 method: 'GET',
-                url: 'http://localhost:3000/api/v1/debug/' + debugState.id + '/functions' //TODO: use the actual get function endpoint
+                url: HOST + '/api/v1/debug/' + debugState.id + '/functions' //TODO: use the actual get function endpoint
             }).then(function (response) { //Success
                 var func = response.data[0];
                 return new SourceFunction(func.address, func.name, func.sourcePath, func.lineNumber, func.lineCount,
@@ -410,7 +414,7 @@ angular.module('Spice')
         function _setBreakpoint(debugState, functionId) {
             return $http({
                 method: 'PUT',
-                url: 'http://localhost:3000/api/v1/debug/' + debugState.id + '/breakpoints/' + functionId
+                url: HOST + '/api/v1/debug/' + debugState.id + '/breakpoints/' + functionId
             })
                 .then(function (response) { //Success
                     return new Breakpoint(response.data.function.address, response.data.metadata);
@@ -453,7 +457,7 @@ angular.module('Spice')
             var traceStream = new Stream();
             $http({
                 method: 'GET',
-                url: 'http://localhost:3000/api/v1/debug/' + debugState.id + '/executions/' + executionId + '/trace'
+                url: HOST + '/api/v1/debug/' + debugState.id + '/executions/' + executionId + '/trace'
             }).then(function (response) { //Success
                 response.data.forEach(function (trace) {
                     var t = new Trace(trace.index, trace.tType, trace.line, trace.data);

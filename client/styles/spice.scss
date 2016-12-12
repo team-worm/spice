@@ -14,6 +14,10 @@ $highlight-secondary-color-0: #2069c7;
 $background-highlight-primary-color-0: #715034;
 $background-highlight-secondary-color-0: #b26f34;
 
+$highlight-alt-color-0: rgb(233, 30, 99);
+
+$text-color-error: rgb(220, 49, 32);
+
 .mockup {
     color: gray;
     padding-top: 1em;
@@ -22,14 +26,23 @@ $background-highlight-secondary-color-0: #b26f34;
     font-size: larger;
 }
 
+.error-text {
+    color: $text-color-error;
+    font-style:italic;
+}
+
 .launcher {
-    &.bottom-right {
+    .bottom-right {
         position: absolute;
         bottom: 0;
         right: 0;
     }
 
-    &.filesystem {
+    .error-box {
+        text-align: center;
+    }
+
+    .filesystem {
         :focus {
             outline: 0;
         }
@@ -51,6 +64,10 @@ $background-highlight-secondary-color-0: #b26f34;
 
 .configuration {
 
+    .spacer {
+        margin-left:1em;
+        margin-right:1em;
+    }
     #console {
         background: black;
         color: white;
@@ -60,9 +77,9 @@ $background-highlight-secondary-color-0: #b26f34;
     }
 
     #function-list {
-        height: 18em;
+        height: 6em;
         width: 100%;
-        border: 1px solid rgb(233, 30, 99);
+        border: 1px solid $highlight-alt-color-0;
         margin-top: 1em;
 
         .repeated-item {

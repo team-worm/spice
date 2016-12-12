@@ -30,25 +30,25 @@
             <div class="md-toolbar-tools">
                 <h1 style="position:absolute"><b>Spice Debugger</b></h1>
                 <span flex></span>
-                <md-button ng-disabled="ctrl.view == 0" ng-click="ctrl.view = 0" aria-label="Launcher">
+                <md-button ng-disabled="ctrl.view == 'launcher'" ng-click="ctrl.view = 'launcher'" aria-label="Launcher">
                     Launcher
                 </md-button>
                 <i class="fa fa-arrow-right" aria-hidden="true"></i>
-                <md-button ng-disabled="ctrl.view == 1 || !ctrl.configUnlocked" ng-click="ctrl.view = 1" aria-label="Configuration">
+                <md-button ng-disabled="ctrl.view == 'configuration' || !ctrl.getConfigUnlocked()" ng-click="ctrl.view = 'configuration'" aria-label="Configuration">
                     Configuration
                 </md-button>
                 <i class="fa fa-arrow-right" aria-hidden="true"></i>
-                <md-button ng-disabled="ctrl.view == 2 || !ctrl.debuggingUnlocked" ng-click="ctrl.view = 2" aria-label="Debugger">
+                <md-button ng-disabled="ctrl.view == 'debugging' || !ctrl.getDebuggingUnlocked()" ng-click="ctrl.view = 'debugging'" aria-label="Debugger">
                     Debugging
                 </md-button>
                 <span flex></span>
                 <a href="https://github.com/team-worm/spice" target="_blank"><i class="fa fa-github" aria-hidden="true"></i></a>
             </div>
         </md-toolbar>
-        <md-progress-linear md-mode="determinate" class="md-warn" value="{{MockLoader.progress}}"></md-progress-linear>
-        <spice-launcher mode="mode" ng-if="ctrl.view == 0" mockloader="MockLoader" ng-cloak></spice-launcher>
-        <spice-function-picker ng-if="ctrl.view == 1" mockloader="MockLoader" ng-cloak></spice-function-picker>
-        <spice-debug-viewer ng-if="ctrl.view == 2" ng-cloak></spice-debug-viewer>
+        <md-progress-linear md-mode="{{Loader.mode}}" class="md-warn" value="0"></md-progress-linear>
+        <spice-launcher mode="mode" ng-if="ctrl.view == 'launcher'" loader="Loader" ng-cloak></spice-launcher>
+        <spice-function-picker ng-if="ctrl.view == 'configuration'" loader="Loader" ng-cloak></spice-function-picker>
+        <spice-debug-viewer ng-if="ctrl.view == 'debugging'" ng-cloak></spice-debug-viewer>
         <div class="mockup">
             <span>
                 Prototype
