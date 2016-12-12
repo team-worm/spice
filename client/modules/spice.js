@@ -1,5 +1,5 @@
 angular.module('Spice', ['ngMaterial', 'ngMessages'])
-    .controller('MainCtrl', ['$scope', '$interval', function($scope, $interval) {
+    .controller('MainCtrl', ['$scope', '$interval', function ($scope, $interval) {
 
         var self = this;
 
@@ -10,12 +10,12 @@ angular.module('Spice', ['ngMaterial', 'ngMessages'])
 
         $scope.MockLoader = {progress: 0};
 
-        $scope.$on('changeView',function(event, viewArg) {
-            if(typeof viewArg != 'string') {
+        $scope.$on('changeView', function (event, viewArg) {
+            if (typeof viewArg != 'string') {
                 console.error('\'changeView\' event arg is not a string.', viewArg);
                 return;
             }
-            switch(viewArg.toLowerCase()) {
+            switch (viewArg.toLowerCase()) {
                 case 'launcher':
                     self.view = 0;
                     break;
@@ -37,7 +37,7 @@ angular.module('Spice', ['ngMaterial', 'ngMessages'])
         //
         //}, 100, 0 ,true)
     }])
-    .config(function($mdThemingProvider) {
+    .config(function ($mdThemingProvider) {
 
         // Configure a dark theme with primary foreground yellow
 
@@ -45,4 +45,4 @@ angular.module('Spice', ['ngMaterial', 'ngMessages'])
             .primaryPalette('orange')
             .dark();
 
-});
+    });

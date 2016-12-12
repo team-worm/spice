@@ -1,58 +1,58 @@
 angular.module('Spice')
-    .controller('FunctionPickerCtrl', ['$scope', '$timeout', '$interval', 'FilesystemService', function($scope, $timeout, $interval, FilesystemService) {
+    .controller('FunctionPickerCtrl', ['$scope', '$timeout', '$interval', 'FilesystemService', function ($scope, $timeout, $interval, FilesystemService) {
 
         var self = this;
 
-        $timeout(function() {
+        $timeout(function () {
             //after the page renders, redigest so the ReactiveHeightCells can set height
             $scope.$digest()
         });
 
-        $interval(function() {
-            if(self.running && $scope.mockloader.progress < 100) {
+        $interval(function () {
+            if (self.running && $scope.mockloader.progress < 100) {
 
-                $scope.mockloader.progress+= 5 ;
+                $scope.mockloader.progress += 5;
             }
-            if($scope.mockloader.progress >= 100) {
+            if ($scope.mockloader.progress >= 100) {
                 $scope.mockloader.progress = 0;
                 self.running = 0;
             }
 
-        },100, 0, false);
+        }, 100, 0, false);
 
         self.selectedFunction = '';
 
         self.FunctionList = ['main (int,char*[])', 'binarySearch (int,int*,int)', 'binary-search.c'];
 
         // Just insert some other garbage for the mockup.
-        for(var i = 0; i < 10; i++) {
-            self.FunctionList.push('some_other_function_'+i+' ()');
+        for (var i = 0; i < 10; i++) {
+            self.FunctionList.push('some_other_function_' + i + ' ()');
         }
 
         self.running = false;
 
         self.lines = [];
 
-        FilesystemService.getFileContents('binary-search.c').then(function(file) {
-            self.lines = file.split('\n').map(function(line) {
-                return { code: line };
+        FilesystemService.getFileContents('binary-search.c').then(function (file) {
+            self.lines = file.split('\n').map(function (line) {
+                return {code: line};
             });
-        }, function(error) {
+        }, function (error) {
             alert('Failed to get file');
             console.error(error);
         });
 
-        self.runFunction = function() {
+        self.runFunction = function () {
             self.running = true
-            $scope.$emit('changeView','debugging');
+            $scope.$emit('changeView', 'debugging');
         };
 
-        self.killFunction = function() {
+        self.killFunction = function () {
             self.running = false
             $scope.mockloader.progress = 0
         };
     }])
-    .directive('spiceFunctionPicker', function() {
+    .directive('spiceFunctionPicker', function () {
         return {
             restrict: 'E',
             scope: {

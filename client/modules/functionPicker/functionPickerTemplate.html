@@ -1,8 +1,11 @@
 <md-content ng-controller="FunctionPickerCtrl as ctrl">
-    <md-button class="md-raised md-primary" ng-disabled="ctrl.running || ctrl.selectedFunction != 'binarySearch (int,int*,int)'" ng-click="ctrl.runFunction()" aria-label="Help with Launch a Binary">
+    <md-button class="md-raised md-primary"
+               ng-disabled="ctrl.running || ctrl.selectedFunction != 'binarySearch (int,int*,int)'"
+               ng-click="ctrl.runFunction()" aria-label="Help with Launch a Binary">
         Run Function <i class="fa fa-play" aria-hidden="true"></i>
     </md-button>
-    <md-button class="md-raised md-primary" ng-disabled="!ctrl.running" ng-click="ctrl.killFunction()" aria-label="Help with Launch a Binary">
+    <md-button class="md-raised md-primary" ng-disabled="!ctrl.running" ng-click="ctrl.killFunction()"
+               aria-label="Help with Launch a Binary">
         Kill Running Function <i class="fa fa-window-close" aria-hidden="true"></i>
     </md-button>
     <hr>

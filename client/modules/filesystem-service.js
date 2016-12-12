@@ -1,12 +1,12 @@
 angular.module('Spice')
-	.factory('FilesystemService', ['$q', '$http', 'SpiceError', function($q, $http, SpiceError){
+    .factory('FilesystemService', ['$q', '$http', 'SpiceError', function ($q, $http, SpiceError) {
 
-		/*** Constructors ***/
+        /*** Constructors ***/
 
-		function getFileContents(path) {
-			//TODO: use $http GET /files/:path*
-			if(path === 'binary-search.c') {
-				return $q.resolve(
+        function getFileContents(path) {
+            //TODO: use $http GET /files/:path*
+            if (path === 'binary-search.c') {
+                return $q.resolve(
                     '#include <stdio.h>\n' +
                     '\n' +
                     'int binarySearch(int key, int *array, int length);\n' +
@@ -37,14 +37,14 @@ angular.module('Spice')
                     '\n' +
                     '    return -1;\n' +
                     '}\n'
-				);
-			}
-			else {
-				return $q.reject(new SpiceError(0, 'NotFoundError', 'FilesystemService: getFileContents: File ' + path + ' not found', {path: path}));
-			}
-		}
+                );
+            }
+            else {
+                return $q.reject(new SpiceError(0, 'NotFoundError', 'FilesystemService: getFileContents: File ' + path + ' not found', {path: path}));
+            }
+        }
 
-		return {
-			getFileContents: getFileContents
-		};
-	}]);
+        return {
+            getFileContents: getFileContents
+        };
+    }]);
