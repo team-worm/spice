@@ -19,7 +19,7 @@ use std::collections::HashMap;
 
 use hyper::status::StatusCode;
 use hyper::server::{Server, Request, Response};
-use reroute::{Captures, Router};
+use reroute::{RouterBuilder, Captures};
 
 use serde_json::value::ToJson;
 
@@ -44,7 +44,7 @@ fn main() {
     // current child thread (only one at a time)
     let child_thread = Arc::new(Mutex::new(None));
 
-    let mut router = Router::new();
+    let mut router = RouterBuilder::new();
 
     // host system info
 
@@ -126,7 +126,7 @@ fn main() {
         res.send(b"").unwrap();
     });
 
-    router.finalize().unwrap();
+    let router = router.finalize().unwrap();
 
     let server = Server::http("127.0.0.1:3000").unwrap();
     server.handle(router).unwrap();

@@ -204,7 +204,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "reroute"
 version = "0.2.4"
-source = "git+https://github.com/team-worm/reroute#f0993e57a5467b0d06b0f4eaa42f328c4bb56fb3"
+source = "git+https://github.com/team-worm/reroute#20863eb51133e995039fd68e5ecdf1b648b06956"
 dependencies = [
  "hyper 0.9.12 (registry+https://github.com/rust-lang/crates.io-index)",
  "regex 0.1.80 (registry+https://github.com/rust-lang/crates.io-index)",
