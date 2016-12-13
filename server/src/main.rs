@@ -1,7 +1,9 @@
 #![feature(field_init_shorthand)]
 
 extern crate hyper;
+extern crate unicase;
 extern crate reroute;
+
 extern crate serde;
 extern crate serde_json;
 
@@ -9,10 +11,11 @@ extern crate debug;
 extern crate winapi;
 extern crate kernel32;
 
-use std::{io, fs};
+use std::{io, fs, mem};
 use std::sync::{Mutex, Arc};
 use std::io::{BufRead, Write};
 use std::path::{PathBuf, Path};
+use std::collections::HashMap;
 
 use hyper::status::StatusCode;
 use hyper::server::{Server, Request, Response};
@@ -20,6 +23,12 @@ use reroute::{Captures, Router};
 
 use serde_json::value::ToJson;
 
+use kernel32::{CreateToolhelp32Snapshot, Process32NextW, CloseHandle};
+
+use winapi::{tlhelp32};
+
+               
+    
 use serde_types::*;
 use child::{ServerMessage, DebugMessage, DebugTrace};
 
@@ -97,16 +106,49 @@ fn main() {
 
     router.post(r"^/api/v1/debug/([0-9]*)/executions/([0-9]*)/stop$", debug_execution_stop);
 
+    router.options(r"^.*$", move |_, mut res, _| {
+        {
+            use hyper::header::*;
+            use hyper::method::Method;
+            use unicase::UniCase;
+
+            let headers = res.headers_mut();
+            headers.set(AccessControlAllowOrigin::Any);
+            headers.set(AccessControlAllowMethods(vec![
+                Method::Get, Method::Post, Method::Put, Method::Delete
+            ]));
+            headers.set(AccessControlAllowHeaders(vec![
+                UniCase("Content-Type".to_owned())
+            ]));
+            headers.set(AccessControlMaxAge(10 * 60));
+        }
+
+        res.send(b"").unwrap();
+    });
+
     router.finalize().unwrap();
 
     let server = Server::http("127.0.0.1:3000").unwrap();
     server.handle(router).unwrap();
 }
 
+fn send(mut res: Response, body: &[u8]) -> io::Result<()> {
+    {
+        use hyper::header::*;
+
+        let headers = res.headers_mut();
+        headers.set(AccessControlAllowOrigin::Any);
+        headers.set(ContentType("application/json".parse().unwrap()));
+    }
+
+    res.send(body)
+}
+
 /// GET /filesystem/:path* -- gets the file(s) within the given path
-fn filesystem(_: Request, res: Response, caps: Captures) {
+fn filesystem(mut req: Request, res: Response, caps: Captures) {
     let caps = caps.unwrap();
     let path = Path::new(&caps[1]);
+    io::copy(&mut req, &mut io::sink()).unwrap();
 
     let meta = fs::metadata(path).unwrap();
 
@@ -142,21 +184,53 @@ fn filesystem(_: Request, res: Response, caps: Captures) {
     };
 
     let json = serde_json::to_vec(&my_file).unwrap();
-    res.send(&json).unwrap();
+    send(res, &json).unwrap();
 }
 
 /// GET /processes -- gets the list of processes running on the host machine
-fn process(_: Request, res: Response, _: Captures) {
-    let curr_procs = read_proc_dir();
+fn process(mut req: Request, res: Response, _: Captures) {
+    io::copy(&mut req, &mut io::sink()).unwrap();
+
+    //    let curr_procs = read_proc_dir(); // uncomment this line for linux
+    let curr_procs = read_win_proc(); // use this line for windows
 
     let json = serde_json::to_vec(&curr_procs).unwrap();
-    res.send(&json).unwrap();
+    send(res, &json).unwrap();
+}
+
+fn read_win_proc() -> Vec<Process> {
+    println!("in read_win_proc");
+    let mut processes = vec![];
+
+    unsafe {
+        let h_process_snap = CreateToolhelp32Snapshot(tlhelp32::TH32CS_SNAPPROCESS, 0);
+
+        let mut pe32 = tlhelp32::PROCESSENTRY32W{
+            dwSize: mem::size_of::<tlhelp32::PROCESSENTRY32W>() as u32, cntUsage: 0,
+            th32ProcessID: 0, th32DefaultHeapID: 0,
+            th32ModuleID: 0,  cntThreads: 0, th32ParentProcessID: 0,
+            pcPriClassBase: 0, dwFlags: 0, szExeFile: [0; 260]
+        };
+
+        while Process32NextW(h_process_snap, &mut pe32) != 0 {
+
+            processes.push(Process{
+                id: pe32.th32ProcessID, name: String::from_utf16(&mut pe32.szExeFile)
+                    .unwrap()
+                    .replace("\0", "")});
+        }
+
+        CloseHandle(h_process_snap);
+    }
+
+    processes
+
 }
 
 /// helper function to recursively go through /proc directory
 fn read_proc_dir() -> Vec<Process> {
     println!("in read_proc_dir");
-    let mut processes = Vec::<Process>::new();
+    let mut processes = vec![];
     let paths = fs::read_dir("/proc").unwrap();
 
     for path in paths {
@@ -185,7 +259,7 @@ fn read_proc_dir() -> Vec<Process> {
 
                     if !p_name.is_empty() && !p_id.is_empty() {
                         processes.push(Process {
-                            id: p_id.parse::<i32>().unwrap(), name: p_name.to_string()
+                            id: p_id.parse::<u32>().unwrap(), name: p_name.to_string()
                         });
                         break;
                     }
@@ -200,18 +274,20 @@ fn read_proc_dir() -> Vec<Process> {
 }
 
 /// POST /debug/attach/pid/:pid -- attach to a running process
-fn debug_attach_pid( _: Request, mut res: Response, caps: Captures, _child: ChildThread) {
+fn debug_attach_pid(mut req: Request, mut res: Response, caps: Captures, _child: ChildThread) {
     let caps = caps.unwrap();
     let _pid = caps[1].parse::<u64>().unwrap();
+    io::copy(&mut req, &mut io::sink()).unwrap();
 
     *res.status_mut() = StatusCode::NotImplemented;
-    res.send(b"").unwrap();
+    send(res, b"").unwrap();
 }
 
 /// POST /debug/attach/bin/:path -- attach to a binary
-fn debug_attach_bin(_: Request, mut res: Response, caps: Captures, child: ChildThread) {
+fn debug_attach_bin(mut req: Request, mut res: Response, caps: Captures, child: ChildThread) {
     let caps = caps.unwrap();
     let path = PathBuf::from(&caps[1]);
+    io::copy(&mut req, &mut io::sink()).unwrap();
 
     let attached_process = caps[1].clone();
 
@@ -247,26 +323,30 @@ fn debug_attach_bin(_: Request, mut res: Response, caps: Captures, child: ChildT
             serde_json::to_vec(&message).unwrap()
         }
     };
-    res.send(&json).unwrap();
+    send(res, &json).unwrap();
 }
 
 /// GET /debug
-fn debug(_: Request, mut res: Response, _: Captures, _child: ChildThread) {
+fn debug(mut req: Request, mut res: Response, _: Captures, _child: ChildThread) {
+    io::copy(&mut req, &mut io::sink()).unwrap();
+
     *res.status_mut() = StatusCode::NotImplemented;
-    res.send(b"").unwrap();
+    send(res, b"").unwrap();
 }
 
 /// GET /debug/:id/functions -- return a list of debuggable functions
-fn debug_functions(_: Request, res: Response, _: Captures) {
+fn debug_functions(mut req: Request, res: Response, _: Captures) {
+    io::copy(&mut req, &mut io::sink()).unwrap();
+
     let functions = vec![hardcoded_function()];
 
     let json = serde_json::to_vec(&functions).unwrap();
-    res.send(&json).unwrap();
+    send(res, &json).unwrap();
 }
 
 fn hardcoded_function() -> Function {
     Function {
-        address: 0x00007ff64ebe1790usize,
+        address: 0x00007ff694cf16f0usize,
         name: String::from("binarySearch"),
         source_path: String::from("binary-search.c"),
         line_number: 15,
@@ -300,55 +380,76 @@ fn hardcoded_function() -> Function {
 }
 
 /// GET /debug/:id/functions/:function
-fn debug_function(_: Request, res: Response, _: Captures) {
+fn debug_function(mut req: Request, res: Response, _: Captures) {
+    io::copy(&mut req, &mut io::sink()).unwrap();
+
     let message = hardcoded_function();
 
     let json = serde_json::to_vec(&message).unwrap();
-    res.send(&json).unwrap();
+    send(res, &json).unwrap();
 }
 
 /// GET /debug/:id/breakpoints
-fn debug_breakpoints(_: Request, mut res: Response, _: Captures) {
+fn debug_breakpoints(mut req: Request, mut res: Response, _: Captures) {
+    io::copy(&mut req, &mut io::sink()).unwrap();
+
     *res.status_mut() = StatusCode::NotImplemented;
-    res.send(b"").unwrap();
+    send(res, b"").unwrap();
 }
 
 /// PUT /debug/:id/breakpoints/:function
-fn debug_breakpoint_put(_: Request, res: Response, caps: Captures, child: ChildThread) {
+fn debug_breakpoint_put(mut req: Request, mut res: Response, caps: Captures, child: ChildThread) {
     let caps = caps.unwrap();
     let address = caps[2].parse::<usize>().unwrap();
+    io::copy(&mut req, &mut io::sink()).unwrap();
 
     let mut child = child.lock().unwrap();
     let child = child.as_mut().unwrap();
 
     child.tx.send(ServerMessage::SetBreakpoint { address }).unwrap();
+    let json = match child.rx.recv().unwrap() {
+        DebugMessage::Breakpoint => {
+            let message = Breakpoint {
+                function: hardcoded_function(),
+                metadata: String::new(),
+            };
 
-    let message = Breakpoint {
-        function: hardcoded_function(),
-        metadata: String::new(),
+            serde_json::to_vec(&message).unwrap()
+        }
+
+        DebugMessage::Error(e) => {
+            *res.status_mut() = StatusCode::InternalServerError;
+            let message = Error {
+                code: 0, message: format!("{}", e), data: 0
+            };
+
+            serde_json::to_vec(&message).unwrap()
+        }
+
+        _ => unreachable!()
     };
-
-    let json = serde_json::to_vec(&message).unwrap();
-    res.send(&json).unwrap();
+    send(res, &json).unwrap();
 }
 
 /// DELETE /debug/:id/breakpoints/:function
-fn debug_breakpoint_delete(_: Request, res: Response, caps: Captures, child: ChildThread) {
+fn debug_breakpoint_delete(mut req: Request, res: Response, caps: Captures, child: ChildThread) {
     let caps = caps.unwrap();
     let address = caps[2].parse::<usize>().unwrap();
+    io::copy(&mut req, &mut io::sink()).unwrap();
 
     let mut child = child.lock().unwrap();
     let child = child.as_mut().unwrap();
 
     child.tx.send(ServerMessage::ClearBreakpoint { address }).unwrap();
 
-    res.send(b"").unwrap();
+    send(res, b"").unwrap();
 }
 
 /// POST /debug/:id/execute -- starts or continues process
-fn debug_execute(_: Request, mut res: Response, caps: Captures, child: ChildThread) {
+fn debug_execute(mut req: Request, mut res: Response, caps: Captures, child: ChildThread) {
     let caps = caps.unwrap();
     let _debug_id = caps[1].parse::<u64>().unwrap();
+    io::copy(&mut req, &mut io::sink()).unwrap();
 
     let mut child = child.lock().unwrap();
     let child = child.as_mut().unwrap();
@@ -380,32 +481,39 @@ fn debug_execute(_: Request, mut res: Response, caps: Captures, child: ChildThre
             serde_json::to_vec(&message).unwrap()
         }
     };
-    res.send(&json).unwrap();
+    send(res, &json).unwrap();
 }
 
 /// POST /debug/:id/functions/:function/execute
-fn debug_function_execute(_: Request, mut res: Response, _: Captures) {
+fn debug_function_execute(mut req: Request, mut res: Response, _: Captures) {
+    io::copy(&mut req, &mut io::sink()).unwrap();
+
     *res.status_mut() = StatusCode::NotImplemented;
-    res.send(b"").unwrap();
+    send(res, b"").unwrap();
 }
 
 /// POST /debug/:id/executions
-fn debug_executions(_: Request, mut res: Response, _: Captures) {
+fn debug_executions(mut req: Request, mut res: Response, _: Captures) {
+    io::copy(&mut req, &mut io::sink()).unwrap();
+
     *res.status_mut() = StatusCode::NotImplemented;
-    res.send(b"").unwrap();
+    send(res, b"").unwrap();
 }
 
 /// GET /debug/:id/executions/:execution -- get information about execution status
-fn debug_execution(_: Request, mut res: Response, _: Captures) {
+fn debug_execution(mut req: Request, mut res: Response, _: Captures) {
+    io::copy(&mut req, &mut io::sink()).unwrap();
+
     *res.status_mut() = StatusCode::NotImplemented;
-    res.send(b"").unwrap();
+    send(res, b"").unwrap();
 }
 
 /// GET /debug/:id/executions/:execution/trace -- Get trace data for execution
-fn debug_execution_trace(_: Request, res: Response, caps: Captures, child: ChildThread) {
+fn debug_execution_trace(mut req: Request, mut res: Response, caps: Captures, child: ChildThread) {
     let caps = caps.unwrap();
     let _id = caps[1].parse::<u64>().unwrap();
     let execution = caps[2].parse::<u64>().unwrap();
+    io::copy(&mut req, &mut io::sink()).unwrap();
 
     // TODO: this is a hack for the prototype; implement process executions
     if execution == 0 {
@@ -413,7 +521,7 @@ fn debug_execution_trace(_: Request, res: Response, caps: Captures, child: Child
 
         let mut map = Map::new();
         map.insert(String::from("cause"), Value::String(String::from("breakpoint")));
-        map.insert(String::from("next_execution"), Value::U64(1));
+        map.insert(String::from("nextExecution"), Value::U64(1));
         let object = Value::Object(map);
 
         let message = vec![
@@ -421,7 +529,7 @@ fn debug_execution_trace(_: Request, res: Response, caps: Captures, child: Child
         ];
 
         let json = serde_json::to_vec(&message).unwrap();
-        res.send(&json).unwrap();
+        send(res, &json).unwrap();
         return;
     }
 
@@ -429,8 +537,17 @@ fn debug_execution_trace(_: Request, res: Response, caps: Captures, child: Child
     let child = child.as_mut().unwrap();
 
     child.tx.send(ServerMessage::Trace).unwrap();
+    child.rx.recv().unwrap();
 
-    let mut prev_locals = vec![];
+    let mut prev_locals = HashMap::new();
+
+    {
+        use hyper::header::*;
+
+        let headers = res.headers_mut();
+        headers.set(AccessControlAllowOrigin::Any);
+        headers.set(ContentType("application/json".parse().unwrap()));
+    }
 
     let mut res = res.start().unwrap();
     res.write_all(b"[\n").unwrap();
@@ -444,21 +561,27 @@ fn debug_execution_trace(_: Request, res: Response, caps: Captures, child: Child
                 index += 1;
 
                 let mut state = vec![];
-                for (id, &value) in locals.iter().enumerate() {
-                    if prev_locals.get(id).map(|&prev_value| value != prev_value).unwrap_or(true) {
-                        state.push(TraceState { variable: id as i32, value });
+                for &(ref name, value) in locals.iter() {
+                    if value == 0xcccccccc {
+                        continue;
+                    }
+
+                    if prev_locals.get(name).map(|&prev_value| value != prev_value).unwrap_or(true) {
+                        state.push(TraceState { variable: name.clone(), value });
                     }
                 }
-                prev_locals = locals;
+                prev_locals.extend(locals.into_iter());
 
                 Trace { index: this_index, t_type: 0, line: line, data: state.to_json() }
             }
 
-            Ok(DebugMessage::Trace(DebugTrace::Terminated)) | _ => {
+            Ok(DebugMessage::Trace(DebugTrace::Terminated(line))) => {
                 done = true;
 
-                Trace { index: index, t_type: 2, line: 0, data: Vec::<Trace>::new().to_json() }
+                Trace { index: index, t_type: 2, line: line, data: Vec::<Trace>::new().to_json() }
             }
+
+            _ => unreachable!()
         };
 
         let json = serde_json::to_vec(&message).unwrap();
@@ -472,7 +595,9 @@ fn debug_execution_trace(_: Request, res: Response, caps: Captures, child: Child
 }
 
 /// POST /debug/:id/executions/:execution/stop -- Halts a running execution
-fn debug_execution_stop(_: Request, mut res: Response, _: Captures) {
+fn debug_execution_stop(mut req: Request, mut res: Response, _: Captures) {
+    io::copy(&mut req, &mut io::sink()).unwrap();
+
     *res.status_mut() = StatusCode::NotImplemented;
-    res.send(b"").unwrap();
+    send(res, b"").unwrap();
 }

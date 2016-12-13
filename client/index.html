@@ -10,119 +10,50 @@
     <script src="node_modules/angular-material/angular-material.js"></script>
     <script src="node_modules/angular-messages/angular-messages.js"></script>
     <script src="https://use.fontawesome.com/bb80f3a922.js"></script>
-    <script src="js/spice.js"></script>
+    <!--Spice Modules (These will be loaded dynamically for non -->
+    <script src="modules/spice.js"></script>
+    <script src="modules/Stream.js"></script>
+    <script src="modules/SpiceError.js"></script>
+    <script src="modules/filesystem-service.js"></script>
+    <script src="modules/debugger-service.js"></script>
+    <script src="modules/launcher/launcher.js"></script>
+    <script src="modules/functionPicker/functionPicker.js"></script>
+    <script src="modules/debugViewer/debugViewer.js"></script>
     <!--CSS-->
     <link rel="stylesheet" href="node_modules/angular-material/angular-material.css">
     <link rel="stylesheet" href="spice.css">
     <title>Spice Debug</title>
 </head>
-<body ng-app="Spice" ng-controller="MainCtrl" ng-cloak md-theme="docs-dark">
+<body ng-app="Spice" ng-controller="MainCtrl as ctrl" ng-cloak md-theme="docs-dark">
     <md-content layout-fill>
         <md-toolbar>
             <div class="md-toolbar-tools">
-                <h2><b>Spice Debugger</b></h2>
+                <h1 style="position:absolute"><b>Spice Debugger</b></h1>
+                <span flex></span>
+                <md-button ng-disabled="ctrl.view == 'launcher'" ng-click="ctrl.view = 'launcher'" aria-label="Launcher">
+                    Launcher
+                </md-button>
+                <i class="fa fa-arrow-right" aria-hidden="true"></i>
+                <md-button ng-disabled="ctrl.view == 'configuration' || !ctrl.getConfigUnlocked()" ng-click="ctrl.view = 'configuration'" aria-label="Configuration">
+                    Configuration
+                </md-button>
+                <i class="fa fa-arrow-right" aria-hidden="true"></i>
+                <md-button ng-disabled="ctrl.view == 'debugging' || !ctrl.getDebuggingUnlocked()" ng-click="ctrl.view = 'debugging'" aria-label="Debugger">
+                    Debugging
+                </md-button>
+                <span flex></span>
+                <a href="https://github.com/team-worm/spice" target="_blank"><i class="fa fa-github" aria-hidden="true"></i></a>
             </div>
         </md-toolbar>
-        <md-progress-linear md-mode="determinate" class="md-warn" value="{{MockLoader}}"></md-progress-linear>
+        <md-progress-linear md-mode="{{Loader.mode}}" class="md-warn" value="0"></md-progress-linear>
+        <spice-launcher mode="mode" ng-if="ctrl.view == 'launcher'" loader="Loader" ng-cloak></spice-launcher>
+        <spice-function-picker ng-if="ctrl.view == 'configuration'" loader="Loader" ng-cloak></spice-function-picker>
+        <spice-debug-viewer ng-if="ctrl.view == 'debugging'" loader="Loader" ng-cloak></spice-debug-viewer>
         <div class="mockup">
             <span>
-                I am a mockup
+                Prototype
             </span>
         </div>
-        <md-content layout-padding="100" >
-            <div layout="row" layout-sm="column" layout-margin>
-                <md-content flex class="md-whiteframe-6dp">
-                    <md-toolbar>
-                        <div class="md-toolbar-tools">
-                            <span>Launch a Binary</span>
-                            <span flex></span>
-                            <md-button class="md-fab md-mini md-primary" aria-label="Help with Launch a Binary">
-                                <i class="fa fa-question" aria-hidden="true"></i>
-                            </md-button>
-                        </div>
-                    </md-toolbar>
-                    <md-content layout-padding>
-                        <div layout="column" layout-wrap flex>
-                            <div>
-                                <i class="fa fa-folder-open-o" aria-hidden="true"></i> My Cool App
-                                <div style="padding-left: 1rem">
-                                    <div>
-                                        <i class="fa fa-file-text-o" aria-hidden="true"></i> app.c
-                                    </div>
-                                    <div>
-                                        <i class="fa fa-folder-open-o" aria-hidden="true"></i> modules
-                                    </div>
-                                    <div style="padding-left: 1rem">
-                                        <div>
-                                            <i class="fa fa-file-text-o" aria-hidden="true"></i> loader.c
-                                        </div>
-                                        <div>
-                                            <i class="fa fa-file-text-o" aria-hidden="true"></i> sam.c
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div>
-                                <i class="fa fa-folder-o" aria-hidden="true"></i> images
-                            </div>
-                            <div>
-                                <i class="fa fa-folder-o" aria-hidden="true"></i> documents
-                            </div>
-                        </div>
-                    </md-content>
-                    <div layout="row" layout-align="end end">
-                        <md-button class="md-primary">Launch</md-button>
-                    </div>
-                </md-content>
-                <md-content flex class="md-whiteframe-6dp">
-                    <md-toolbar>
-                        <div class="md-toolbar-tools">
-                            <span>Attach to Process</span>
-                            <span flex></span>
-                            <md-button class="md-fab md-mini md-primary" aria-label="Help with Launch a Binary">
-                                <i class="fa fa-question" aria-hidden="true"></i>
-                            </md-button>
-                        </div>
-                    </md-toolbar>
-                    <md-content layout-padding>
-                        <md-radio-group>
-                            <md-radio-button value="a"  class="md-primary">Chrome</md-radio-button>
-                            <md-radio-button value="b"  class="md-primary"> Firefox </md-radio-button>
-                            <md-radio-button value="c"  class="md-primary"> My App </md-radio-button>
-                            <md-radio-button value="d"  class="md-primary">James De St. Germain</md-radio-button>
-
-                        </md-radio-group>
-                    </md-content>
-                    <div layout="row" layout-align="end end">
-                        <md-button class="md-primary">Attach</md-button>
-                    </div>
-                </md-content>
-                <md-content flex class="md-whiteframe-6dp">
-                    <md-toolbar>
-                        <div class="md-toolbar-tools">
-                            <span>Connect to Remote Host</span>
-                            <span flex></span>
-                            <md-button class="md-fab md-mini md-primary" aria-label="Help with Launch a Binary">
-                                <i class="fa fa-question" aria-hidden="true"></i>
-                            </md-button>
-                        </div>
-                    </md-toolbar>
-                    <md-content layout-padding>
-                        <md-input-container class="md-block">
-                            <label>Host</label>
-                            <input>
-                        </md-input-container>
-                        <md-input-container class="md-block">
-                            <label>Port</label>
-                            <input>
-                        </md-input-container>
-                    </md-content>
-                    <div layout="row" layout-align="end">
-                        <md-button class="md-primary">Connect</md-button>
-                    </div>
-                </md-content>
-            </div>
-        </md-content>
     </md-content>
 </body>
 </html>

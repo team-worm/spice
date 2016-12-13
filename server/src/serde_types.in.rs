@@ -26,7 +26,7 @@ pub struct File {
 #[derive(Serialize, Deserialize)]
 pub struct Process {
     /// Identifying number of process on host machine
-    pub id: i32,
+    pub id: u32,
     /// Name of process on host machine
     pub name: String,
 }
@@ -64,7 +64,7 @@ pub struct Trace {
 
 #[derive(Serialize, Deserialize)]
 pub struct TraceState {
-    pub variable: i32,
+    pub variable: String,
     pub value: u64,
 }
 

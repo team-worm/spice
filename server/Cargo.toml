@@ -7,13 +7,14 @@ build = "build.rs"
 [workspace]
 
 [dependencies]
-debug = { path = "debug" }
 hyper = { version = "0.9", default-features = false }
-reroute = { version = "0.2.4", default-features = false }
-winapi = { git = "https://github.com/team-worm/winapi-rs" }
-kernel32-sys = { git = "https://github.com/team-worm/winapi-rs" }
+unicase = "1.0"
+reroute = { git = "https://github.com/team-worm/reroute", default-features = false }
 serde = "0.8"
 serde_json = "0.8"
+debug = { path = "debug" }
+winapi = { git = "https://github.com/team-worm/winapi-rs" }
+kernel32-sys = { git = "https://github.com/team-worm/winapi-rs" }
 
 [build-dependencies]
 serde_codegen = "0.8"
