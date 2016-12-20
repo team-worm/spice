@@ -128,6 +128,69 @@ impl SymbolHandler {
         }
     }
 
+    pub fn enumerate_functions<F>(&mut self, f: F) -> io::Result<()>
+        where F: FnMut(&Symbol, usize) -> bool
+    {
+        struct Context<'a, F> { symbols: &'a mut SymbolHandler, f: F }
+        let mut context = Context { symbols: self, f };
+
+        let mask: Vec<u16> = OsStr::new("*!*").encode_wide().chain(Some(0)).collect();
+        unsafe {
+            if dbghelp::SymEnumSymbolsW(
+                context.symbols.0, 0, mask.as_ptr(),
+                Some(enum_functions::<F>), &mut context as *mut _ as *mut _
+            ) == winapi::FALSE {
+                return Err(io::Error::last_os_error());
+            }
+
+            return Ok(());
+        }
+
+        #[allow(non_snake_case)]
+        unsafe extern "system" fn enum_functions<F>(
+            pSymInfo: winapi::PSYMBOL_INFOW, SymbolSize: winapi::ULONG, UserContext: winapi::PVOID
+        ) -> winapi::BOOL
+            where F: FnMut(&Symbol, usize) -> bool
+        {
+            let symbol = &*pSymInfo;
+            let Context {
+                ref symbols,
+                ref mut f,
+            } = *(UserContext as *mut Context<F>);
+
+            let mut module = winapi::IMAGEHLP_MODULEW64 {
+                SizeOfStruct: mem::size_of::<winapi::IMAGEHLP_MODULEW64>() as winapi::DWORD,
+                .. mem::zeroed()
+            };
+            if dbghelp::SymGetModuleInfoW64(
+                symbols.0, symbol.Address, &mut module
+            ) == winapi::FALSE {
+                return winapi::TRUE;
+            }
+
+            let mut tag: winapi::DWORD = 0;
+            if dbghelp::SymGetTypeInfo(
+                symbols.0, module.BaseOfImage, symbol.Index,
+                winapi::TI_GET_SYMTAG, &mut tag as *mut _ as *mut _
+            ) == winapi::FALSE {
+                return winapi::TRUE;
+            }
+
+            if tag != 5 {
+                return winapi::TRUE;
+            }
+
+            let symbol = Symbol {
+                // for some reason, pSymInfo.NameLen includes the null terminator here
+                name: OsString::from_wide_raw(symbol.Name.as_ptr()),
+                address: symbol.Address as usize,
+                size: SymbolSize as usize,
+                flags: symbol.Flags,
+            };
+            if f(&symbol, SymbolSize as usize) { winapi::TRUE } else { winapi::FALSE }
+        }
+    }
+
     /// Retrieve the source line and byte offset of an instruction address
     pub fn line_from_address(&mut self, address: usize) -> io::Result<(Line, usize)> {
         unsafe {
@@ -195,12 +258,12 @@ impl SymbolHandler {
     /// Enumerate the local symbols of a stack frame
     ///
     /// Addresses are base-pointer-relative.
-    pub fn enumerate_symbols<F>(&self, instruction: usize, mut f: F) -> io::Result<()>
+    pub fn enumerate_locals<F>(&self, address: usize, mut f: F) -> io::Result<()>
         where F: FnMut(&Symbol, usize) -> bool
     {
         unsafe {
             let mut stack_frame = winapi::IMAGEHLP_STACK_FRAME {
-                InstructionOffset: instruction as winapi::DWORD64,
+                InstructionOffset: address as winapi::DWORD64,
                 ..mem::zeroed()
             };
             if
@@ -211,7 +274,7 @@ impl SymbolHandler {
             }
 
             if dbghelp::SymEnumSymbolsW(
-                self.0, 0, ptr::null(), Some(enum_symbols::<F>), &mut f as *mut _ as *mut _
+                self.0, 0, ptr::null(), Some(enum_locals::<F>), &mut f as *mut _ as *mut _
             ) == winapi::FALSE {
                 return Err(io::Error::last_os_error());
             }
@@ -220,7 +283,7 @@ impl SymbolHandler {
         }
 
         #[allow(non_snake_case)]
-        unsafe extern "system" fn enum_symbols<F>(
+        unsafe extern "system" fn enum_locals<F>(
             pSymInfo: winapi::PSYMBOL_INFOW, SymbolSize: winapi::ULONG, UserContext: winapi::PVOID
         ) -> winapi::BOOL
             where F: FnMut(&Symbol, usize) -> bool

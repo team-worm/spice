@@ -205,7 +205,7 @@ fn trace_function(
                     let (line, _off) = symbols.line_from_address(instruction)?;
 
                     let mut locals = vec![];
-                    symbols.enumerate_symbols(instruction, |symbol, size| {
+                    symbols.enumerate_locals(instruction, |symbol, size| {
                         if size == 0 { return true; }
 
                         let mut buffer = vec![0u8; size];

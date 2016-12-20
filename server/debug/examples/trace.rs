@@ -118,7 +118,7 @@ fn main() {
                         println!("  0x{:016x} {}+{} {}", address, name, off, file_pos);
 
                         let instruction = stack.AddrPC.Offset as usize;
-                        let _ = symbols.enumerate_symbols(instruction, |symbol, size| {
+                        let _ = symbols.enumerate_locals(instruction, |symbol, size| {
                             if size == 0 { return true; }
 
                             let name = symbol.name.to_string_lossy();

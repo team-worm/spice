@@ -67,7 +67,7 @@ fn main() {
                     let function = symbols.symbol_from_name(&function_name)
                         .expect("failed to get symbol");
                     let mut parameters = vec![];
-                    symbols.enumerate_symbols(function.address, |symbol, _| {
+                    symbols.enumerate_locals(function.address, |symbol, _| {
                         if symbol.flags & winapi::SYMFLAG_PARAMETER != 0 {
                             parameters.push(symbol.name.to_string_lossy().into_owned());
                         }
@@ -116,7 +116,7 @@ fn main() {
 
                     let instruction = stack.AddrPC.Offset as usize;
                     let mut locals = vec![];
-                    symbols.enumerate_symbols(instruction, |symbol, size| {
+                    symbols.enumerate_locals(instruction, |symbol, size| {
                         if size == 0 { return true; }
 
                         let name = symbol.name.to_string_lossy();
