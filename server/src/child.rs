@@ -1,6 +1,7 @@
 use std::io;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::ffi::OsString;
 use std::sync::mpsc::{sync_channel, SyncSender, Receiver};
 use std::thread;
 use std::thread::JoinHandle;
@@ -19,10 +20,22 @@ pub struct Thread {
 /// messages the debug event loop sends to the server
 pub enum DebugMessage {
     Attached,
+    Functions(Vec<Function>),
+    Function(Function),
     Breakpoint,
     Executing,
     Trace(DebugTrace),
     Error(io::Error),
+}
+
+pub struct Function {
+    pub address: usize,
+    pub name: OsString,
+    pub source_path: PathBuf,
+    pub line_number: u32,
+    pub line_count: u32,
+    pub parameters: Vec<(i32, OsString, usize)>,
+    pub local_variables: Vec<(i32, OsString, usize)>,
 }
 
 pub enum DebugTrace {
@@ -108,8 +121,15 @@ fn run(path: PathBuf, tx: SyncSender<DebugMessage>, rx: Receiver<ServerMessage>)
     let mut event = Some(event);
     loop {
         match rx.recv().unwrap() {
-            ServerMessage::ListFunctions => {}
-            ServerMessage::DescribeFunction { .. } => {}
+            ServerMessage::ListFunctions => {
+                list_functions(&mut state, &tx)?;
+            }
+            ServerMessage::DescribeFunction { address } => {
+                let (function, _) = state.symbols.symbol_from_address(address)?;
+                let function = describe_function(&mut state.symbols, &function)?;
+                tx.send(DebugMessage::Function(function)).unwrap();
+            }
+
             ServerMessage::ListBreakpoints => {}
 
             ServerMessage::SetBreakpoint { address } => {
@@ -145,6 +165,78 @@ fn run(path: PathBuf, tx: SyncSender<DebugMessage>, rx: Receiver<ServerMessage>)
     }
 
     Ok(())
+}
+
+fn list_functions(
+    state: &mut DebugState, tx: &SyncSender<DebugMessage>
+) -> io::Result<()> {
+    let DebugState { ref mut symbols, .. } = *state;
+
+    let mut functions = vec![];
+    symbols.enumerate_functions(|function, _| {
+        functions.push(function.clone());
+        true
+    })?;
+
+    let functions: Vec<_> = functions.into_iter()
+        .flat_map(|function| describe_function(symbols, &function))
+        .collect();
+    tx.send(DebugMessage::Functions(functions)).unwrap();
+    Ok(())
+}
+
+fn describe_function(
+    symbols: &mut debug::SymbolHandler, function: &debug::Symbol
+) -> io::Result<Function> {
+    let debug::Symbol { ref name, address, size, .. } = *function;
+
+    let start = match symbols.line_from_address(address) {
+        Ok((line, _)) => line,
+        Err(_) => return Err(io::Error::from(io::ErrorKind::NotFound)),
+    };
+    let end = match symbols.line_from_address(address + size - 1) {
+        Ok((line, _)) => line,
+        Err(_) => return Err(io::Error::from(io::ErrorKind::NotFound)),
+    };
+
+    let mut id = 0;
+
+    let mut parameters = vec![];
+    symbols.enumerate_locals(address, |symbol, _| {
+        if symbol.flags & winapi::SYMFLAG_PARAMETER != 0 {
+            parameters.push((id, symbol.name.clone(), symbol.address));
+            id += 1;
+        }
+        true
+    })?;
+
+    let mut locals = HashMap::new();
+    for line in symbols.lines_from_symbol(&function)? {
+        symbols.enumerate_locals(line.address, |symbol, _| {
+            if symbol.flags & winapi::SYMFLAG_PARAMETER != 0 {
+                let name = symbol.name.clone();
+                locals.entry(name).or_insert_with(|| {
+                    let this_id = id;
+                    id += 1;
+                    (this_id, symbol.address)
+                });
+            }
+            true
+        })?;
+    }
+    let local_variables = locals.into_iter()
+        .map(|(name, (id, address))| (id, name, address))
+        .collect();
+
+    Ok(Function {
+        address: address,
+        name: name.clone(),
+        source_path: PathBuf::from(&start.file),
+        line_number: start.line,
+        line_count: end.line - start.line + 1,
+        parameters: parameters,
+        local_variables: local_variables,
+    })
 }
 
 fn trace_function(

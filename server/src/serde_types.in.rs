@@ -94,7 +94,7 @@ pub struct DebugInfo {
 
 #[derive(Serialize, Deserialize)]
 pub struct Breakpoint {
-    pub function: Function,
+    pub function: usize,
     pub metadata: String
 }
 

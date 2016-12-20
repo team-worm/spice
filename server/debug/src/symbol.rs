@@ -318,6 +318,7 @@ impl Drop for SymbolHandler {
 /// The name and address of a debugging symbol
 ///
 /// Will be expanded on to include type information, etc.
+#[derive(Clone)]
 pub struct Symbol {
     pub name: OsString,
     pub address: usize,
