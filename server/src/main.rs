@@ -599,7 +599,7 @@ fn debug_execution_trace(mut req: Request, mut res: Response, caps: Captures, ch
 
                 let mut state = vec![];
                 for &(ref name, value) in locals.iter() {
-                    if value == 0xcccccccc {
+                    if value & 0xffffffff == 0xcccccccc {
                         continue;
                     }
 

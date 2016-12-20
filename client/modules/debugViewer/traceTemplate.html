@@ -1,7 +1,7 @@
 <div class="trace">
     <div ng-if="trace.tType===0" class="trace-state">
         <ul>
-            <li ng-repeat="state in trace.data">{{getVariable(state.variable).name}}={{state.value}}</li>
+            <li ng-repeat="state in trace.data">{{state.variable}}={{state.value}}</li>
         </ul>
     </div>
     <div ng-if="trace.tType===1" class="trace-output">
@@ -9,6 +9,6 @@
     </div>
     <div ng-if="trace.tType===2" class="trace-terminated">
         <!-- terminated: {{trace.data.cause}} -->
-        returned 4
+        returned
     </div>
 </div>

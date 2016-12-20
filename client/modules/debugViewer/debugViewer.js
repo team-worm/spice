@@ -1,6 +1,8 @@
 angular.module('Spice')
     .controller('DebugViewerCtrl', ['$scope', '$timeout', 'DebuggerService', 'FilesystemService', function ($scope, $timeout, DebuggerService, FilesystemService) {
 
+        $scope.lineStart = 0;
+        $scope.lineEnd = 0;
         $scope.lines = [];
 
         $scope.error = '';
@@ -8,7 +10,7 @@ angular.module('Spice')
         $scope.traceColCount = 0;
         $scope.currentTraceCol = -1;
         $scope.addTrace = function (trace) {
-            var line = $scope.lines[trace.line - 1];
+            var line = $scope.lines[trace.line - 1 - $scope.lineStart];
             if (line.traceMaxIteration >= $scope.currentTraceCol) {
                 line.traceMaxIteration++;
                 $scope.currentTraceCol = line.traceMaxIteration;
@@ -32,7 +34,8 @@ angular.module('Spice')
                 $scope.lines = contents.split('\n').map(function (line) {
                     return {code: line, traces: [], traceMaxIteration: -1};
                 });
-        });
+            });
+
 
         DebuggerService.execute('', '')
             .then(function (execution) {
@@ -47,6 +50,12 @@ angular.module('Spice')
 
         function followExecution(executionId) {
             var nextExecutionId = null;
+
+            var state = DebuggerService.getAttachedDebugState();
+            var executionFunction = state.functions[Object.values(state.breakpoints)[0].functionId];
+            $scope.lineStart = executionFunction.lineNumber - 1;
+            $scope.lineEnd = executionFunction.lineNumber + executionFunction.lineCount - 1;
+
             return DebuggerService.getTrace(executionId)
                 .then(function (traceStream) {
                     return traceStream.read(function (trace) {
@@ -138,7 +147,7 @@ angular.module('Spice')
         require: '^^reactiveHeightGrid',
         restrict: 'E',
         transclude: true,
-        template: '<div ng-transclude class="reactive-height-cell" layout="row" layout-align="none center"></div>',
+        template: '<div ng-transclude class="reactive-height-cell" layout="row" layout-align="none start"></div>',
         scope: {
             row: '=',
             col: '='
