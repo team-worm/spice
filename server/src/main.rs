@@ -48,72 +48,72 @@ fn main() {
 
     // host system info
 
-    router.get(r"^/api/v1/filesystem/(.*)$", filesystem);
-    router.get(r"^/api/v1/processes$", process);
+    router.get(r"/api/v1/filesystem/(.*)", filesystem);
+    router.get(r"/api/v1/processes", process);
 
     // attaching
 
     let child = child_thread.clone();
-    router.post(r"^/api/v1/debug/attach/pid/([0-9]*)$", move |req, res, caps| {
+    router.post(r"/api/v1/debug/attach/pid/([0-9]*)", move |req, res, caps| {
         debug_attach_pid(req, res, caps, child.clone());
     });
 
     let child = child_thread.clone();
-    router.post(r"^/api/v1/debug/attach/bin/(.*)$", move |req, res, caps| {
+    router.post(r"/api/v1/debug/attach/bin/(.*)", move |req, res, caps| {
         debug_attach_bin(req, res, caps, child.clone());
     });
 
     let child = child_thread.clone();
-    router.get(r"^/api/v1/debug$", move |req, res, caps| {
+    router.get(r"/api/v1/debug", move |req, res, caps| {
         debug(req, res, caps, child.clone());
     });
 
     // functions
 
     let child = child_thread.clone();
-    router.get(r"^/api/v1/debug/([0-9]*)/functions$", move |req, res, caps| {
+    router.get(r"/api/v1/debug/([0-9]*)/functions", move |req, res, caps| {
         debug_functions(req, res, caps, child.clone());
     });
 
     let child = child_thread.clone();
-    router.get(r"^/api/v1/debug/([0-9]*)/functions/(.*)$", move |req, res, caps| {
+    router.get(r"/api/v1/debug/([0-9]*)/functions/(.*)", move |req, res, caps| {
         debug_function(req, res, caps, child.clone());
     });
 
     // breakpoints
 
-    router.get(r"^/api/v1/debug/([0-9]*)/breakpoints$", debug_breakpoints);
+    router.get(r"/api/v1/debug/([0-9]*)/breakpoints", debug_breakpoints);
 
     let child = child_thread.clone();
-    router.put(r"^/api/v1/debug/([0-9]*)/breakpoints/([0-9]*)$", move |req, res, caps| {
+    router.put(r"/api/v1/debug/([0-9]*)/breakpoints/([0-9]*)", move |req, res, caps| {
         debug_breakpoint_put(req, res, caps, child.clone());
     });
 
     let child = child_thread.clone();
-    router.delete(r"^/api/v1/debug/([0-9]*)/breakpoints/([0-9]*)$", move |req, res, caps| {
+    router.delete(r"/api/v1/debug/([0-9]*)/breakpoints/([0-9]*)", move |req, res, caps| {
         debug_breakpoint_delete(req, res, caps, child.clone());
     });
 
     let child = child_thread.clone();
-    router.post(r"^/api/v1/debug/([0-9]*)/execute$", move |req, res, caps| {
+    router.post(r"/api/v1/debug/([0-9]*)/execute", move |req, res, caps| {
         debug_execute(req, res, caps, child.clone());
     });
 
-    router.put(r"^/api/v1/debug/([0-9]*)/functions/([0-9]*)/execute$", debug_function_execute);
+    router.put(r"/api/v1/debug/([0-9]*)/functions/([0-9]*)/execute", debug_function_execute);
     
     // executions
 
-    router.get(r"^/api/v1/debug/([0-9]*)/executions$", debug_executions);
-    router.get(r"^/api/v1/debug/([0-9]*)/executions/([0-9]*)$", debug_execution);
+    router.get(r"/api/v1/debug/([0-9]*)/executions", debug_executions);
+    router.get(r"/api/v1/debug/([0-9]*)/executions/([0-9]*)", debug_execution);
 
     let child = child_thread.clone();
-    router.get(r"^/api/v1/debug/([0-9]*)/executions/([0-9]*)/trace$", move |req, res, caps| {
+    router.get(r"/api/v1/debug/([0-9]*)/executions/([0-9]*)/trace", move |req, res, caps| {
         debug_execution_trace(req, res, caps, child.clone());
     });
 
-    router.post(r"^/api/v1/debug/([0-9]*)/executions/([0-9]*)/stop$", debug_execution_stop);
+    router.post(r"/api/v1/debug/([0-9]*)/executions/([0-9]*)/stop", debug_execution_stop);
 
-    router.options(r"^.*$", move |_, mut res, _| {
+    router.options(r".*", move |_, mut res, _| {
         {
             use hyper::header::*;
             use hyper::method::Method;
