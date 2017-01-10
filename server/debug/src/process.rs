@@ -8,7 +8,7 @@ use winapi;
 use kernel32;
 
 /// A running or exited debugee process, created via a `Command`
-pub struct Child(winapi::HANDLE);
+pub struct Child(RawHandle);
 
 impl Child {
     /// Read `buffer.len()` bytes from a process's address space at `address`

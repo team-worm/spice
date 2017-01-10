@@ -48,65 +48,72 @@ fn main() {
 
     // host system info
 
-    router.get(r"^/api/v1/filesystem/(.*)$", filesystem);
-    router.get(r"^/api/v1/processes$", process);
+    router.get(r"/api/v1/filesystem/(.*)", filesystem);
+    router.get(r"/api/v1/processes", process);
 
     // attaching
 
     let child = child_thread.clone();
-    router.post(r"^/api/v1/debug/attach/pid/([0-9]*)$", move |req, res, caps| {
+    router.post(r"/api/v1/debug/attach/pid/([0-9]*)", move |req, res, caps| {
         debug_attach_pid(req, res, caps, child.clone());
     });
 
     let child = child_thread.clone();
-    router.post(r"^/api/v1/debug/attach/bin/(.*)$", move |req, res, caps| {
+    router.post(r"/api/v1/debug/attach/bin/(.*)", move |req, res, caps| {
         debug_attach_bin(req, res, caps, child.clone());
     });
 
     let child = child_thread.clone();
-    router.get(r"^/api/v1/debug$", move |req, res, caps| {
+    router.get(r"/api/v1/debug", move |req, res, caps| {
         debug(req, res, caps, child.clone());
     });
 
     // functions
 
-    router.get(r"^/api/v1/debug/([0-9]*)/functions$", debug_functions);
-    router.get(r"^/api/v1/debug/([0-9]*)/functions/(.*)$", debug_function);
+    let child = child_thread.clone();
+    router.get(r"/api/v1/debug/([0-9]*)/functions", move |req, res, caps| {
+        debug_functions(req, res, caps, child.clone());
+    });
+
+    let child = child_thread.clone();
+    router.get(r"/api/v1/debug/([0-9]*)/functions/(.*)", move |req, res, caps| {
+        debug_function(req, res, caps, child.clone());
+    });
 
     // breakpoints
 
-    router.get(r"^/api/v1/debug/([0-9]*)/breakpoints$", debug_breakpoints);
+    router.get(r"/api/v1/debug/([0-9]*)/breakpoints", debug_breakpoints);
 
     let child = child_thread.clone();
-    router.put(r"^/api/v1/debug/([0-9]*)/breakpoints/([0-9]*)$", move |req, res, caps| {
+    router.put(r"/api/v1/debug/([0-9]*)/breakpoints/([0-9]*)", move |req, res, caps| {
         debug_breakpoint_put(req, res, caps, child.clone());
     });
 
     let child = child_thread.clone();
-    router.delete(r"^/api/v1/debug/([0-9]*)/breakpoints/([0-9]*)$", move |req, res, caps| {
+    router.delete(r"/api/v1/debug/([0-9]*)/breakpoints/([0-9]*)", move |req, res, caps| {
         debug_breakpoint_delete(req, res, caps, child.clone());
     });
 
     let child = child_thread.clone();
-    router.post(r"^/api/v1/debug/([0-9]*)/execute$", move |req, res, caps| {
+    router.post(r"/api/v1/debug/([0-9]*)/execute", move |req, res, caps| {
         debug_execute(req, res, caps, child.clone());
     });
 
-    router.put(r"^/api/v1/debug/([0-9]*)/functions/([0-9]*)/execute$", debug_function_execute);
+    router.put(r"/api/v1/debug/([0-9]*)/functions/([0-9]*)/execute", debug_function_execute);
     
     // executions
 
-    router.get(r"^/api/v1/debug/([0-9]*)/executions$", debug_executions);
-    router.get(r"^/api/v1/debug/([0-9]*)/executions/([0-9]*)$", debug_execution);
+    router.get(r"/api/v1/debug/([0-9]*)/executions", debug_executions);
+    router.get(r"/api/v1/debug/([0-9]*)/executions/([0-9]*)", debug_execution);
 
     let child = child_thread.clone();
-    router.get(r"^/api/v1/debug/([0-9]*)/executions/([0-9]*)/trace$", move |req, res, caps| {
+    router.get(r"/api/v1/debug/([0-9]*)/executions/([0-9]*)/trace", move |req, res, caps| {
         debug_execution_trace(req, res, caps, child.clone());
     });
 
-    router.post(r"^/api/v1/debug/([0-9]*)/executions/([0-9]*)/stop$", debug_execution_stop);
+    router.post(r"/api/v1/debug/([0-9]*)/executions/([0-9]*)/stop", debug_execution_stop);
 
-    router.options(r"^.*$", move |_, mut res, _| {
+    router.options(r".*", move |_, mut res, _| {
         {
             use hyper::header::*;
             use hyper::method::Method;
@@ -335,58 +342,88 @@ fn debug(mut req: Request, mut res: Response, _: Captures, _child: ChildThread) 
 }
 
 /// GET /debug/:id/functions -- return a list of debuggable functions
-fn debug_functions(mut req: Request, res: Response, _: Captures) {
+fn debug_functions(mut req: Request, mut res: Response, _: Captures, child: ChildThread) {
     io::copy(&mut req, &mut io::sink()).unwrap();
 
-    let functions = vec![hardcoded_function()];
+    let mut child = child.lock().unwrap();
+    let child = child.as_mut().unwrap();
 
-    let json = serde_json::to_vec(&functions).unwrap();
+    child.tx.send(ServerMessage::ListFunctions).unwrap();
+    let json = match child.rx.recv().unwrap() {
+        DebugMessage::Functions(functions) => {
+            let message: Vec<_> = functions.into_iter().map(Function::from).collect();
+            serde_json::to_vec(&message).unwrap()
+        }
+
+        DebugMessage::Error(e) => {
+            *res.status_mut() = StatusCode::InternalServerError;
+            let message = Error {
+                code: 0, message: format!("{}", e), data: 0
+            };
+
+            serde_json::to_vec(&message).unwrap()
+        }
+
+        _ => unreachable!()
+    };
     send(res, &json).unwrap();
-}
-
-fn hardcoded_function() -> Function {
-    Function {
-        address: 0x00007ff694cf16f0usize,
-        name: String::from("binarySearch"),
-        source_path: String::from("binary-search.c"),
-        line_number: 15,
-        line_count: 19,
-        parameters: vec![
-            Variable {
-                id: 0, name: String::from("key"), s_type: String::from("int"), address: 12345,
-            },
-            Variable {
-                id: 1, name: String::from("array"), s_type: String::from("int*"), address: 12346,
-            },
-            Variable {
-                id: 2, name: String::from("length"), s_type: String::from("int"), address: 12347,
-            },
-        ],
-        local_variables: vec![
-            Variable {
-                id: 3, name: String::from("low"), s_type: String::from("int"), address: 12348,
-            },
-            Variable {
-                id: 4, name: String::from("high"), s_type: String::from("int"), address: 12349,
-            },
-            Variable {
-                id: 5, name: String::from("mid"), s_type: String::from("int"), address: 12340,
-            },
-            Variable {
-                id: 6, name: String::from("value"), s_type: String::from("int"), address: 12341,
-            },
-        ],
-    }
 }
 
 /// GET /debug/:id/functions/:function
-fn debug_function(mut req: Request, res: Response, _: Captures) {
+fn debug_function(mut req: Request, mut res: Response, caps: Captures, child: ChildThread) {
+    let caps = caps.unwrap();
+    let address = caps[2].parse::<usize>().unwrap();
     io::copy(&mut req, &mut io::sink()).unwrap();
 
-    let message = hardcoded_function();
+    let mut child = child.lock().unwrap();
+    let child = child.as_mut().unwrap();
 
-    let json = serde_json::to_vec(&message).unwrap();
+    child.tx.send(ServerMessage::DescribeFunction { address }).unwrap();
+    let json = match child.rx.recv().unwrap() {
+        DebugMessage::Function(function) => {
+            let message = Function::from(function);
+            serde_json::to_vec(&message).unwrap()
+        }
+
+        DebugMessage::Error(e) => {
+            *res.status_mut() = StatusCode::InternalServerError;
+            let message = Error {
+                code: 0, message: format!("{}", e), data: 0
+            };
+
+            serde_json::to_vec(&message).unwrap()
+        }
+
+        _ => unreachable!()
+    };
     send(res, &json).unwrap();
+}
+
+impl From<child::Function> for Function {
+    fn from(function: child::Function) -> Function {
+        let child::Function {
+            address, name, source_path, line_number, line_count,
+            parameters, local_variables: locals
+        } = function;
+
+        let parameters = parameters.into_iter().map(|(id, name, address)| Variable {
+            id: id, name: name.to_string_lossy().into_owned(), address: address,
+            s_type: String::from("int"),
+        }).collect();
+
+        let local_variables = locals.into_iter().map(|(id, name, address)| Variable {
+            id: id, name: name.to_string_lossy().into_owned(), address: address,
+            s_type: String::from("int"),
+        }).collect();
+
+        Function {
+            address,
+            name: name.to_string_lossy().into_owned(),
+            source_path: source_path.to_string_lossy().into_owned(),
+            line_number: line_number as i32, line_count: line_count as i32,
+            parameters, local_variables,
+        }
+    }
 }
 
 /// GET /debug/:id/breakpoints
@@ -410,7 +447,7 @@ fn debug_breakpoint_put(mut req: Request, mut res: Response, caps: Captures, chi
     let json = match child.rx.recv().unwrap() {
         DebugMessage::Breakpoint => {
             let message = Breakpoint {
-                function: hardcoded_function(),
+                function: address,
                 metadata: String::new(),
             };
 
@@ -562,7 +599,7 @@ fn debug_execution_trace(mut req: Request, mut res: Response, caps: Captures, ch
 
                 let mut state = vec![];
                 for &(ref name, value) in locals.iter() {
-                    if value == 0xcccccccc {
+                    if value & 0xffffffff == 0xcccccccc {
                         continue;
                     }
 

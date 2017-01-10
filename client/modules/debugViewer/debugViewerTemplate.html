@@ -1,5 +1,5 @@
 <md-content ng-controller="DebugViewerCtrl">
-    <h3>Output of binarySearch(int, int*, int)</h3>
+    <h3>Output of binarySearch(int, int*, size_t)</h3>
     <md-content class="error-box" layout-margin>
         <span class="error-text">{{error}}</span>
     </md-content>
@@ -7,12 +7,12 @@
         <div flex class="source-code-viewer">
             <div layout="row">
                 <div flex="none" class="line-number-column debug-column">
-                    <reactive-height-cell ng-repeat="line in lines" row=$index col="0">
-                        <span flex>{{$index + 1}}</span>
+                    <reactive-height-cell ng-repeat="line in lines.slice(lineStart, lineEnd)" row="$index" col="0">
+                        <span flex>{{$index + 1 + lineStart}}</span>
                     </reactive-height-cell>
                 </div>
                 <div flex class="code-column debug-column">
-                    <reactive-height-cell ng-repeat="line in lines" row="$index" col="1">
+                    <reactive-height-cell ng-repeat="line in lines.slice(lineStart, lineEnd)" row="$index" col="1">
                         <pre flex>{{line.code}}</pre>
                     </reactive-height-cell>
                 </div>

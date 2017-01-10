@@ -417,7 +417,7 @@ angular.module('Spice')
                 url: HOST + '/api/v1/debug/' + debugState.id + '/breakpoints/' + functionId
             })
                 .then(function (response) { //Success
-                    return new Breakpoint(response.data.function.address, response.data.metadata);
+                    return new Breakpoint(response.data.function, response.data.metadata);
                 }).catch(function (err) { //Error
                     throw new SpiceError(0, '', err.message, err);
                 });
