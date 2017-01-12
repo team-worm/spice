@@ -1,0 +1,82 @@
+.mockup {
+  color: gray;
+  padding-top: 1em;
+  width: 100%;
+  text-align: center;
+  font-size: larger; }
+
+.error-text {
+  color: #dc3120;
+  font-style: italic; }
+
+.launcher .bottom-right {
+  position: absolute;
+  bottom: 0;
+  right: 0; }
+
+.launcher .error-box {
+  text-align: center; }
+
+.launcher .filesystem :focus {
+  outline: 0; }
+
+.launcher .filesystem .file:hover {
+  cursor: pointer;
+  color: black;
+  background-color: #dddddd; }
+
+.launcher .filesystem .file.lit {
+  color: black;
+  padding: 2px;
+  border: 2px solid #2069c7;
+  background-color: #dddddd; }
+
+.configuration .spacer {
+  margin-left: 1em;
+  margin-right: 1em; }
+
+.configuration #console {
+  background: black;
+  color: white;
+  margin-top: 1em;
+  font-family: Courier, 'NewCourier', monospace;
+  border: 1px solid gray; }
+
+.configuration #function-list {
+  height: 6em;
+  width: 100%;
+  border: 1px solid #e91e63;
+  margin-top: 1em; }
+  .configuration #function-list .repeated-item {
+    border-bottom: 1px solid #aaa;
+    cursor: pointer;
+    padding-top: 10px;
+    padding-left: 5px;
+    height: 2em; }
+
+.debugger {
+  background: #2B2B2B;
+  font-family: Courier, 'NewCourier', monospace;
+  font-size: 1em; }
+  .debugger .reactive-height-cell {
+    padding-left: 8px;
+    padding-right: 8px;
+    background: #2B2B2B; }
+    .debugger .reactive-height-cell pre {
+      margin: 2px; }
+  .debugger .debug-column reactive-height-cell:nth-of-type(odd) .reactive-height-cell {
+    background: #313335; }
+  .debugger .line-number-column {
+    background: #313335;
+    border-left: 2px solid #3C3F41;
+    border-right: 2px solid #3C3F41;
+    text-align: right; }
+  .debugger .code-column {
+    border-right: 4px solid #3C3F41; }
+  .debugger .state-column .trace-column {
+    border-right: 2px solid #3C3F41; }
+    .debugger .state-column .trace-column .trace .trace-state ul {
+      margin: 0px;
+      padding-left: 0px; }
+    .debugger .state-column .trace-column .trace .trace-state li {
+      list-style-type: none; }

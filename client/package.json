@@ -1,28 +1,57 @@
 {
-  "name": "client",
-  "version": "1.0.0",
+  "name": "spice",
+  "version": "0.2.0",
   "description": "Debug through time.",
-  "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "tsc && concurrently \"tsc -w\" \"lite-server\" ",
+    "e2e": "tsc && concurrently \"http-server -s\" \"protractor protractor.config.js\" --kill-others --success first",
+    "lint": "tslint ./app/**/*.ts -t verbose",
+    "lite": "lite-server",
+    "pree2e": "webdriver-manager update",
+    "test": "tsc && concurrently \"tsc -w\" \"karma start karma.conf.js\"",
+    "test-once": "tsc && karma start karma.conf.js --single-run",
+    "tsc": "tsc",
+    "tsc:w": "tsc -w",
     "sass": "node node_modules/node-sass/bin/node-sass styles/spice.scss spice.css",
-    "sass-watch": "node node_modules/node-sass/bin/node-sass --watch styles/spice.scss spice.css",
-    "serve": "http-server -p 8000 -c-1"
+    "sass-watch": "node node_modules/node-sass/bin/node-sass --watch styles/spice.scss spice.css"
   },
+  "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
-    "angular": "^1.5.8",
-    "angular-animate": "^1.5.8",
-    "angular-aria": "^1.5.8",
-    "angular-material": "^1.1.1",
-    "angular-messages": "^1.5.8"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/team-worm/spice.git"
+    "@angular/common": "~2.4.0",
+    "@angular/compiler": "~2.4.0",
+    "@angular/core": "~2.4.0",
+    "@angular/forms": "~2.4.0",
+    "@angular/http": "~2.4.0",
+    "@angular/platform-browser": "~2.4.0",
+    "@angular/platform-browser-dynamic": "~2.4.0",
+    "@angular/router": "~3.4.0",
+    "angular-in-memory-web-api": "~0.2.4",
+    "systemjs": "0.19.40",
+    "core-js": "^2.4.1",
+    "rxjs": "5.0.1",
+    "zone.js": "^0.7.4"
   },
   "devDependencies": {
-    "node-sass": "^3.13.0"
-  }
+    "@types/jasmine": "^2.5.36",
+    "@types/node": "^6.0.46",
+    "canonical-path": "0.0.2",
+    "concurrently": "^3.1.0",
+    "http-server": "^0.9.0",
+    "jasmine-core": "~2.4.1",
+    "karma": "^1.3.0",
+    "karma-chrome-launcher": "^2.0.0",
+    "karma-cli": "^1.0.1",
+    "karma-jasmine": "^1.0.2",
+    "karma-jasmine-html-reporter": "^0.2.2",
+    "lite-server": "^2.2.2",
+    "lodash": "^4.16.4",
+    "node-sass": "^4.2.0",
+    "protractor": "~4.0.14",
+    "rimraf": "^2.5.4",
+    "tslint": "^3.15.1",
+    "typescript": "~2.0.10"
+  },
+  "repository": {}
 }
