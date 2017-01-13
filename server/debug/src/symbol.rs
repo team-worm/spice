@@ -1,4 +1,4 @@
-use std::{io, mem, ptr};
+use std::{io, iter, mem, ptr};
 use std::fs::File;
 use std::sync::Mutex;
 use std::ffi::{OsString, OsStr};
@@ -108,7 +108,7 @@ impl SymbolHandler {
     }
 
     pub fn symbol_from_name<S: AsRef<OsStr>>(&mut self, name: S) -> io::Result<Symbol> {
-        let name_wide: Vec<u16> = name.as_ref().encode_wide().chain(Some(0)).collect();
+        let name_wide: Vec<u16> = name.as_ref().encode_wide().chain(iter::once(0)).collect();
 
         unsafe {
             let mut symbol = winapi::SYMBOL_INFOW {
@@ -134,7 +134,7 @@ impl SymbolHandler {
         struct Context<'a, F> { symbols: &'a mut SymbolHandler, f: F }
         let mut context = Context { symbols: self, f };
 
-        let mask: Vec<u16> = OsStr::new("*!*").encode_wide().chain(Some(0)).collect();
+        let mask: Vec<u16> = OsStr::new("*!*").encode_wide().chain(iter::once(0)).collect();
         unsafe {
             if dbghelp::SymEnumSymbolsW(
                 context.symbols.0, 0, mask.as_ptr(),

@@ -95,36 +95,7 @@ fn main() {
             }
             UnloadDll { base } => { let _ = symbols.unload_module(base); }
 
-            OutputDebugString { data, length, .. } => {
-                let mut buffer = vec![0u8; length];
-                child.read_memory(data, &mut buffer)
-                    .expect("failed reading debug string");
-
-                let string = String::from_utf8_lossy(&buffer);
-                println!("{}", string);
-            }
-
-            Exception { code, address, .. } => {
-                let (symbol, off) = symbols.symbol_from_address(address)
-                    .expect("failed to get symbol");
-
-                let name = symbol.name.to_string_lossy();
-
-                let frame = symbols.walk_stack(threads[&event.thread_id])
-                    .expect("failed to get thread stack")
-                    .nth(0)
-                    .expect("failed to get stack frame");
-
-                let address = frame.stack.AddrPC.Offset as usize;
-                let file = match symbols.line_from_address(address) {
-                    Ok((line, _)) => format!("{}:{}", line.file.to_string_lossy(), line.line),
-                    Err(_) => "".to_string(),
-                };
-
-                println!("exception {:x} at {}+{} {}", code, name, off, file);
-            }
-
-            Rip { .. } => println!("rip event"),
+            _ => (),
         }
 
         event.continue_event(false)

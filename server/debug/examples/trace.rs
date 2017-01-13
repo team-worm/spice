@@ -144,7 +144,7 @@ fn main() {
                 }
             }
 
-            Rip { .. } => println!("rip event"),
+            _ => (),
         }
 
         event.continue_event(debug_continue)
