@@ -9,6 +9,7 @@ use winapi;
 use kernel32;
 use dbghelp;
 
+use types::{Type, Primitive};
 use {Child, FromWide};
 
 lazy_static! {
@@ -78,6 +79,22 @@ impl SymbolHandler {
         }
     }
 
+    pub fn module_from_address(&mut self, address: usize) -> io::Result<usize> {
+        unsafe {
+            let mut module = winapi::IMAGEHLP_MODULEW64 {
+                SizeOfStruct: mem::size_of::<winapi::IMAGEHLP_MODULEW64>() as winapi::DWORD,
+                .. mem::zeroed()
+            };
+            if dbghelp::SymGetModuleInfoW64(
+                self.0, address as winapi::DWORD64, &mut module
+            ) == winapi::FALSE {
+                return Err(io::Error::last_os_error());
+            }
+
+            Ok(module.BaseOfImage as usize)
+        }
+    }
+
     /// Retrieve the symbol and byte offset of an address
     pub fn symbol_from_address(&mut self, address: usize) -> io::Result<(Symbol, usize)> {
         unsafe {
@@ -102,6 +119,7 @@ impl SymbolHandler {
                 name,
                 address: symbol.0.Address as usize,
                 size: symbol.0.Size as usize,
+                type_index: symbol.0.TypeIndex as u32,
                 flags: symbol.0.Flags
             }, displacement as usize))
         }
@@ -123,6 +141,7 @@ impl SymbolHandler {
                 name: name.as_ref().to_owned(),
                 address: symbol.Address as usize,
                 size: symbol.Size as usize,
+                type_index: symbol.TypeIndex as u32,
                 flags: symbol.Flags,
             })
         }
@@ -154,23 +173,18 @@ impl SymbolHandler {
         {
             let symbol = &*pSymInfo;
             let Context {
-                ref symbols,
+                ref mut symbols,
                 ref mut f,
             } = *(UserContext as *mut Context<F>);
 
-            let mut module = winapi::IMAGEHLP_MODULEW64 {
-                SizeOfStruct: mem::size_of::<winapi::IMAGEHLP_MODULEW64>() as winapi::DWORD,
-                .. mem::zeroed()
+            let module = match symbols.module_from_address(symbol.Address as usize) {
+                Ok(module) => module,
+                Err(_) => return winapi::TRUE,
             };
-            if dbghelp::SymGetModuleInfoW64(
-                symbols.0, symbol.Address, &mut module
-            ) == winapi::FALSE {
-                return winapi::TRUE;
-            }
 
             let mut tag: winapi::DWORD = 0;
             if dbghelp::SymGetTypeInfo(
-                symbols.0, module.BaseOfImage, symbol.Index,
+                symbols.0, module as winapi::DWORD64, symbol.Index,
                 winapi::TI_GET_SYMTAG, &mut tag as *mut _ as *mut _
             ) == winapi::FALSE {
                 return winapi::TRUE;
@@ -185,9 +199,79 @@ impl SymbolHandler {
                 name: OsString::from_wide_raw(symbol.Name.as_ptr()),
                 address: symbol.Address as usize,
                 size: SymbolSize as usize,
+                type_index: symbol.TypeIndex as u32,
                 flags: symbol.Flags,
             };
             if f(&symbol, SymbolSize as usize) { winapi::TRUE } else { winapi::FALSE }
+        }
+    }
+
+    pub fn type_from_index(&mut self, module: usize, type_index: u32) -> io::Result<Type> {
+        let tag = self.get_type_info::<winapi::SymTag>(module, type_index)?;
+        if tag == winapi::SymTagBaseType {
+            let base = self.get_type_info::<BasicType>(module, type_index)?;
+
+            use self::BasicType::*;
+            let base = match base {
+                NoType | Void => Primitive::Void,
+                Bool => Primitive::Bool,
+                Char | WChar | Int | Long => Primitive::Int { signed: true },
+                UInt | ULong => Primitive::Int { signed: false },
+                Float => Primitive::Float,
+                _ => return Err(io::Error::new(io::ErrorKind::Other, "unsupported type")),
+            };
+
+            let TypeLength(size) = self.get_type_info(module, type_index)?;
+
+            Ok(Type::Base { base: base, size: size as usize })
+        } else if tag == winapi::SymTagPointerType {
+            let TypeIndex(target) = self.get_type_info(module, type_index)?;
+            Ok(Type::Pointer { type_index: target })
+        } else if tag == winapi::SymTagArrayType {
+            let TypeIndex(element) = self.get_type_info(module, type_index)?;
+            let TypeCount(count) = self.get_type_info(module, type_index)?;
+            Ok(Type::Array { type_index: element, count: count as usize })
+        } else if tag == winapi::SymTagFunctionType {
+            let TypeIndex(ret) = self.get_type_info(module, type_index)?;
+
+            let TypeCount(arg_count) = self.get_type_info(module, type_index)?;
+
+            let mut args = vec![0 as winapi::ULONG; 2 + arg_count as usize];
+            args[0] = arg_count;
+            unsafe {
+                if dbghelp::SymGetTypeInfo(
+                    self.0, module as winapi::DWORD64, type_index as winapi::ULONG,
+                    winapi::TI_FINDCHILDREN, args.as_mut_ptr() as *mut _
+                ) == winapi::FALSE {
+                    return Err(io::Error::last_os_error());
+                }
+            }
+
+            let args: io::Result<Vec<_>> = args.iter()
+                .skip(2)
+                .map(|&arg| {
+                    self.get_type_info(module, arg)
+                        .map(|TypeIndex(arg)| arg)
+                })
+                .collect();
+
+            Ok(Type::Function { type_index: ret, args: args? })
+        } else {
+            Err(io::Error::new(io::ErrorKind::Other, "unsupported type"))
+        }
+    }
+
+    fn get_type_info<T: DebugProperty>(&mut self, module: usize, index: u32) -> io::Result<T> {
+        unsafe {
+            let mut property: T = mem::uninitialized();
+            if dbghelp::SymGetTypeInfo(
+                self.0, module as winapi::DWORD64, index as winapi::ULONG, T::PROPERTY,
+                &mut property as *mut _ as *mut _
+            ) == winapi::FALSE {
+                return Err(io::Error::last_os_error());
+            }
+
+            Ok(property)
         }
     }
 
@@ -296,6 +380,7 @@ impl SymbolHandler {
                 name: OsString::from_wide_raw(symbol.Name.as_ptr()),
                 address: symbol.Address as usize,
                 size: SymbolSize as usize,
+                type_index: symbol.TypeIndex as u32,
                 flags: symbol.Flags,
             };
             if f(&symbol, SymbolSize as usize) { winapi::TRUE } else { winapi::FALSE }
@@ -323,8 +408,59 @@ pub struct Symbol {
     pub name: OsString,
     pub address: usize,
     pub size: usize,
+    pub type_index: u32,
     pub flags: winapi::ULONG,
 }
+
+trait DebugProperty { const PROPERTY: winapi::IMAGEHLP_SYMBOL_TYPE_INFO; }
+macro_rules! debug_property {
+    ($t: ty, $p: expr) => {
+        impl DebugProperty for $t {
+            const PROPERTY: winapi::IMAGEHLP_SYMBOL_TYPE_INFO = $p;
+        }
+    }
+}
+
+debug_property!(winapi::SymTag, winapi::TI_GET_SYMTAG);
+
+#[repr(u32)]
+#[allow(dead_code)]
+enum BasicType {
+    NoType = 0,
+    Void = 1,
+    Char = 2,
+    WChar = 3,
+    Int = 6,
+    UInt = 7,
+    Float = 8,
+    Bcd = 9,
+    Bool = 10,
+    Long = 13,
+    ULong = 14,
+    Currency = 25,
+    Date = 26,
+    Variant = 27,
+    Complex = 28,
+    Bit = 29,
+    Bstr = 30,
+    Hresult = 31,
+}
+debug_property!(BasicType, winapi::TI_GET_BASETYPE);
+
+#[repr(C)]
+#[allow(dead_code)]
+struct TypeLength(winapi::ULONG64);
+debug_property!(TypeLength, winapi::TI_GET_LENGTH);
+
+#[repr(C)]
+#[allow(dead_code)]
+struct TypeIndex(winapi::DWORD);
+debug_property!(TypeIndex, winapi::TI_GET_TYPE);
+
+#[repr(C)]
+#[allow(dead_code)]
+struct TypeCount(winapi::DWORD);
+debug_property!(TypeCount, winapi::TI_GET_COUNT);
 
 /// The file, line number, and first instruction address of a source line
 pub struct Line {
