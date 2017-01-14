@@ -1,3 +1,8 @@
+//Import custom theme for Angular Materials
+@import 'spicy-theme';
+//Important normalize-scss https://github.com/JohnAlbin/normalize-scss
+@import '../node_modules/normalize-scss/sass/normalize/_import-now';
+
 $background-color-0: #2B2B2B;
 $background-color-1: #313335;
 $background-color-2: #3C3F41;

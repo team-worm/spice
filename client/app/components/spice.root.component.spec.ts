@@ -1,23 +1,23 @@
-import {AppComponent} from './app.component';
+import {SpiceRootComponent} from './spice.root.component';
 
 import {async, ComponentFixture, TestBed} from '@angular/core/testing';
 import {By}           from '@angular/platform-browser';
 import {DebugElement} from '@angular/core';
 
-describe('AppComponent', function () {
+describe('SpiceRootComponent', function () {
     let de: DebugElement;
-    let comp: AppComponent;
-    let fixture: ComponentFixture<AppComponent>;
+    let comp: SpiceRootComponent;
+    let fixture: ComponentFixture<SpiceRootComponent>;
 
     beforeEach(async(() => {
         TestBed.configureTestingModule({
-            declarations: [AppComponent]
+            declarations: [SpiceRootComponent]
         })
             .compileComponents();
     }));
 
     beforeEach(() => {
-        fixture = TestBed.createComponent(AppComponent);
+        fixture = TestBed.createComponent(SpiceRootComponent);
         comp = fixture.componentInstance;
         de = fixture.debugElement.query(By.css('h1'));
     });

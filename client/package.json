@@ -31,6 +31,7 @@
     "angular-in-memory-web-api": "~0.2.4",
     "core-js": "^2.4.1",
     "hammerjs": "^2.0.8",
+    "normalize-scss": "^6.0.0",
     "rxjs": "5.0.1",
     "systemjs": "0.19.40",
     "zone.js": "^0.7.4"

@@ -1,13 +1,13 @@
 import 'hammerjs';
 import {NgModule}      from '@angular/core';
 import {BrowserModule} from '@angular/platform-browser';
-
-import {AppComponent}  from './app.component';
+import {ComponentsModule} from "./components/components.module";
+import {SpiceRootComponent} from "./components/spice.root.component";
 
 @NgModule({
-    imports: [BrowserModule],
-    declarations: [AppComponent],
-    bootstrap: [AppComponent]
+    imports: [BrowserModule, ComponentsModule],
+    bootstrap: [SpiceRootComponent]
+
 })
 export class SpiceModule {
 }
