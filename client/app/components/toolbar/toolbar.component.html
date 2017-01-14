@@ -1,0 +1,13 @@
+<md-toolbar color="primary">
+    <h2>Spice Debugger</h2>
+    <span style="flex: 1 1 auto"></span><!-- TODO: REPLACE STYLE TAG WITH SASS -->
+    <button title="Help" md-icon-button (click)="openHelpDialog()">
+        <md-icon class="fa-lg" fontIcon="fa-question"></md-icon>
+    </button>
+    <button title="About Spice" md-icon-button (click)="openAboutSpiceDialog()">
+        <img width="20px" height="20px" src="images/logo-white.png"/>
+    </button>
+    <a title="View GitHub Repository" href="https://github.com/team-worm/spice" target="_blank" md-icon-button>
+        <md-icon class="fa-lg" fontIcon="fa-github"></md-icon>
+    </a>
+</md-toolbar>
