@@ -142,7 +142,7 @@ impl<'a> fmt::Display for Type<'a> {
             }
 
             &Struct { ref name, .. } => {
-                write!(fmt, "{}", name)
+                write!(fmt, "{}", name.to_string_lossy())
             }
         }
     }

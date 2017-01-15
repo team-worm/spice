@@ -9,7 +9,7 @@ use winapi;
 use kernel32;
 use dbghelp;
 
-use types::{Type, Primitive};
+use types::{Type, Primitive, Field};
 use {Child, FromWide};
 
 lazy_static! {
@@ -182,15 +182,12 @@ impl SymbolHandler {
                 Err(_) => return winapi::TRUE,
             };
 
-            let mut tag: winapi::DWORD = 0;
-            if dbghelp::SymGetTypeInfo(
-                symbols.0, module as winapi::DWORD64, symbol.Index,
-                winapi::TI_GET_SYMTAG, &mut tag as *mut _ as *mut _
-            ) == winapi::FALSE {
-                return winapi::TRUE;
-            }
+            let tag: winapi::SymTag = match symbols.get_type_info(module, symbol.Index) {
+                Ok(tag) => tag,
+                Err(_) => return winapi::TRUE,
+            };
 
-            if tag != 5 {
+            if tag != winapi::SymTagFunction {
                 return winapi::TRUE;
             }
 
@@ -207,7 +204,7 @@ impl SymbolHandler {
     }
 
     pub fn type_from_index(&mut self, module: usize, type_index: u32) -> io::Result<Type> {
-        let tag = self.get_type_info::<winapi::SymTag>(module, type_index)?;
+        let tag: winapi::SymTag = self.get_type_info(module, type_index)?;
         if tag == winapi::SymTagBaseType {
             let base = self.get_type_info::<BasicType>(module, type_index)?;
 
@@ -229,33 +226,35 @@ impl SymbolHandler {
             Ok(Type::Pointer { type_index: target })
         } else if tag == winapi::SymTagArrayType {
             let TypeIndex(element) = self.get_type_info(module, type_index)?;
-            let TypeCount(count) = self.get_type_info(module, type_index)?;
+            let TypeChildren(count) = self.get_type_info(module, type_index)?;
             Ok(Type::Array { type_index: element, count: count as usize })
         } else if tag == winapi::SymTagFunctionType {
             let TypeIndex(ret) = self.get_type_info(module, type_index)?;
 
-            let TypeCount(arg_count) = self.get_type_info(module, type_index)?;
-
-            let mut args = vec![0 as winapi::ULONG; 2 + arg_count as usize];
-            args[0] = arg_count;
-            unsafe {
-                if dbghelp::SymGetTypeInfo(
-                    self.0, module as winapi::DWORD64, type_index as winapi::ULONG,
-                    winapi::TI_FINDCHILDREN, args.as_mut_ptr() as *mut _
-                ) == winapi::FALSE {
-                    return Err(io::Error::last_os_error());
-                }
-            }
-
+            let args = self.get_type_children(module, type_index)?;
             let args: io::Result<Vec<_>> = args.iter()
-                .skip(2)
                 .map(|&arg| {
-                    self.get_type_info(module, arg)
-                        .map(|TypeIndex(arg)| arg)
+                    let TypeIndex(arg_type) = self.get_type_info(module, arg)?;
+                    Ok(arg_type)
                 })
                 .collect();
 
             Ok(Type::Function { type_index: ret, args: args? })
+        } else if tag == winapi::SymTagUDT {
+            let name = self.get_type_name(module, type_index)?;
+            let TypeLength(size) = self.get_type_info(module, type_index)?;
+
+            let fields = self.get_type_children(module, type_index)?;
+            let fields: io::Result<Vec<_>> = fields.iter()
+                .map(|&field| {
+                    let name = self.get_type_name(module, field)?;
+                    let TypeIndex(field_type) = self.get_type_info(module, field)?;
+                    let TypeOffset(offset) = self.get_type_info(module, field)?;
+                    Ok(Field { name: name, field_type: field_type, offset: offset })
+                })
+                .collect();
+
+            Ok(Type::Struct { name: name, size: size as usize, fields: fields? })
         } else {
             Err(io::Error::new(io::ErrorKind::Other, "unsupported type"))
         }
@@ -273,6 +272,34 @@ impl SymbolHandler {
 
             Ok(property)
         }
+    }
+
+    fn get_type_name(&mut self, module: usize, index: u32) -> io::Result<OsString> {
+        unsafe {
+            let TypeName(name_wide) = self.get_type_info(module, index)?;
+            let name = OsString::from_wide_raw(name_wide);
+            kernel32::LocalFree(name_wide as *mut _);
+
+            Ok(name)
+        }
+    }
+
+    fn get_type_children(&mut self, module: usize, index: u32) -> io::Result<Vec<u32>> {
+        let TypeChildren(count) = self.get_type_info(module, index)?;
+
+        let mut children = vec![0 as winapi::ULONG; 2 + count as usize];
+        children[0] = count;
+
+        unsafe {
+            if dbghelp::SymGetTypeInfo(
+                self.0, module as winapi::DWORD64, index as winapi::ULONG,
+                winapi::TI_FINDCHILDREN, children.as_mut_ptr() as *mut _
+            ) == winapi::FALSE {
+                return Err(io::Error::last_os_error());
+            }
+        }
+
+        Ok(children.into_iter().skip(2).collect())
     }
 
     /// Retrieve the source line and byte offset of an instruction address
@@ -423,6 +450,21 @@ macro_rules! debug_property {
 
 debug_property!(winapi::SymTag, winapi::TI_GET_SYMTAG);
 
+#[repr(C)]
+#[allow(dead_code)]
+struct TypeName(*const winapi::WCHAR);
+debug_property!(TypeName, winapi::TI_GET_SYMNAME);
+
+#[repr(C)]
+#[allow(dead_code)]
+struct TypeLength(winapi::ULONG64);
+debug_property!(TypeLength, winapi::TI_GET_LENGTH);
+
+#[repr(C)]
+#[allow(dead_code)]
+struct TypeIndex(winapi::DWORD);
+debug_property!(TypeIndex, winapi::TI_GET_TYPE);
+
 #[repr(u32)]
 #[allow(dead_code)]
 enum BasicType {
@@ -449,18 +491,13 @@ debug_property!(BasicType, winapi::TI_GET_BASETYPE);
 
 #[repr(C)]
 #[allow(dead_code)]
-struct TypeLength(winapi::ULONG64);
-debug_property!(TypeLength, winapi::TI_GET_LENGTH);
+struct TypeOffset(winapi::DWORD);
+debug_property!(TypeOffset, winapi::TI_GET_OFFSET);
 
 #[repr(C)]
 #[allow(dead_code)]
-struct TypeIndex(winapi::DWORD);
-debug_property!(TypeIndex, winapi::TI_GET_TYPE);
-
-#[repr(C)]
-#[allow(dead_code)]
-struct TypeCount(winapi::DWORD);
-debug_property!(TypeCount, winapi::TI_GET_COUNT);
+struct TypeChildren(winapi::DWORD);
+debug_property!(TypeChildren, winapi::TI_GET_CHILDRENCOUNT);
 
 /// The file, line number, and first instruction address of a source line
 pub struct Line {
