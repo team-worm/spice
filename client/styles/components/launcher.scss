@@ -1,0 +1,32 @@
+.launcher {
+  text-align: center; //TEMP
+
+  .bottom-right {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+  }
+
+  .error-box {
+    text-align: center;
+  }
+
+  .filesystem {
+    :focus {
+      outline: 0;
+    }
+    .file {
+      &:hover {
+        cursor: pointer;
+        color: black;
+        background-color: $foreground-color-2;
+      }
+      &.lit {
+        color: black;
+        padding: 2px;
+        border: 2px solid $highlight-secondary-color-0;
+        background-color: $foreground-color-2;
+      }
+    }
+  }
+}

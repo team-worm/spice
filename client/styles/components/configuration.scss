@@ -1,0 +1,29 @@
+.configuration {
+
+  .spacer {
+    margin-left:1em;
+    margin-right:1em;
+  }
+  #console {
+    background: black;
+    color: white;
+    margin-top: 1em;
+    font-family: Courier, 'NewCourier', monospace;
+    border: 1px solid gray;
+  }
+
+  #function-list {
+    height: 6em;
+    width: 100%;
+    border: 1px solid $highlight-alt-color-0;
+    margin-top: 1em;
+
+    .repeated-item {
+      border-bottom: 1px solid #aaa;
+      cursor: pointer;
+      padding-top: 10px;
+      padding-left: 5px;
+      height: 2em;
+    }
+  }
+}

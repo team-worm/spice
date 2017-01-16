@@ -15,5 +15,7 @@ export class SpiceModule {
     constructor(mdIconRegistry: MdIconRegistry) {
         mdIconRegistry.registerFontClassAlias('fontawesome','fa');
         mdIconRegistry.setDefaultFontSetClass('fa');
+
+
     }
 }
