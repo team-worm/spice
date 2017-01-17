@@ -79,7 +79,7 @@ impl SymbolHandler {
         }
     }
 
-    pub fn module_from_address(&mut self, address: usize) -> io::Result<usize> {
+    pub fn module_from_address(&self, address: usize) -> io::Result<usize> {
         unsafe {
             let mut module = winapi::IMAGEHLP_MODULEW64 {
                 SizeOfStruct: mem::size_of::<winapi::IMAGEHLP_MODULEW64>() as winapi::DWORD,
@@ -96,7 +96,7 @@ impl SymbolHandler {
     }
 
     /// Retrieve the symbol and byte offset of an address
-    pub fn symbol_from_address(&mut self, address: usize) -> io::Result<(Symbol, usize)> {
+    pub fn symbol_from_address(&self, address: usize) -> io::Result<(Symbol, usize)> {
         unsafe {
             let mut displacement = 0;
             let mut symbol = (winapi::SYMBOL_INFOW {
@@ -125,7 +125,7 @@ impl SymbolHandler {
         }
     }
 
-    pub fn symbol_from_name<S: AsRef<OsStr>>(&mut self, name: S) -> io::Result<Symbol> {
+    pub fn symbol_from_name<S: AsRef<OsStr>>(&self, name: S) -> io::Result<Symbol> {
         let name_wide: Vec<u16> = name.as_ref().encode_wide().chain(iter::once(0)).collect();
 
         unsafe {
@@ -147,17 +147,13 @@ impl SymbolHandler {
         }
     }
 
-    pub fn enumerate_functions<F>(&mut self, f: F) -> io::Result<()>
-        where F: FnMut(&Symbol, usize) -> bool
+    pub fn enumerate_globals<F>(&self, mut f: F) -> io::Result<()>
+        where F: FnMut(Symbol, usize) -> bool
     {
-        struct Context<'a, F> { symbols: &'a mut SymbolHandler, f: F }
-        let mut context = Context { symbols: self, f };
-
         let mask: Vec<u16> = OsStr::new("*!*").encode_wide().chain(iter::once(0)).collect();
         unsafe {
             if dbghelp::SymEnumSymbolsW(
-                context.symbols.0, 0, mask.as_ptr(),
-                Some(enum_functions::<F>), &mut context as *mut _ as *mut _
+                self.0, 0, mask.as_ptr(), Some(enum_globals::<F>), &mut f as *mut _ as *mut _
             ) == winapi::FALSE {
                 return Err(io::Error::last_os_error());
             }
@@ -166,30 +162,13 @@ impl SymbolHandler {
         }
 
         #[allow(non_snake_case)]
-        unsafe extern "system" fn enum_functions<F>(
+        unsafe extern "system" fn enum_globals<F>(
             pSymInfo: winapi::PSYMBOL_INFOW, SymbolSize: winapi::ULONG, UserContext: winapi::PVOID
         ) -> winapi::BOOL
-            where F: FnMut(&Symbol, usize) -> bool
+            where F: FnMut(Symbol, usize) -> bool
         {
             let symbol = &*pSymInfo;
-            let Context {
-                ref mut symbols,
-                ref mut f,
-            } = *(UserContext as *mut Context<F>);
-
-            let module = match symbols.module_from_address(symbol.Address as usize) {
-                Ok(module) => module,
-                Err(_) => return winapi::TRUE,
-            };
-
-            let tag: winapi::SymTag = match symbols.get_type_info(module, symbol.Index) {
-                Ok(tag) => tag,
-                Err(_) => return winapi::TRUE,
-            };
-
-            if tag != winapi::SymTagFunction {
-                return winapi::TRUE;
-            }
+            let mut f = &mut *(UserContext as *mut F);
 
             let symbol = Symbol {
                 // for some reason, pSymInfo.NameLen includes the null terminator here
@@ -199,11 +178,11 @@ impl SymbolHandler {
                 type_index: symbol.TypeIndex as u32,
                 flags: symbol.Flags,
             };
-            if f(&symbol, SymbolSize as usize) { winapi::TRUE } else { winapi::FALSE }
+            if f(symbol, SymbolSize as usize) { winapi::TRUE } else { winapi::FALSE }
         }
     }
 
-    pub fn type_from_index(&mut self, module: usize, type_index: u32) -> io::Result<Type> {
+    pub fn type_from_index(&self, module: usize, type_index: u32) -> io::Result<Type> {
         let tag: winapi::SymTag = self.get_type_info(module, type_index)?;
         if tag == winapi::SymTagBaseType {
             let base = self.get_type_info::<BasicType>(module, type_index)?;
@@ -260,7 +239,7 @@ impl SymbolHandler {
         }
     }
 
-    fn get_type_info<T: DebugProperty>(&mut self, module: usize, index: u32) -> io::Result<T> {
+    fn get_type_info<T: DebugProperty>(&self, module: usize, index: u32) -> io::Result<T> {
         unsafe {
             let mut property: T = mem::uninitialized();
             if dbghelp::SymGetTypeInfo(
@@ -274,7 +253,7 @@ impl SymbolHandler {
         }
     }
 
-    fn get_type_name(&mut self, module: usize, index: u32) -> io::Result<OsString> {
+    fn get_type_name(&self, module: usize, index: u32) -> io::Result<OsString> {
         unsafe {
             let TypeName(name_wide) = self.get_type_info(module, index)?;
             let name = OsString::from_wide_raw(name_wide);
@@ -284,7 +263,7 @@ impl SymbolHandler {
         }
     }
 
-    fn get_type_children(&mut self, module: usize, index: u32) -> io::Result<Vec<u32>> {
+    fn get_type_children(&self, module: usize, index: u32) -> io::Result<Vec<u32>> {
         let TypeChildren(count) = self.get_type_info(module, index)?;
 
         let mut children = vec![0 as winapi::ULONG; 2 + count as usize];
@@ -303,7 +282,7 @@ impl SymbolHandler {
     }
 
     /// Retrieve the source line and byte offset of an instruction address
-    pub fn line_from_address(&mut self, address: usize) -> io::Result<(Line, usize)> {
+    pub fn line_from_address(&self, address: usize) -> io::Result<(Line, usize)> {
         unsafe {
             let mut displacement = 0;
             let mut line = winapi::IMAGEHLP_LINEW64 {
@@ -326,7 +305,7 @@ impl SymbolHandler {
     }
 
     /// Iterate through the source lines of a function
-    pub fn lines_from_symbol(&mut self, symbol: &Symbol) -> io::Result<Lines> {
+    pub fn lines_from_symbol(&self, symbol: &Symbol) -> io::Result<Lines> {
         unsafe {
             let mut displacement = 0;
             let mut line = winapi::IMAGEHLP_LINEW64 {
@@ -348,7 +327,7 @@ impl SymbolHandler {
     ///
     /// The thread should be part of an attached child process which is currently paused to handle
     /// a debug event.
-    pub fn walk_stack(&mut self, thread: RawHandle) -> io::Result<StackFrames> {
+    pub fn walk_stack(&self, thread: RawHandle) -> io::Result<StackFrames> {
         unsafe {
             let context = ::get_thread_context(thread, winapi::CONTEXT_FULL)?.into_raw();
 
@@ -370,7 +349,7 @@ impl SymbolHandler {
     ///
     /// Addresses are base-pointer-relative.
     pub fn enumerate_locals<F>(&self, address: usize, mut f: F) -> io::Result<()>
-        where F: FnMut(&Symbol, usize) -> bool
+        where F: FnMut(Symbol, usize) -> bool
     {
         unsafe {
             let mut stack_frame = winapi::IMAGEHLP_STACK_FRAME {
@@ -397,7 +376,7 @@ impl SymbolHandler {
         unsafe extern "system" fn enum_locals<F>(
             pSymInfo: winapi::PSYMBOL_INFOW, SymbolSize: winapi::ULONG, UserContext: winapi::PVOID
         ) -> winapi::BOOL
-            where F: FnMut(&Symbol, usize) -> bool
+            where F: FnMut(Symbol, usize) -> bool
         {
             let symbol = &*pSymInfo;
             let mut f = &mut *(UserContext as *mut F);
@@ -410,7 +389,7 @@ impl SymbolHandler {
                 type_index: symbol.TypeIndex as u32,
                 flags: symbol.Flags,
             };
-            if f(&symbol, SymbolSize as usize) { winapi::TRUE } else { winapi::FALSE }
+            if f(symbol, SymbolSize as usize) { winapi::TRUE } else { winapi::FALSE }
         }
     }
 }

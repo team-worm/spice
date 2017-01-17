@@ -3,7 +3,6 @@ extern crate debug;
 extern crate winapi;
 
 use std::{env, fmt};
-use std::cell::RefCell;
 use std::collections::HashMap;
 
 fn main() {
@@ -17,9 +16,8 @@ fn main() {
     debug::SymbolHandler::set_options(winapi::SYMOPT_DEBUG | winapi::SYMOPT_LOAD_LINES | options);
 
     let mut threads = HashMap::new();
-    let symbols = debug::SymbolHandler::initialize(&child)
+    let mut symbols = debug::SymbolHandler::initialize(&child)
         .expect("failed to initialize symbol handler");
-    let symbols = RefCell::new(symbols);
 
     let mut done = false;
     while !done {
@@ -32,19 +30,12 @@ fn main() {
             CreateProcess { ref file, main_thread, base, .. } => {
                 threads.insert(event.thread_id, main_thread);
 
-                let symbol;
-                let module;
-                let symbol_type;
-                {
-                    let mut symbols = symbols.borrow_mut();
+                symbols.load_module(file.as_ref().unwrap(), base)
+                    .expect("failed to load module");
 
-                    symbols.load_module(file.as_ref().unwrap(), base)
-                        .expect("failed to load module");
-
-                    symbol = symbols.symbol_from_name(&symbol_name).unwrap();
-                    module = symbols.module_from_address(symbol.address).unwrap();
-                    symbol_type = symbols.type_from_index(module, symbol.type_index).unwrap();
-                }
+                let symbol = symbols.symbol_from_name(&symbol_name).unwrap();
+                let module = symbols.module_from_address(symbol.address).unwrap();
+                let symbol_type = symbols.type_from_index(module, symbol.type_index).unwrap();
 
                 println!("{}: {}", symbol_name, Type(symbol_type, &symbols, module));
             }
@@ -54,14 +45,10 @@ fn main() {
             ExitThread { .. } => { threads.remove(&event.thread_id); }
 
             LoadDll { ref file, base } => {
-                let mut symbols = symbols.borrow_mut();
                 symbols.load_module(file.as_ref().unwrap(), base)
                     .expect("failed to load module");
             }
-            UnloadDll { base } => {
-                let mut symbols = symbols.borrow_mut();
-                let _ = symbols.unload_module(base);
-            }
+            UnloadDll { base } => { let _ = symbols.unload_module(base); }
 
             _ => (),
         }
@@ -71,7 +58,7 @@ fn main() {
     }
 }
 
-struct Type<'a>(debug::Type, &'a RefCell<debug::SymbolHandler>, usize);
+struct Type<'a>(debug::Type, &'a debug::SymbolHandler, usize);
 
 impl<'a> fmt::Display for Type<'a> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> Result<(), fmt::Error> {
@@ -93,23 +80,15 @@ impl<'a> fmt::Display for Type<'a> {
             }
 
             &Pointer { type_index } => {
-                let target;
-                {
-                    let mut symbols = symbols.borrow_mut();
-                    target = symbols.type_from_index(module, type_index)
-                        .map_err(|_| fmt::Error)?;
-                }
+                let target = symbols.type_from_index(module, type_index)
+                    .map_err(|_| fmt::Error)?;
 
                 write!(fmt, "*{}", Type(target, symbols, module))
             }
 
             &Array { type_index, count } => {
-                let element;
-                {
-                    let mut symbols = symbols.borrow_mut();
-                    element = symbols.type_from_index(module, type_index)
-                        .map_err(|_| fmt::Error)?;
-                }
+                let element = symbols.type_from_index(module, type_index)
+                    .map_err(|_| fmt::Error)?;
 
                 write!(fmt, "[{}; {}]", Type(element, symbols, module), count)
             }
@@ -118,23 +97,15 @@ impl<'a> fmt::Display for Type<'a> {
                 write!(fmt, "fn (")?;
 
                 for (i, &arg) in args.iter().enumerate() {
-                    let arg_type;
-                    {
-                        let mut symbols = symbols.borrow_mut();
-                        arg_type = symbols.type_from_index(module, arg)
-                            .map_err(|_| fmt::Error)?;
-                    }
+                    let arg_type = symbols.type_from_index(module, arg)
+                        .map_err(|_| fmt::Error)?;
 
                     let prefix = if i == 0 { "" } else { ", " };
                     write!(fmt, "{}{}", prefix, Type(arg_type, symbols, module))?;
                 }
 
-                let ret;
-                {
-                    let mut symbols = symbols.borrow_mut();
-                    ret = symbols.type_from_index(module, type_index)
-                        .map_err(|_| fmt::Error)?;
-                }
+                let ret = symbols.type_from_index(module, type_index)
+                    .map_err(|_| fmt::Error)?;
 
                 write!(fmt, ") -> {}", Type(ret, symbols, module))?;
 

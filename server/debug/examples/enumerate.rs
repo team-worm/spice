@@ -33,9 +33,15 @@ fn main() {
                     .expect("failed to load module");
 
                 let mut functions = vec![];
-                symbols.enumerate_functions(|function, size| {
+                symbols.enumerate_globals(|symbol, size| {
+                    let module = symbols.module_from_address(symbol.address).unwrap();
+                    match symbols.type_from_index(module, symbol.type_index) {
+                        Ok(debug::Type::Function { .. }) => (),
+                        _ => return true,
+                    }
+
                     functions.push((
-                        function.name.to_string_lossy().into_owned(), function.address, size
+                        symbol.name.to_string_lossy().into_owned(), symbol.address, size
                     ));
                     true
                 }).expect("failed to enumerate functions");
