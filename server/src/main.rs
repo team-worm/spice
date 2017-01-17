@@ -1,8 +1,11 @@
-#![feature(field_init_shorthand)]
+#![feature(custom_derive, field_init_shorthand)]
 
 extern crate hyper;
 extern crate unicase;
 extern crate reroute;
+
+#[macro_use]
+extern crate serde_derive;
 
 extern crate serde;
 extern crate serde_json;
@@ -24,10 +27,7 @@ use serde_types::*;
 use serde_json::value::ToJson;
 use child::{ServerMessage, DebugMessage, DebugTrace};
 
-mod serde_types {
-    include!(concat!(env!("OUT_DIR"), "/serde_types.rs"));
-}
-
+mod serde_types;
 mod child;
 
 type ChildThread = Arc<Mutex<Option<child::Thread>>>;
