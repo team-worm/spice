@@ -14,7 +14,8 @@ angular.module('Spice')
 
         //var path = 'C:/Users/Russell/Desktop/debug-c/x64/Debug/binary-search.exe';
         //var path = 'C:/Users/Elliot/Downloads/binary-search/x64/Debug/binary-search.exe';
-        var path = 'C:/Users/samda/Desktop/binary-search/x64/Debug/binary-search.exe';
+        var path = 'C:/Users/tarik/Documents/visual_studio_2015/Projects/binarySearch/x64/Debug/binarySearch.exe';
+        //var path = 'C:/Users/samda/Desktop/binary-search/x64/Debug/binary-search.exe';
 
         self.launchSelected = function () {
             loadingBinary = true;

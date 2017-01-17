@@ -76,6 +76,10 @@ impl Thread {
             rx: debug_rx,
         }
     }
+
+    // pub fn attach_pid(pid: u32) -> Thread {
+    // TODO:    
+    // }
 }
 
 struct DebugState {
@@ -87,6 +91,10 @@ struct DebugState {
     breakpoints: HashMap<usize, Option<debug::Breakpoint>>,
     last_breakpoint: Option<usize>,
 }
+
+// fn run_pid(pid: u32, tx: SyncSender<DebugMessage>, rx: Receiver<ServerMessage>) -> io::Result<()> {
+//  TODO
+// }
 
 fn run(path: PathBuf, tx: SyncSender<DebugMessage>, rx: Receiver<ServerMessage>) -> io::Result<()> {
     let child = debug::Command::new(&path)

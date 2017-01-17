@@ -11,9 +11,9 @@ extern crate debug;
 extern crate winapi;
 extern crate kernel32;
 
-use std::{io, fs, mem};
+use std::{io, fs};
 use std::sync::{Mutex, Arc};
-use std::io::{BufRead, Write};
+use std::io::{Write};
 use std::path::{PathBuf, Path};
 use std::collections::HashMap;
 
@@ -23,11 +23,6 @@ use reroute::{RouterBuilder, Captures};
 
 use serde_json::value::ToJson;
 
-use kernel32::{CreateToolhelp32Snapshot, Process32NextW, CloseHandle};
-
-use winapi::{tlhelp32};
-
-               
     
 use serde_types::*;
 use child::{ServerMessage, DebugMessage, DebugTrace};
@@ -198,93 +193,40 @@ fn filesystem(mut req: Request, res: Response, caps: Captures) {
 fn process(mut req: Request, res: Response, _: Captures) {
     io::copy(&mut req, &mut io::sink()).unwrap();
 
-    //    let curr_procs = read_proc_dir(); // uncomment this line for linux
-    let curr_procs = read_win_proc(); // use this line for windows
+    //    let curr_procs = debug::read_proc_dir(); // uncomment this line for linux
+    let curr_procs = debug::read_win_proc(); // use this line for windows
 
-    let json = serde_json::to_vec(&curr_procs).unwrap();
+    let mut json_procs = vec![];
+    for process in curr_procs.into_iter() {
+        json_procs.push(Process{id: process.id, name: process.name});
+    }
+
+    let json = serde_json::to_vec(&json_procs).unwrap();
     send(res, &json).unwrap();
 }
 
-fn read_win_proc() -> Vec<Process> {
-    println!("in read_win_proc");
-    let mut processes = vec![];
 
-    unsafe {
-        let h_process_snap = CreateToolhelp32Snapshot(tlhelp32::TH32CS_SNAPPROCESS, 0);
-
-        let mut pe32 = tlhelp32::PROCESSENTRY32W{
-            dwSize: mem::size_of::<tlhelp32::PROCESSENTRY32W>() as u32, cntUsage: 0,
-            th32ProcessID: 0, th32DefaultHeapID: 0,
-            th32ModuleID: 0,  cntThreads: 0, th32ParentProcessID: 0,
-            pcPriClassBase: 0, dwFlags: 0, szExeFile: [0; 260]
-        };
-
-        while Process32NextW(h_process_snap, &mut pe32) != 0 {
-
-            processes.push(Process{
-                id: pe32.th32ProcessID, name: String::from_utf16(&mut pe32.szExeFile)
-                    .unwrap()
-                    .replace("\0", "")});
-        }
-
-        CloseHandle(h_process_snap);
-    }
-
-    processes
-
-}
-
-/// helper function to recursively go through /proc directory
-fn read_proc_dir() -> Vec<Process> {
-    println!("in read_proc_dir");
-    let mut processes = vec![];
-    let paths = fs::read_dir("/proc").unwrap();
-
-    for path in paths {
-        let dir_entry = path.unwrap();
-        let f_name = dir_entry.file_name().into_string().unwrap();
-        let mut path_name = dir_entry.path().into_os_string().into_string().unwrap();
-
-        if dir_entry.metadata().unwrap().is_dir()
-            && !f_name.parse::<i32>().is_err() {
-
-                path_name.push_str("/status");
-                println!("stat path is: {}", f_name);// debug line
-                let proc_stats = fs::File::open(path_name).unwrap();
-                let reader = io::BufReader::new(proc_stats);
-
-                let mut p_name = "".to_string();
-                let mut p_id = "".to_string();
-
-                for line in reader.lines() {
-                    let l = line.unwrap();
-                    if l.starts_with("Name:") {
-                        p_name = l.split("Name:").nth(1).unwrap().trim().to_string();
-                    } else if l.starts_with("Pid") {
-                        p_id = l.split("Pid:").nth(1).unwrap().trim().to_string();
-                    }
-
-                    if !p_name.is_empty() && !p_id.is_empty() {
-                        processes.push(Process {
-                            id: p_id.parse::<u32>().unwrap(), name: p_name.to_string()
-                        });
-                        break;
-                    }
-
-
-                } // end reading lines of status file                
-            }
-    } //end iteration over dirs in proc
-
-    //return processes
-    processes
-}
 
 /// POST /debug/attach/pid/:pid -- attach to a running process
 fn debug_attach_pid(mut req: Request, mut res: Response, caps: Captures, _child: ChildThread) {
     let caps = caps.unwrap();
     let _pid = caps[1].parse::<u64>().unwrap();
     io::copy(&mut req, &mut io::sink()).unwrap();
+
+    // let mut child = child.lock().unwrap();
+    // if let Some(child) = child.take() {
+    //     child.tx.send(ServerMessage::Quit).unwrap();
+    //     child.thread.join().unwrap();
+    // }
+
+    // handle process
+    // debug privileges code
+    // after attach do symbol loading outside of event loop
+    // list all threads in target process.
+    // list all modules of target process. (ie: dll's)
+    
+    // process listing code should go into debug library (child process stuff)
+
 
     *res.status_mut() = StatusCode::NotImplemented;
     send(res, b"").unwrap();

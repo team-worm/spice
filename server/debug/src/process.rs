@@ -1,8 +1,9 @@
-use std::{io, env, iter, mem, ptr};
+use std::{io, env, iter, mem, ptr,fs};
 use std::ffi::{OsString, OsStr};
 use std::os::windows::ffi::OsStrExt;
 use std::os::windows::io::{RawHandle, AsRawHandle, IntoRawHandle};
 use std::collections::HashMap;
+use std::io::{BufRead};
 
 use winapi;
 use kernel32;
@@ -53,6 +54,10 @@ impl Child {
     pub fn remove_breakpoint(&mut self, breakpoint: Breakpoint) -> io::Result<()> {
         self.write_memory(breakpoint.address, &breakpoint.saved)?;
         Ok(())
+    }
+
+    pub fn new(handle: winapi::winnt::HANDLE) -> io::Result<Child> {
+        Ok(Child(handle))
     }
 }
 
@@ -264,4 +269,88 @@ fn ensure_no_nuls<S: AsRef<OsStr>>(s: S) -> io::Result<S> {
     } else {
         Ok(s)
     }
+}
+
+
+/// Struct to capture the pid and name of a running process
+pub struct Proc {
+    pub id: u32,
+    pub name: String,
+}
+
+/// helper function to get list of running windows processes on machine
+pub fn read_win_proc() -> Vec<Proc> {
+    println!("in read_win_proc");
+    let mut processes = vec![];
+
+    unsafe {
+        let h_process_snap = kernel32::CreateToolhelp32Snapshot(winapi::tlhelp32::TH32CS_SNAPPROCESS, 0);
+
+        let mut pe32 = winapi::tlhelp32::PROCESSENTRY32W{
+            dwSize: mem::size_of::<winapi::tlhelp32::PROCESSENTRY32W>() as u32, cntUsage: 0,
+            th32ProcessID: 0, th32DefaultHeapID: 0,
+            th32ModuleID: 0,  cntThreads: 0, th32ParentProcessID: 0,
+            pcPriClassBase: 0, dwFlags: 0, szExeFile: [0; 260]
+        };
+
+        while kernel32::Process32NextW(h_process_snap, &mut pe32) != 0 {
+
+            processes.push(Proc{
+                id: pe32.th32ProcessID, name: String::from_utf16(&mut pe32.szExeFile)
+                    .unwrap()
+                    .replace("\0", "")});
+        }
+
+        kernel32::CloseHandle(h_process_snap);
+    }
+
+    processes
+
+}
+
+
+/// helper function to recursively go through /proc directory on linux machines
+pub fn read_proc_dir() -> Vec<Proc> {
+    println!("in read_proc_dir");
+    let mut processes = vec![];
+    let paths = fs::read_dir("/proc").unwrap();
+
+    for path in paths {
+        let dir_entry = path.unwrap();
+        let f_name = dir_entry.file_name().into_string().unwrap();
+        let mut path_name = dir_entry.path().into_os_string().into_string().unwrap();
+
+        if dir_entry.metadata().unwrap().is_dir()
+            && !f_name.parse::<i32>().is_err() {
+
+                path_name.push_str("/status");
+                println!("stat path is: {}", f_name);// debug line
+                let proc_stats = fs::File::open(path_name).unwrap();
+                let reader = io::BufReader::new(proc_stats);
+
+                let mut p_name = "".to_string();
+                let mut p_id = "".to_string();
+
+                for line in reader.lines() {
+                    let l = line.unwrap();
+                    if l.starts_with("Name:") {
+                        p_name = l.split("Name:").nth(1).unwrap().trim().to_string();
+                    } else if l.starts_with("Pid") {
+                        p_id = l.split("Pid:").nth(1).unwrap().trim().to_string();
+                    }
+
+                    if !p_name.is_empty() && !p_id.is_empty() {
+                        processes.push(Proc {
+                            id: p_id.parse::<u32>().unwrap(), name: p_name.to_string()
+                        });
+                        break;
+                    }
+
+
+                } // end reading lines of status file                
+            }
+    } //end iteration over dirs in proc
+
+    //return processes
+    processes
 }
