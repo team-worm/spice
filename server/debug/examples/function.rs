@@ -51,15 +51,6 @@ fn main() {
             }
             UnloadDll { base } => { let _ = symbols.unload_module(base); }
 
-            OutputDebugString { data, length, .. } => {
-                let mut buffer = vec![0u8; length];
-                child.read_memory(data, &mut buffer)
-                    .expect("failed reading debug string");
-
-                let string = String::from_utf8_lossy(&buffer);
-                println!("{}", string);
-            }
-
             Exception { first_chance, code, address } => {
                 if !attached {
                     attached = true;
@@ -158,7 +149,7 @@ fn main() {
                 }
             }
 
-            Rip { .. } => println!("rip event"),
+            _ => (),
         }
 
         event.continue_event(debug_continue)
