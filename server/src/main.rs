@@ -10,6 +10,7 @@ extern crate serde_json;
 extern crate debug;
 extern crate winapi;
 extern crate kernel32;
+extern crate advapi32;
 
 use std::{io, fs};
 use std::sync::{Mutex, Arc};
@@ -208,28 +209,46 @@ fn process(mut req: Request, res: Response, _: Captures) {
 
 
 /// POST /debug/attach/pid/:pid -- attach to a running process
-fn debug_attach_pid(mut req: Request, mut res: Response, caps: Captures, _child: ChildThread) {
+fn debug_attach_pid(mut req: Request, mut res: Response, caps: Captures, child: ChildThread) {
     let caps = caps.unwrap();
-    let _pid = caps[1].parse::<u64>().unwrap();
+    let _pid = caps[1].parse::<u32>().unwrap();
     io::copy(&mut req, &mut io::sink()).unwrap();
 
-    // let mut child = child.lock().unwrap();
-    // if let Some(child) = child.take() {
-    //     child.tx.send(ServerMessage::Quit).unwrap();
-    //     child.thread.join().unwrap();
-    // }
+    let mut child = child.lock().unwrap();
+    if let Some(child) = child.take() {
+        child.tx.send(ServerMessage::Quit).unwrap();
+        child.thread.join().unwrap();
+    }
 
-    // handle process
-    // debug privileges code
-    // after attach do symbol loading outside of event loop
-    // list all threads in target process.
-    // list all modules of target process. (ie: dll's)
-    
-    // process listing code should go into debug library (child process stuff)
+    *child = Some(child::Thread::attach(_pid));
 
+    let child = child.as_mut().unwrap();
 
-    *res.status_mut() = StatusCode::NotImplemented;
-    send(res, b"").unwrap();
+    let json = match child.rx.recv() {
+        Ok(DebugMessage::Attached) => {
+            let message = DebugInfo {
+                id: 0,
+                attached_process: Process {
+                    id: _pid,
+                    name: "".to_string(),
+                },
+                source_path: "".to_string(),
+            };
+
+            serde_json::to_vec(&message).unwrap()
+        }
+
+        Ok(DebugMessage::Error(_)) | _ => {
+            *res.status_mut() = StatusCode::NotFound;
+            let message = Error {
+                code: 0, message: format!("pid {} not found", _pid), data: 0
+            };
+
+            serde_json::to_vec(&message).unwrap()
+        }
+    };
+
+    send(res, &json).unwrap();
 }
 
 /// POST /debug/attach/bin/:path -- attach to a binary

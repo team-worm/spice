@@ -15,6 +15,7 @@ serde_json = "0.8"
 debug = { path = "debug" }
 winapi = { git = "https://github.com/team-worm/winapi-rs" }
 kernel32-sys = { git = "https://github.com/team-worm/winapi-rs" }
+advapi32-sys = { git = "https://github.com/team-worm/winapi-rs" }
 
 [build-dependencies]
 serde_codegen = "0.8"
