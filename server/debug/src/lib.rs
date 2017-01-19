@@ -1,5 +1,6 @@
 #![feature(optin_builtin_traits)]
 #![feature(field_init_shorthand)]
+#![feature(associated_consts)]
 
 extern crate winapi;
 extern crate kernel32;
@@ -16,10 +17,12 @@ use std::os::windows::ffi::OsStringExt;
 pub use process::*;
 pub use event::*;
 pub use symbol::*;
+pub use types::*;
 
 mod process;
 mod event;
 mod symbol;
+mod types;
 
 trait FromWide where Self: Sized {
     fn from_wide(wide: &[u16]) -> Self;

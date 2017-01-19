@@ -144,7 +144,9 @@ fn run(
             }
             ServerMessage::DescribeFunction { address } => {
                 let (function, _) = state.symbols.symbol_from_address(address)?;
-                let function = describe_function(&mut state.symbols, &function)?;
+                let module = state.symbols.module_from_address(address)?;
+                let fn_type = state.symbols.type_from_index(module, function.type_index)?;
+                let function = describe_function(&mut state.symbols, &function, &fn_type)?;
                 tx.send(DebugMessage::Function(function)).unwrap();
             }
 
@@ -186,25 +188,31 @@ fn run(
 }
 
 fn list_functions(
-    state: &mut DebugState, tx: &SyncSender<DebugMessage>
+    state: &DebugState, tx: &SyncSender<DebugMessage>
 ) -> io::Result<()> {
-    let DebugState { ref mut symbols, .. } = *state;
+    let DebugState { ref symbols, .. } = *state;
 
     let mut functions = vec![];
-    symbols.enumerate_functions(|function, _| {
-        functions.push(function.clone());
+    symbols.enumerate_globals(|symbol, _| {
+        let module = symbols.module_from_address(symbol.address).unwrap();
+        let fn_type = match symbols.type_from_index(module, symbol.type_index) {
+            Ok(fn_type @ debug::Type::Function { .. }) => fn_type,
+            _ => return true,
+        };
+
+        functions.push((symbol, fn_type));
         true
     })?;
 
     let functions: Vec<_> = functions.into_iter()
-        .flat_map(|function| describe_function(symbols, &function))
+        .flat_map(|(function, fn_type)| describe_function(symbols, &function, &fn_type))
         .collect();
     tx.send(DebugMessage::Functions(functions)).unwrap();
     Ok(())
 }
 
 fn describe_function(
-    symbols: &mut debug::SymbolHandler, function: &debug::Symbol
+    symbols: &debug::SymbolHandler, function: &debug::Symbol, _fn_type: &debug::Type
 ) -> io::Result<Function> {
     let debug::Symbol { ref name, address, size, .. } = *function;
 
