@@ -229,7 +229,7 @@ impl SymbolHandler {
                     let name = self.get_type_name(module, field)?;
                     let TypeIndex(field_type) = self.get_type_info(module, field)?;
                     let TypeOffset(offset) = self.get_type_info(module, field)?;
-                    Ok(Field { name: name, field_type: field_type, offset: offset })
+                    Ok(Field { name: name, type_index: field_type, offset: offset })
                 })
                 .collect();
 

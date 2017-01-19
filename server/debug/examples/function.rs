@@ -24,6 +24,9 @@ fn main() {
     let mut breakpoints = HashMap::new();
     let mut last_breakpoint = None;
 
+    let mut first_line = true;
+    let mut last_line = 0;
+
     let mut done = false;
     while !done {
         let event = debug::Event::wait_event()
@@ -112,24 +115,27 @@ fn main() {
 
                         let name = symbol.name.to_string_lossy();
 
-                        let mut buffer = vec![0u8; size];
-                        let address = context.Rbp as usize + symbol.address;
-                        match child.read_memory(address, &mut buffer) {
-                            Ok(_) => {
-                                let value = match size {
-                                    4 => unsafe { *(buffer.as_ptr() as *const u32) as u64 },
-                                    8 => unsafe { *(buffer.as_ptr() as *const u64) as u64 },
-                                    _ => unsafe { *(buffer.as_ptr() as *const u32) as u64 },
-                                };
-                                locals.push(format!("{} = {:x}", name, value));
-                            }
-                            Err(_) => locals.push(format!("{} = ?", name)),
+                        let value = match debug::Value::read(&child, &symbols, &context, &symbol) {
+                            Ok(value) => value,
+                            Err(_) => return true,
+                        };
+
+                        // heuristic for windows' uninitialized value pattern
+                        if value.data[0] == 0xcc {
+                            return true;
                         }
 
+                        locals.push(format!("{} = {}", name, value.display(&symbols)));
                         true
                     }).expect("failed to enumerate symbols");
 
-                    println!("{}: {}", line.line, locals.join("; "));
+                    if first_line {
+                        first_line = false;
+                    } else {
+                        println!("{}: {}", last_line, locals.join("; "));
+                    }
+
+                    last_line = line.line;
 
                     debug_continue = true;
                 } else if code == winapi::EXCEPTION_SINGLE_STEP {

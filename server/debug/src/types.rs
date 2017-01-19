@@ -1,5 +1,9 @@
+use std::mem;
 use std::ffi::OsString;
 
+use SymbolHandler;
+
+#[derive(Clone)]
 pub enum Type {
     Base { base: Primitive, size: usize },
     Pointer { type_index: u32 },
@@ -16,8 +20,24 @@ pub enum Primitive {
     Float,
 }
 
+#[derive(Clone)]
 pub struct Field {
     pub name: OsString,
-    pub field_type: u32,
+    pub type_index: u32,
     pub offset: u32,
+}
+
+impl Type {
+    pub fn size(&self, symbols: &SymbolHandler, module: usize) -> usize {
+        use Type::*;
+        match *self {
+            Base { size, .. } => size,
+            Pointer { .. } | Function { .. } => mem::size_of::<usize>(),
+            Array { type_index, count } => {
+                let element_type = symbols.type_from_index(module, type_index).unwrap();
+                element_type.size(symbols, module) * count
+            }
+            Struct { size, .. } => size,
+        }
+    }
 }
