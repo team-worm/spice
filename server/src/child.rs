@@ -1,4 +1,4 @@
-use std::{io, mem, ffi, ptr};
+use std::{io};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::ffi::OsString;
@@ -8,11 +8,8 @@ use std::thread::JoinHandle;
 use std::os::windows::io::RawHandle;
 
 use debug;
-
-
-use kernel32;
 use winapi;
-use advapi32;
+
 
 pub struct Thread {
     pub thread: JoinHandle<()>,
@@ -85,7 +82,7 @@ impl Thread {
         let (debug_tx, debug_rx) = sync_channel(0);
 
         let thread = thread::spawn(move || {
-            if let Err(e) = attach_pid(pid, debug_tx.clone(), server_rx) {
+            if let Err(e) = attach(pid, debug_tx.clone(), server_rx) {
                 debug_tx.send(DebugMessage::Error(e)).unwrap();
             }
         });
@@ -108,78 +105,29 @@ struct DebugState {
     last_breakpoint: Option<usize>,
 }
 
-fn attach_pid(pid: u32, tx: SyncSender<DebugMessage>, rx: Receiver<ServerMessage>) -> io::Result<()> {
-    unsafe {
-        let h_process = kernel32::OpenProcess(
-            winapi::winnt::PROCESS_VM_READ | winapi::winnt::PROCESS_QUERY_INFORMATION,
-            winapi::minwindef::TRUE, pid);
+fn attach(pid: u32, tx: SyncSender<DebugMessage>, rx: Receiver<ServerMessage>) -> io::Result<()> {
 
-        // this function might be called GetModuleFileNameEx depending on PSAPI_VERSION number
-        // we will need this function if the client needs the file path of the pid
-        // let mut module_file_name: [char; winapi::minwindef::MAX_PATH];
-        // kernel32::K32GetModuleFileNameExA(
-        //     h_process, ptr::null(),
-        //     module_file_name.as_ptr(), winapi::minwindef::MAX_PATH);
+    let child = debug::Child::attach(pid).unwrap();
 
-        
-
-        let mut token_handle: winapi::winnt::HANDLE = mem::zeroed();
-
-        advapi32::OpenProcessToken(h_process, winapi::winnt::TOKEN_ALL_ACCESS, &mut token_handle);
-        
-        let mut tp = (winapi::winnt::TOKEN_PRIVILEGES{
-            PrivilegeCount: 0, ..mem::zeroed()
-        }, [winapi::winnt::LUID_AND_ATTRIBUTES{
-            Luid: winapi::winnt::LUID{LowPart: 0, HighPart:0}, Attributes: 0}; 1]);
-
-        let mut luid = winapi::winnt::LUID{LowPart: 0, HighPart: 0};
-        
-        let debug_privilege = ffi::CString::new("SeDebugPrivilege").unwrap();
-        if advapi32::LookupPrivilegeValueA(ptr::null(),
-                                           debug_privilege.as_ptr(), &mut luid) == winapi::minwindef::FALSE {
-            println!("Error in LookupPrivilegeValue");
-            return Err(io::Error::last_os_error());            
-        }
-
-        tp.0.PrivilegeCount = 1;
-        tp.1[0].Luid = luid;
-        tp.1[0].Attributes = winapi::winnt::SE_PRIVILEGE_ENABLED;
-
-        if advapi32::AdjustTokenPrivileges(
-            token_handle, winapi::minwindef::FALSE, &mut tp.0,
-            mem::size_of::<winapi::winnt::TOKEN_PRIVILEGES>() as u32,
-            ptr::null_mut(), ptr::null_mut()) == winapi::minwindef::FALSE {
-
-            println!("Error in AdjustTokenPrivileges");
-            return Err(io::Error::last_os_error());
-        }
-
-        let child = debug::Child::new(h_process).unwrap();
-
-        let options = debug::SymbolHandler::get_options();
-        debug::SymbolHandler::set_options(winapi::SYMOPT_DEBUG | winapi::SYMOPT_LOAD_LINES | options);
-        
-        let symbols = debug::SymbolHandler::initialize(&child)
-            .expect("failed to initialize symbol handler");
-
-        if kernel32::DebugActiveProcess(pid) == winapi::minwindef::FALSE {
-            println!("Error trying to debug active process");
-            return Err(io::Error::last_os_error());
-        }
-
-        let state = DebugState {
-            child: child,
-            symbols: symbols,
-            attached: false,
-
-            threads: HashMap::new(),
-            breakpoints: HashMap::new(),
-            last_breakpoint: None,
-        };
+    let options = debug::SymbolHandler::get_options();
+    debug::SymbolHandler::set_options(winapi::SYMOPT_DEBUG | winapi::SYMOPT_LOAD_LINES | options);
+    
+    let symbols = debug::SymbolHandler::initialize(&child)
+        .expect("failed to initialize symbol handler");
 
 
-        debug_loop(state, tx, rx)
-    } // end unsafe block
+    let state = DebugState {
+        child: child,
+        symbols: symbols,
+        attached: false,
+
+        threads: HashMap::new(),
+        breakpoints: HashMap::new(),
+        last_breakpoint: None,
+    };
+
+
+    debug_loop(state, tx, rx)
 }
 
 

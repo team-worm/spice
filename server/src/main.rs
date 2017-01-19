@@ -9,8 +9,6 @@ extern crate serde_json;
 
 extern crate debug;
 extern crate winapi;
-extern crate kernel32;
-extern crate advapi32;
 
 use std::{io, fs};
 use std::sync::{Mutex, Arc};
@@ -194,8 +192,7 @@ fn filesystem(mut req: Request, res: Response, caps: Captures) {
 fn process(mut req: Request, res: Response, _: Captures) {
     io::copy(&mut req, &mut io::sink()).unwrap();
 
-    //    let curr_procs = debug::read_proc_dir(); // uncomment this line for linux
-    let curr_procs = debug::read_win_proc(); // use this line for windows
+    let curr_procs = debug::list_running_processes();
 
     let mut json_procs = vec![];
     for process in curr_procs.into_iter() {

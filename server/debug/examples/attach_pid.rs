@@ -23,7 +23,7 @@ fn main() {
 
         // set debug privileges
 
-        let mut token_handle: winapi::winnt::HANDLE = mem::zeroed();
+        let mut token_handle: std::os::windows::io::RawHandle = mem::zeroed();
 
         advapi32::OpenProcessToken(h_process, winapi::winnt::TOKEN_ALL_ACCESS, &mut token_handle);
         
@@ -212,74 +212,3 @@ fn main() {
         kernel32::CloseHandle(h_process);
     }
 }
-
-// I don't think these will be needed since debugActiveProcess will call the appropriate debug events
-// for all modules and threads that the process had started or loaded before we broke in.
-// These may be useful helper functions later though.
-pub fn load_mod_symbols_for_pid(pid: u32, symbols: &mut debug::SymbolHandler) {
-    unsafe{
-        let mut me32: winapi::tlhelp32::MODULEENTRY32 = mem::zeroed();
-        
-        let h_module_snap = kernel32::CreateToolhelp32Snapshot(winapi::tlhelp32::TH32CS_SNAPMODULE, pid);
-
-        if h_module_snap == winapi::shlobj::INVALID_HANDLE_VALUE {
-            println!("Error getting module snapshot");
-            // throw error
-        }
-
-        me32.dwSize = mem::size_of::<winapi::tlhelp32::MODULEENTRY32>() as u32;
-
-        if kernel32::Module32First(h_module_snap, &mut me32) == winapi::minwindef::FALSE {
-            println!("Error getting first module");
-            // throw error
-        }
-
-        while kernel32::Module32Next(h_module_snap, &mut me32) == winapi::minwindef::TRUE {
-            let f_path = ffi::CStr::from_ptr(me32.szExePath.as_ptr());
-            println!("File path of module {}", f_path.to_str().unwrap());
-            let file_path = path::Path::new(f_path.to_str().unwrap());
-            let file = fs::File::open(file_path).unwrap();
-            symbols.load_module(&file, me32.modBaseAddr as usize).expect("Failed to load module");
-        }
-
-        kernel32::CloseHandle(h_module_snap);
-    }
-}
-
-pub fn get_threads_for_pid(pid: u32) -> Result<HashMap<u32, winapi::winnt::HANDLE>, &'static str> {
-    unsafe {
-        let mut te32: winapi::tlhelp32::THREADENTRY32 = mem::zeroed();
-
-        let mut threads = HashMap::new();
-        let h_thread_snap = kernel32::CreateToolhelp32Snapshot(
-            winapi::tlhelp32::TH32CS_SNAPTHREAD, 0);
-
-        if h_thread_snap == winapi::shlobj::INVALID_HANDLE_VALUE {
-            println!("Error getting thread snapshot");
-            return Err("Error getting thread snapshot")
-        }
-
-        te32.dwSize = mem::size_of::<winapi::tlhelp32::THREADENTRY32>() as u32;
-
-        //Retrieve info about first thread
-        if kernel32::Thread32First(h_thread_snap, &mut te32) == winapi::minwindef::FALSE {
-            println!("Error get info for first thread");
-            return Err("Error getting info for first thread")
-        }
-
-        while kernel32::Thread32Next(h_thread_snap, &mut te32) == winapi::minwindef::TRUE {
-            if te32.th32OwnerProcessID == pid {
-                // 8 is the value of get_context permissions for a thread, couldn't find equivalent flag in
-                // rust winapi crate
-                let h_thread = kernel32::OpenThread(8, winapi::minwindef::TRUE, te32.th32ThreadID);
-                println!("Inserting thread with id {}", te32.th32ThreadID);
-                threads.insert(te32.th32ThreadID, h_thread);
-            }
-        }
-        
-        kernel32::CloseHandle(h_thread_snap);
-
-        Ok(threads)
-    }
-}
-

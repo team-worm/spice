@@ -1,12 +1,12 @@
-use std::{io, env, iter, mem, ptr,fs};
+use std::{io, env, iter, mem, ptr, ffi};
 use std::ffi::{OsString, OsStr};
 use std::os::windows::ffi::OsStrExt;
 use std::os::windows::io::{RawHandle, AsRawHandle, IntoRawHandle};
 use std::collections::HashMap;
-use std::io::{BufRead};
 
 use winapi;
 use kernel32;
+use advapi32;
 
 /// A running or exited debugee process, created via a `Command`
 pub struct Child(RawHandle);
@@ -56,8 +56,60 @@ impl Child {
         Ok(())
     }
 
-    pub fn new(handle: winapi::winnt::HANDLE) -> io::Result<Child> {
-        Ok(Child(handle))
+    pub fn attach(pid: u32) -> io::Result<Child> {
+        unsafe {
+            let h_process = kernel32::OpenProcess(
+                winapi::winnt::PROCESS_VM_READ | winapi::winnt::PROCESS_QUERY_INFORMATION,
+                winapi::minwindef::TRUE, pid);
+
+            // this function might be called GetModuleFileNameEx depending on PSAPI_VERSION number
+            // we will need this function if the client needs the file path of the pid
+            // let mut module_file_name: [char; winapi::minwindef::MAX_PATH];
+            // kernel32::K32GetModuleFileNameExA(
+            //     h_process, ptr::null(),
+            //     module_file_name.as_ptr(), winapi::minwindef::MAX_PATH);
+
+            
+
+            let mut token_handle: RawHandle = mem::zeroed();
+
+            advapi32::OpenProcessToken(h_process, winapi::winnt::TOKEN_ALL_ACCESS, &mut token_handle);
+            
+            let mut tp = (winapi::winnt::TOKEN_PRIVILEGES{
+                PrivilegeCount: 0, ..mem::zeroed()
+            }, [winapi::winnt::LUID_AND_ATTRIBUTES{
+                Luid: winapi::winnt::LUID{LowPart: 0, HighPart:0}, Attributes: 0}; 1]);
+
+            let mut luid = winapi::winnt::LUID{LowPart: 0, HighPart: 0};
+            
+            let debug_privilege = ffi::CString::new("SeDebugPrivilege").unwrap();
+            if advapi32::LookupPrivilegeValueA(ptr::null(),
+                                               debug_privilege.as_ptr(), &mut luid) == winapi::minwindef::FALSE {
+                println!("Error in LookupPrivilegeValue");
+                return Err(io::Error::last_os_error());            
+            }
+
+            tp.0.PrivilegeCount = 1;
+            tp.1[0].Luid = luid;
+            tp.1[0].Attributes = winapi::winnt::SE_PRIVILEGE_ENABLED;
+
+            if advapi32::AdjustTokenPrivileges(
+                token_handle, winapi::minwindef::FALSE, &mut tp.0,
+                mem::size_of::<winapi::winnt::TOKEN_PRIVILEGES>() as u32,
+                ptr::null_mut(), ptr::null_mut()) == winapi::minwindef::FALSE {
+
+                println!("Error in AdjustTokenPrivileges");
+                return Err(io::Error::last_os_error());
+            }
+
+
+            if kernel32::DebugActiveProcess(pid) == winapi::minwindef::FALSE {
+                println!("Error trying to debug active process");
+                return Err(io::Error::last_os_error());
+            }
+
+            Ok(Child(h_process as RawHandle))
+        }
     }
 }
 
@@ -279,7 +331,8 @@ pub struct Proc {
 }
 
 /// helper function to get list of running windows processes on machine
-pub fn read_win_proc() -> Vec<Proc> {
+#[cfg(windows)]
+pub fn list_running_processes() -> Vec<Proc> {
     println!("in read_win_proc");
     let mut processes = vec![];
 
@@ -310,7 +363,8 @@ pub fn read_win_proc() -> Vec<Proc> {
 
 
 /// helper function to recursively go through /proc directory on linux machines
-pub fn read_proc_dir() -> Vec<Proc> {
+#[cfg(unix)]
+pub fn list_running_processes() -> Vec<Proc> {
     println!("in read_proc_dir");
     let mut processes = vec![];
     let paths = fs::read_dir("/proc").unwrap();

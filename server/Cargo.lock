@@ -2,10 +2,8 @@
 name = "server"
 version = "0.1.0"
 dependencies = [
- "advapi32-sys 0.2.0 (git+https://github.com/team-worm/winapi-rs)",
  "debug 0.1.0",
  "hyper 0.9.12 (registry+https://github.com/rust-lang/crates.io-index)",
- "kernel32-sys 0.2.2 (git+https://github.com/team-worm/winapi-rs)",
  "reroute 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 0.8.19 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_codegen 0.8.19 (registry+https://github.com/rust-lang/crates.io-index)",
