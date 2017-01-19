@@ -1,4 +1,4 @@
-use std::{io, env, iter, mem, ptr, ffi};
+use std::{mem, ptr, iter, io, env};
 use std::ffi::{OsString, OsStr};
 use std::os::windows::ffi::OsStrExt;
 use std::os::windows::io::{RawHandle, AsRawHandle, IntoRawHandle};
@@ -7,6 +7,8 @@ use std::collections::HashMap;
 use winapi;
 use kernel32;
 use advapi32;
+
+use FromWide;
 
 /// A running or exited debugee process, created via a `Command`
 pub struct Child(RawHandle);
@@ -58,57 +60,43 @@ impl Child {
 
     pub fn attach(pid: u32) -> io::Result<Child> {
         unsafe {
-            let h_process = kernel32::OpenProcess(
-                winapi::winnt::PROCESS_VM_READ | winapi::winnt::PROCESS_QUERY_INFORMATION,
-                winapi::minwindef::TRUE, pid);
-
-            // this function might be called GetModuleFileNameEx depending on PSAPI_VERSION number
-            // we will need this function if the client needs the file path of the pid
-            // let mut module_file_name: [char; winapi::minwindef::MAX_PATH];
-            // kernel32::K32GetModuleFileNameExA(
-            //     h_process, ptr::null(),
-            //     module_file_name.as_ptr(), winapi::minwindef::MAX_PATH);
-
-            
-
-            let mut token_handle: RawHandle = mem::zeroed();
-
-            advapi32::OpenProcessToken(h_process, winapi::winnt::TOKEN_ALL_ACCESS, &mut token_handle);
-            
-            let mut tp = (winapi::winnt::TOKEN_PRIVILEGES{
-                PrivilegeCount: 0, ..mem::zeroed()
-            }, [winapi::winnt::LUID_AND_ATTRIBUTES{
-                Luid: winapi::winnt::LUID{LowPart: 0, HighPart:0}, Attributes: 0}; 1]);
-
-            let mut luid = winapi::winnt::LUID{LowPart: 0, HighPart: 0};
-            
-            let debug_privilege = ffi::CString::new("SeDebugPrivilege").unwrap();
-            if advapi32::LookupPrivilegeValueA(ptr::null(),
-                                               debug_privilege.as_ptr(), &mut luid) == winapi::minwindef::FALSE {
-                println!("Error in LookupPrivilegeValue");
-                return Err(io::Error::last_os_error());            
+            let access = winapi::PROCESS_VM_READ | winapi::PROCESS_QUERY_INFORMATION;
+            let process = kernel32::OpenProcess(access, winapi::TRUE, pid);
+            if process == ptr::null_mut() {
+                return Err(io::Error::last_os_error());
             }
 
-            tp.0.PrivilegeCount = 1;
-            tp.1[0].Luid = luid;
-            tp.1[0].Attributes = winapi::winnt::SE_PRIVILEGE_ENABLED;
+            let mut token = mem::zeroed();
+            advapi32::OpenProcessToken(process, winapi::TOKEN_ALL_ACCESS, &mut token);
+            if token == ptr::null_mut() {
+                return Err(io::Error::last_os_error());
+            }
 
+            let name: Vec<_> = OsStr::new("SeDebugPrivilege")
+                .encode_wide().chain(iter::once(0)).collect();
+            let mut luid: winapi::LUID = mem::zeroed();
+            if advapi32::LookupPrivilegeValueW(
+                ptr::null(), name.as_ptr(), &mut luid
+            ) == winapi::FALSE {
+                return Err(io::Error::last_os_error());
+            }
+
+            let mut tp = (winapi::TOKEN_PRIVILEGES {
+                PrivilegeCount: 1, ..mem::zeroed()
+            }, [winapi::LUID_AND_ATTRIBUTES {
+                Luid: luid, Attributes: winapi::SE_PRIVILEGE_ENABLED
+            }]);
             if advapi32::AdjustTokenPrivileges(
-                token_handle, winapi::minwindef::FALSE, &mut tp.0,
-                mem::size_of::<winapi::winnt::TOKEN_PRIVILEGES>() as u32,
-                ptr::null_mut(), ptr::null_mut()) == winapi::minwindef::FALSE {
-
-                println!("Error in AdjustTokenPrivileges");
+                token, winapi::FALSE, &mut tp.0, 0, ptr::null_mut(), ptr::null_mut()
+            ) == winapi::FALSE {
                 return Err(io::Error::last_os_error());
             }
 
-
-            if kernel32::DebugActiveProcess(pid) == winapi::minwindef::FALSE {
-                println!("Error trying to debug active process");
-                return Err(io::Error::last_os_error());
+            if kernel32::DebugActiveProcess(pid) == winapi::FALSE {
+                panic!("Error in AdjustTokenPrivileges");
             }
 
-            Ok(Child(h_process as RawHandle))
+            Ok(Child(process))
         }
     }
 }
@@ -323,88 +311,115 @@ fn ensure_no_nuls<S: AsRef<OsStr>>(s: S) -> io::Result<S> {
     }
 }
 
-
-/// Struct to capture the pid and name of a running process
-pub struct Proc {
+/// A running process
+pub struct Process {
     pub id: u32,
-    pub name: String,
+    pub name: OsString,
 }
 
-/// helper function to get list of running windows processes on machine
 #[cfg(windows)]
-pub fn list_running_processes() -> Vec<Proc> {
-    println!("in read_win_proc");
-    let mut processes = vec![];
+impl Process {
+    /// Iterate over currently-running processes
+    pub fn running() -> io::Result<Processes> {
+        unsafe {
+            let snap = kernel32::CreateToolhelp32Snapshot(winapi::TH32CS_SNAPPROCESS, 0);
+            if snap == winapi::INVALID_HANDLE_VALUE {
+                kernel32::CloseHandle(snap);
+                return Err(io::Error::last_os_error());
+            }
 
-    unsafe {
-        let h_process_snap = kernel32::CreateToolhelp32Snapshot(winapi::tlhelp32::TH32CS_SNAPPROCESS, 0);
+            let mut pe32 = winapi::PROCESSENTRY32W {
+                dwSize: mem::size_of::<winapi::PROCESSENTRY32W>() as u32,
+                ..mem::zeroed()
+            };
+            if kernel32::Process32FirstW(snap, &mut pe32) == winapi::FALSE {
+                kernel32::CloseHandle(snap);
+                return Err(io::Error::last_os_error());
+            }
 
-        let mut pe32 = winapi::tlhelp32::PROCESSENTRY32W{
-            dwSize: mem::size_of::<winapi::tlhelp32::PROCESSENTRY32W>() as u32, cntUsage: 0,
-            th32ProcessID: 0, th32DefaultHeapID: 0,
-            th32ModuleID: 0,  cntThreads: 0, th32ParentProcessID: 0,
-            pcPriClassBase: 0, dwFlags: 0, szExeFile: [0; 260]
-        };
+            Ok(Processes { snap: snap, pe32: pe32 })
+        }
+    }
+}
 
-        while kernel32::Process32NextW(h_process_snap, &mut pe32) != 0 {
+#[cfg(windows)]
+pub struct Processes {
+    snap: winapi::HANDLE,
+    pe32: winapi::PROCESSENTRY32W,
+}
 
-            processes.push(Proc{
-                id: pe32.th32ProcessID, name: String::from_utf16(&mut pe32.szExeFile)
-                    .unwrap()
-                    .replace("\0", "")});
+#[cfg(windows)]
+impl Iterator for Processes {
+    type Item = Process;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.snap == ptr::null_mut() {
+            return None;
         }
 
-        kernel32::CloseHandle(h_process_snap);
+        let result = Process {
+            id: self.pe32.th32ProcessID,
+            name: OsString::from_wide_null(&self.pe32.szExeFile),
+        };
+
+        unsafe {
+            if kernel32::Process32NextW(self.snap, &mut self.pe32) == winapi::FALSE {
+                kernel32::CloseHandle(self.snap);
+                self.snap = ptr::null_mut();
+            }
+        }
+
+        Some(result)
     }
-
-    processes
-
 }
 
-
-/// helper function to recursively go through /proc directory on linux machines
 #[cfg(unix)]
-pub fn list_running_processes() -> Vec<Proc> {
-    println!("in read_proc_dir");
-    let mut processes = vec![];
-    let paths = fs::read_dir("/proc").unwrap();
+impl Process {
+    /// Iterate over currently-running processes
+    pub fn running() -> io::Result<Processes> {
+        Processes(fs::read_dir("/proc")?)
+    }
+}
 
-    for path in paths {
-        let dir_entry = path.unwrap();
-        let f_name = dir_entry.file_name().into_string().unwrap();
-        let mut path_name = dir_entry.path().into_os_string().into_string().unwrap();
+#[cfg(unix)]
+struct Processes(fs::ReadDir);
 
-        if dir_entry.metadata().unwrap().is_dir()
-            && !f_name.parse::<i32>().is_err() {
+#[cfg(unix)]
+impl Iterator for Processes {
+    type Item = Process;
 
-                path_name.push_str("/status");
-                println!("stat path is: {}", f_name);// debug line
-                let proc_stats = fs::File::open(path_name).unwrap();
-                let reader = io::BufReader::new(proc_stats);
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0
+            .flat_map(|entry| entry)
+            .filter(|entry| entry.metadata().is_dir())
+            .flat_map(|dir| {
+                let path = dir.path();
+                path.push("status");
 
-                let mut p_name = "".to_string();
-                let mut p_id = "".to_string();
+                let status = fs::File::open(path).map_err(|_| ())?;
+                let reader = io::BufReader::new(status);
 
+                let mut id = None;
+                let mut name = None;
                 for line in reader.lines() {
-                    let l = line.unwrap();
-                    if l.starts_with("Name:") {
-                        p_name = l.split("Name:").nth(1).unwrap().trim().to_string();
-                    } else if l.starts_with("Pid") {
-                        p_id = l.split("Pid:").nth(1).unwrap().trim().to_string();
+                    let line = line.map_err(|_| ())?;
+                    if line.starts_with("Name:") {
+                        name = Some(line.trim_left_matches("Name:").trim().to_owned());
+                    } else if line.starts_with("Pid:") {
+                        id = Some(line.trim_left_matches("Pid:").trim().to_owned());
                     }
 
-                    if !p_name.is_empty() && !p_id.is_empty() {
-                        processes.push(Proc {
-                            id: p_id.parse::<u32>().unwrap(), name: p_name.to_string()
-                        });
+                    if id.is_some() && name.is_some() {
                         break;
                     }
+                }
 
+                let id = id.ok_or(())?
+                    .parse::<u32>().map_err(|_| ())?;
+                let name = name.ok_or(())?;
 
-                } // end reading lines of status file                
-            }
-    } //end iteration over dirs in proc
-
-    //return processes
-    processes
+                Ok(Process { id: id, name: name })
+            })
+            .next()
+    }
 }

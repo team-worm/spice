@@ -1,4 +1,4 @@
-use std::{io};
+use std::io;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::ffi::OsString;
@@ -9,7 +9,6 @@ use std::os::windows::io::RawHandle;
 
 use debug;
 use winapi;
-
 
 pub struct Thread {
     pub thread: JoinHandle<()>,
@@ -61,28 +60,32 @@ pub enum ServerMessage {
 
 impl Thread {
     pub fn launch(path: PathBuf) -> Thread {
-        let (server_tx, server_rx) = sync_channel(0);
-        let (debug_tx, debug_rx) = sync_channel(0);
+        Thread::spawn(move |debug_tx, server_rx| {
+            let child = debug::Command::new(&path)
+                .env_clear()
+                .debug()?;
 
-        let thread = thread::spawn(move || {
-            if let Err(e) = run(path, debug_tx.clone(), server_rx) {
-                debug_tx.send(DebugMessage::Error(e)).unwrap();
-            }
-        });
-
-        Thread {
-            thread: thread,
-            tx: server_tx,
-            rx: debug_rx,
-        }
+            run(child, debug_tx, server_rx)
+        })
     }
 
     pub fn attach(pid: u32) -> Thread {
+        Thread::spawn(move |debug_tx, server_rx| {
+            let child = debug::Child::attach(pid)?;
+
+            run(child, debug_tx, server_rx)
+        })
+    }
+
+    fn spawn<F>(f: F) -> Thread where
+        F: FnOnce(SyncSender<DebugMessage>, Receiver<ServerMessage>) -> io::Result<()>,
+        F: Send + 'static
+    {
         let (server_tx, server_rx) = sync_channel(0);
         let (debug_tx, debug_rx) = sync_channel(0);
 
         let thread = thread::spawn(move || {
-            if let Err(e) = attach(pid, debug_tx.clone(), server_rx) {
+            if let Err(e) = f(debug_tx.clone(), server_rx) {
                 debug_tx.send(DebugMessage::Error(e)).unwrap();
             }
         });
@@ -105,44 +108,15 @@ struct DebugState {
     last_breakpoint: Option<usize>,
 }
 
-fn attach(pid: u32, tx: SyncSender<DebugMessage>, rx: Receiver<ServerMessage>) -> io::Result<()> {
-
-    let child = debug::Child::attach(pid).unwrap();
-
-    let options = debug::SymbolHandler::get_options();
-    debug::SymbolHandler::set_options(winapi::SYMOPT_DEBUG | winapi::SYMOPT_LOAD_LINES | options);
-    
-    let symbols = debug::SymbolHandler::initialize(&child)
-        .expect("failed to initialize symbol handler");
-
-
-    let state = DebugState {
-        child: child,
-        symbols: symbols,
-        attached: false,
-
-        threads: HashMap::new(),
-        breakpoints: HashMap::new(),
-        last_breakpoint: None,
-    };
-
-
-    debug_loop(state, tx, rx)
-}
-
-
-fn run(path: PathBuf, tx: SyncSender<DebugMessage>, rx: Receiver<ServerMessage>) -> io::Result<()> {
-    let child = debug::Command::new(&path)
-        .env_clear()
-
-        .debug()?;
-
+fn run(
+    child: debug::Child, tx: SyncSender<DebugMessage>, rx: Receiver<ServerMessage>
+) -> io::Result<()> {
     let options = debug::SymbolHandler::get_options();
     debug::SymbolHandler::set_options(winapi::SYMOPT_DEBUG | winapi::SYMOPT_LOAD_LINES | options);
 
     let symbols = debug::SymbolHandler::initialize(&child)?;
 
-    let state = DebugState {
+    let mut state = DebugState {
         child: child,
         symbols: symbols,
         attached: false,
@@ -151,16 +125,6 @@ fn run(path: PathBuf, tx: SyncSender<DebugMessage>, rx: Receiver<ServerMessage>)
         breakpoints: HashMap::new(),
         last_breakpoint: None,
     };
-
-    debug_loop(state, tx, rx)
-
-}
-
-
-fn debug_loop(
-    mut state: DebugState,
-    tx: SyncSender<DebugMessage>,
-    rx: Receiver<ServerMessage>) -> io::Result<()> {
 
     let event = debug::Event::wait_event()?;
     if let debug::EventInfo::CreateProcess { ref file, main_thread, base, .. } = event.info {
@@ -173,7 +137,6 @@ fn debug_loop(
     }
 
     let mut event = Some(event);
-
     loop {
         match rx.recv().unwrap() {
             ServerMessage::ListFunctions => {
@@ -220,9 +183,7 @@ fn debug_loop(
     }
 
     Ok(())
-        
 }
-    
 
 fn list_functions(
     state: &mut DebugState, tx: &SyncSender<DebugMessage>

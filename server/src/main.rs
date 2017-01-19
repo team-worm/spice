@@ -20,10 +20,8 @@ use hyper::status::StatusCode;
 use hyper::server::{Server, Request, Response};
 use reroute::{RouterBuilder, Captures};
 
-use serde_json::value::ToJson;
-
-    
 use serde_types::*;
+use serde_json::value::ToJson;
 use child::{ServerMessage, DebugMessage, DebugTrace};
 
 mod serde_types {
@@ -43,7 +41,7 @@ fn main() {
     // host system info
 
     router.get(r"/api/v1/filesystem/(.*)", filesystem);
-    router.get(r"/api/v1/processes", process);
+    router.get(r"/api/v1/processes", processes);
 
     // attaching
 
@@ -189,26 +187,23 @@ fn filesystem(mut req: Request, res: Response, caps: Captures) {
 }
 
 /// GET /processes -- gets the list of processes running on the host machine
-fn process(mut req: Request, res: Response, _: Captures) {
+fn processes(mut req: Request, res: Response, _: Captures) {
     io::copy(&mut req, &mut io::sink()).unwrap();
 
-    let curr_procs = debug::list_running_processes();
+    let procs: Vec<_> = debug::Process::running().unwrap()
+        .map(|debug::Process { id, name }| Process {
+            id: id, name: name.to_string_lossy().into_owned()
+        })
+        .collect();
 
-    let mut json_procs = vec![];
-    for process in curr_procs.into_iter() {
-        json_procs.push(Process{id: process.id, name: process.name});
-    }
-
-    let json = serde_json::to_vec(&json_procs).unwrap();
+    let json = serde_json::to_vec(&procs).unwrap();
     send(res, &json).unwrap();
 }
-
-
 
 /// POST /debug/attach/pid/:pid -- attach to a running process
 fn debug_attach_pid(mut req: Request, mut res: Response, caps: Captures, child: ChildThread) {
     let caps = caps.unwrap();
-    let _pid = caps[1].parse::<u32>().unwrap();
+    let pid = caps[1].parse::<u32>().unwrap();
     io::copy(&mut req, &mut io::sink()).unwrap();
 
     let mut child = child.lock().unwrap();
@@ -216,8 +211,7 @@ fn debug_attach_pid(mut req: Request, mut res: Response, caps: Captures, child: 
         child.tx.send(ServerMessage::Quit).unwrap();
         child.thread.join().unwrap();
     }
-
-    *child = Some(child::Thread::attach(_pid));
+    *child = Some(child::Thread::attach(pid));
 
     let child = child.as_mut().unwrap();
 
@@ -226,10 +220,10 @@ fn debug_attach_pid(mut req: Request, mut res: Response, caps: Captures, child: 
             let message = DebugInfo {
                 id: 0,
                 attached_process: Process {
-                    id: _pid,
-                    name: "".to_string(),
+                    id: pid,
+                    name: String::new(),
                 },
-                source_path: "".to_string(),
+                source_path: String::new(),
             };
 
             serde_json::to_vec(&message).unwrap()
@@ -238,13 +232,12 @@ fn debug_attach_pid(mut req: Request, mut res: Response, caps: Captures, child: 
         Ok(DebugMessage::Error(_)) | _ => {
             *res.status_mut() = StatusCode::NotFound;
             let message = Error {
-                code: 0, message: format!("pid {} not found", _pid), data: 0
+                code: 0, message: format!("pid {} not found", pid), data: 0
             };
 
             serde_json::to_vec(&message).unwrap()
         }
     };
-
     send(res, &json).unwrap();
 }
 
