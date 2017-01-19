@@ -8,7 +8,6 @@ use std::thread::JoinHandle;
 use std::os::windows::io::RawHandle;
 
 use debug;
-
 use winapi;
 
 pub struct Thread {
@@ -61,11 +60,32 @@ pub enum ServerMessage {
 
 impl Thread {
     pub fn launch(path: PathBuf) -> Thread {
+        Thread::spawn(move |debug_tx, server_rx| {
+            let child = debug::Command::new(&path)
+                .env_clear()
+                .debug()?;
+
+            run(child, debug_tx, server_rx)
+        })
+    }
+
+    pub fn attach(pid: u32) -> Thread {
+        Thread::spawn(move |debug_tx, server_rx| {
+            let child = debug::Child::attach(pid)?;
+
+            run(child, debug_tx, server_rx)
+        })
+    }
+
+    fn spawn<F>(f: F) -> Thread where
+        F: FnOnce(SyncSender<DebugMessage>, Receiver<ServerMessage>) -> io::Result<()>,
+        F: Send + 'static
+    {
         let (server_tx, server_rx) = sync_channel(0);
         let (debug_tx, debug_rx) = sync_channel(0);
 
         let thread = thread::spawn(move || {
-            if let Err(e) = run(path, debug_tx.clone(), server_rx) {
+            if let Err(e) = f(debug_tx.clone(), server_rx) {
                 debug_tx.send(DebugMessage::Error(e)).unwrap();
             }
         });
@@ -88,11 +108,9 @@ struct DebugState {
     last_breakpoint: Option<usize>,
 }
 
-fn run(path: PathBuf, tx: SyncSender<DebugMessage>, rx: Receiver<ServerMessage>) -> io::Result<()> {
-    let child = debug::Command::new(&path)
-        .env_clear()
-        .debug()?;
-
+fn run(
+    child: debug::Child, tx: SyncSender<DebugMessage>, rx: Receiver<ServerMessage>
+) -> io::Result<()> {
     let options = debug::SymbolHandler::get_options();
     debug::SymbolHandler::set_options(winapi::SYMOPT_DEBUG | winapi::SYMOPT_LOAD_LINES | options);
 

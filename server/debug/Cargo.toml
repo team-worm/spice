@@ -7,4 +7,5 @@ authors = ["Russell Johnston <rpjohnst@gmail.com>"]
 winapi = { git = "https://github.com/team-worm/winapi-rs" }
 kernel32-sys = { git = "https://github.com/team-worm/winapi-rs" }
 dbghelp-sys = { git = "https://github.com/team-worm/winapi-rs" }
+advapi32-sys = { git = "https://github.com/team-worm/winapi-rs" }
 lazy_static = "0.2"

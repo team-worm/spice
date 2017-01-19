@@ -5,6 +5,7 @@
 extern crate winapi;
 extern crate kernel32;
 extern crate dbghelp;
+extern crate advapi32;
 
 #[macro_use]
 extern crate lazy_static;

@@ -4,13 +4,21 @@ version = "0.1.0"
 dependencies = [
  "debug 0.1.0",
  "hyper 0.9.12 (registry+https://github.com/rust-lang/crates.io-index)",
- "kernel32-sys 0.2.2 (git+https://github.com/team-worm/winapi-rs)",
  "reroute 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 0.8.19 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_codegen 0.8.19 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 0.8.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "unicase 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "winapi 0.2.8 (git+https://github.com/team-worm/winapi-rs)",
+]
+
+[[package]]
+name = "advapi32-sys"
+version = "0.2.0"
+source = "git+https://github.com/team-worm/winapi-rs#7aecb0aef02441bb7d6e23a2e96c6a9448d5930c"
+dependencies = [
+ "winapi 0.2.8 (git+https://github.com/team-worm/winapi-rs)",
+ "winapi-build 0.1.1 (git+https://github.com/team-worm/winapi-rs)",
 ]
 
 [[package]]
@@ -48,6 +56,7 @@ dependencies = [
 name = "debug"
 version = "0.1.0"
 dependencies = [
+ "advapi32-sys 0.2.0 (git+https://github.com/team-worm/winapi-rs)",
  "dbghelp-sys 0.2.0 (git+https://github.com/team-worm/winapi-rs)",
  "kernel32-sys 0.2.2 (git+https://github.com/team-worm/winapi-rs)",
  "lazy_static 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -434,6 +443,7 @@ version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [metadata]
+"checksum advapi32-sys 0.2.0 (git+https://github.com/team-worm/winapi-rs)" = "<none>"
 "checksum aho-corasick 0.5.3 (registry+https://github.com/rust-lang/crates.io-index)" = "ca972c2ea5f742bfce5687b9aef75506a764f61d37f8f649047846a9686ddb66"
 "checksum bitflags 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)" = "aad18937a628ec6abcd26d1489012cc0e18c21798210f491af69ded9b881106d"
 "checksum cookie 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)" = "0e3d6405328b6edb412158b3b7710e2634e23f3614b9bb1c412df7952489a626"
