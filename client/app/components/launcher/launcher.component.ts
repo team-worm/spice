@@ -1,5 +1,5 @@
 import {Component} from "@angular/core";
-import {FileSystemService} from "../../services/file.system.service";
+import {FileSystemService} from "../../services/file-system.service";
 
 @Component({
     selector: 'spice-launcher',

@@ -1,5 +1,5 @@
 import {Trace} from "./Trace";
-import {Variable} from "../Variable";
+import {SourceVariable} from "../SourceVariable";
 
 export class TraceOfIntruction implements Trace {
     public index: number; //Index of the trace, beginning at 0 and totally ordered for each execution.
@@ -7,7 +7,7 @@ export class TraceOfIntruction implements Trace {
     public line: number; //Line number that produced this trace.
     public data: {
         state: {
-            variable: Variable;
+            variable: SourceVariable;
             value: any;
         }[];
     };
