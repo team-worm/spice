@@ -1,1 +1,1 @@
-export type DebugId = number;
+export type DebugId = string;
