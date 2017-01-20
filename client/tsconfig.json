@@ -10,6 +10,8 @@
       "es2015",
       "dom"
     ],
+    "strictNullChecks": true,
+    "skipLibCheck": true,
     "noImplicitAny": true,
     "suppressImplicitAnyIndexErrors": true
   }
