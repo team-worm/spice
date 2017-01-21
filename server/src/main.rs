@@ -549,13 +549,10 @@ fn debug_execution_trace(mut req: Request, mut res: Response, caps: Captures, ch
                 index += 1;
 
                 let mut state = vec![];
-                for &(ref name, value) in locals.iter() {
-                    if value & 0xffffffff == 0xcccccccc {
-                        continue;
-                    }
-
-                    if prev_locals.get(name).map(|&prev_value| value != prev_value).unwrap_or(true) {
-                        state.push(TraceState { variable: name.clone(), value });
+                for &(ref name, ref value) in locals.iter() {
+                    let prev_value = prev_locals.get(name);
+                    if prev_value.map(|prev_value| value != prev_value).unwrap_or(true) {
+                        state.push(TraceState { variable: name.clone(), value: value.clone() });
                     }
                 }
                 prev_locals.extend(locals.into_iter());
