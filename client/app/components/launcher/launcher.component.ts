@@ -12,6 +12,7 @@ export class LauncherComponent {
 
 		//TODO: remove these test functions
 		//debuggerHttpService.getFunctions('0').subscribe(function(sfs) { console.log(sfs);});
+		//debuggerHttpService.executeBinary('', '', '').subscribe(function(execution) { console.log(execution); });
     }
 
 }
