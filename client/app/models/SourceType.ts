@@ -1,4 +1,1 @@
-export class SourceType {
-    //TODO
-
-}
+export type SourceType = string;
