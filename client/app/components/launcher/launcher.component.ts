@@ -1,24 +1,37 @@
 import {Component} from "@angular/core";
-import {FileSystemService} from "../../services/file-system.service";
 import { DebuggerHttpService } from "../../services/debugger-http.service";
 import {ViewService} from "../../services/view.service";
+import {SourceFile} from "../../models/SourceFile";
 
 @Component({
     selector: 'spice-launcher',
-    template: `<div class="launcher"><h4>Select a binary to launch</h4><button md-raised-button (click)="TempNextButton()">'binary-search.exe'</button></div>`
+    templateUrl: 'app/components/launcher/launcher.component.html'
 })
 export class LauncherComponent {
-    constructor(private fileSystemService:FileSystemService,
-                private debuggerHttpService: DebuggerHttpService,
+
+    public selectedFile: SourceFile | undefined;
+
+    constructor(private debuggerHttpService: DebuggerHttpService,
                 private viewService:ViewService) {
+
+        this.selectedFile = undefined;
 
 		//TODO: remove these test functions
 		//debuggerHttpService.getFunctions('0').subscribe(function(sfs) { console.log(sfs);});
 		//debuggerHttpService.executeBinary('', '', '').subscribe(function(execution) { console.log(execution); });
     }
 
-    TempNextButton() {
-        this.viewService.activeView = 'configuration';
+    public FileSelected($event:SourceFile) {
+        this.selectedFile = $event;
     }
+
+    public SelectedFileName():string {
+        if(this.selectedFile) {
+            return this.selectedFile.name;
+        } else {
+            return '...'
+        }
+    }
+
 
 }

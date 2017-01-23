@@ -3,27 +3,27 @@
     <span class="width-33 center-text">
         <md-button-toggle-group [(ngModel)]="viewService.activeView">
             <md-button-toggle title="Launcher" [value]="'launcher'" [disabled]="viewService.activeView == 'launcher'">
-                <md-icon fontIcon="fa-rocket"></md-icon> Launcher
+                <md-icon>launch</md-icon> Launcher
             </md-button-toggle>
             <md-button-toggle title="Configuration" [value]="'configuration'" [disabled]="viewService.activeView == 'configuration' || !viewService.configurationViewAvailable">
-                <md-icon fontIcon="fa-cogs"></md-icon> Configuration
+                <md-icon>build</md-icon> Configuration
             </md-button-toggle>
             <md-button-toggle title="Debugger" [value]="'debugger'" [disabled]="viewService.activeView == 'debugger' || !viewService.debuggerViewAvailable">
-                <md-icon fontIcon="fa-bug"></md-icon> Debugger
+                <md-icon>bug_report</md-icon> Debugger
             </md-button-toggle>
         </md-button-toggle-group>
     </span>
     <span class="width-33 right-align-text">
             <button title="Help" md-mini-fab (click)="openHelpDialog()">
-                <md-icon class="fa-lg" fontIcon="fa-question"></md-icon>
+                <md-icon>help_outline</md-icon>
             </button>
             <span class="spacer-sm"></span>
             <button title="About Spice" md-mini-fab (click)="openAboutSpiceDialog()">
-                <md-icon class="fa-lg" fontIcon="fa-info"></md-icon>
+                <md-icon>info_outline</md-icon>
             </button>
             <span class="spacer-sm"></span>
-            <a title="View GitHub Repository" href="https://github.com/team-worm/spice" target="_blank" md-mini-fab>
-                <md-icon class="fa-lg" fontIcon="fa-github"></md-icon>
+            <a title="Star on GitHub" href="https://github.com/team-worm/spice" target="_blank" md-mini-fab>
+                <md-icon>star</md-icon>
             </a>
     </span>
 </md-toolbar>

@@ -5,10 +5,26 @@ import {SourceFile} from "../models/SourceFile";
 export class FileSystemService {
     //TODO: Fully implement, currently filled with Mock Data.
 
-    public GetFile(path: string) : SourceFile | undefined {
-        switch(path) {
+    private _filesystem:SourceFile | undefined;
+
+    constructor() {
+        this._filesystem = undefined;
+    }
+
+    get filesystem(): SourceFile | undefined {
+        return this._filesystem;
+    }
+
+    public GetFile(file?: SourceFile) : SourceFile | undefined {
+        let _path:string = '';
+        if(file) {
+            _path = file.path;
+        }
+        let ret: SourceFile | undefined;
+        /* Load up a bunch of mock data. */
+        switch(_path) {
             case '':
-                return {
+                ret = {
                     name: 'root',
                     path: '/',
                     fType: 'directory',
@@ -26,6 +42,12 @@ export class FileSystemService {
                             contents: undefined
                         },
                         {
+                            name: 'unloadable',
+                            path: '/unloadable/',
+                            fType: 'directory',
+                            contents: undefined
+                        },
+                        {
                             name: 'readme.txt',
                             path: '/readme.txt',
                             fType: 'file',
@@ -33,8 +55,9 @@ export class FileSystemService {
                         }
                     ]
                 };
+                break;
             case '/src/':
-                return {
+                ret = {
                     name: 'src',
                     path: '/src/',
                     fType: 'directory',
@@ -51,8 +74,9 @@ export class FileSystemService {
                         contents: undefined
                     }]
                 };
+                break;
             case '/bin/':
-                return {
+                ret =  {
                     name: 'bin',
                     path: '/bin/',
                     fType: 'directory',
@@ -63,8 +87,20 @@ export class FileSystemService {
                         contents: undefined
                     }]
                 };
+                break;
             default:
-                return undefined;
+                ret = undefined;
         }
+
+        if(file) {
+            if(ret)
+                file.contents = ret.contents;
+            else
+                file.contents = undefined;
+        } else if(ret) {
+            this._filesystem = ret;
+        }
+
+        return ret;
     }
 }
