@@ -1,8 +1,11 @@
-#![feature(field_init_shorthand)]
+#![feature(custom_derive, field_init_shorthand)]
 
 extern crate hyper;
 extern crate unicase;
 extern crate reroute;
+
+#[macro_use]
+extern crate serde_derive;
 
 extern crate serde;
 extern crate serde_json;
@@ -24,10 +27,7 @@ use serde_types::*;
 use serde_json::value::ToJson;
 use child::{ServerMessage, DebugMessage, DebugTrace};
 
-mod serde_types {
-    include!(concat!(env!("OUT_DIR"), "/serde_types.rs"));
-}
-
+mod serde_types;
 mod child;
 
 type ChildThread = Arc<Mutex<Option<child::Thread>>>;
@@ -549,13 +549,10 @@ fn debug_execution_trace(mut req: Request, mut res: Response, caps: Captures, ch
                 index += 1;
 
                 let mut state = vec![];
-                for &(ref name, value) in locals.iter() {
-                    if value & 0xffffffff == 0xcccccccc {
-                        continue;
-                    }
-
-                    if prev_locals.get(name).map(|&prev_value| value != prev_value).unwrap_or(true) {
-                        state.push(TraceState { variable: name.clone(), value });
+                for &(ref name, ref value) in locals.iter() {
+                    let prev_value = prev_locals.get(name);
+                    if prev_value.map(|prev_value| value != prev_value).unwrap_or(true) {
+                        state.push(TraceState { variable: name.clone(), value: value.clone() });
                     }
                 }
                 prev_locals.extend(locals.into_iter());

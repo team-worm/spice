@@ -38,7 +38,7 @@ pub struct Function {
 }
 
 pub enum DebugTrace {
-    Line(u32, Vec<(String, u64)>),
+    Line(u32, Vec<(String, String)>),
     Terminated(u32),
 }
 
@@ -331,13 +331,14 @@ fn trace_function(
                         if let Ok(_) = child.read_memory(address, &mut buffer) {
                             let name = symbol.name.to_string_lossy().into_owned();
 
-                            let value = match size {
-                                4 => unsafe { *(buffer.as_ptr() as *const u32) as u64 },
-                                8 => unsafe { *(buffer.as_ptr() as *const u64) as u64 },
-                                _ => unsafe { *(buffer.as_ptr() as *const u32) as u64 },
-                            };
+                            let value = debug::Value::read(&child, &symbols, &context, &symbol);
+                            if let Ok(value) = value {
+                                if value.data[0] == 0xcc {
+                                    return true;
+                                }
 
-                            locals.push((name, value));
+                                locals.push((name, format!("{}", value.display(&symbols))));
+                            }
                         }
 
                         true

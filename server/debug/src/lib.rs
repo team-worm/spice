@@ -18,11 +18,13 @@ pub use process::*;
 pub use event::*;
 pub use symbol::*;
 pub use types::*;
+pub use value::*;
 
 mod process;
 mod event;
 mod symbol;
 mod types;
+mod value;
 
 trait FromWide where Self: Sized {
     fn from_wide(wide: &[u16]) -> Self;

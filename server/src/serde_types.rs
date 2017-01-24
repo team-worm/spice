@@ -65,7 +65,7 @@ pub struct Trace {
 #[derive(Serialize, Deserialize)]
 pub struct TraceState {
     pub variable: String,
-    pub value: u64,
+    pub value: String,
 }
 
 #[derive(Serialize, Deserialize)]
