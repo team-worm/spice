@@ -24,7 +24,7 @@ pub enum DebugMessage {
     Breakpoint,
     Executing,
     Trace(DebugTrace),
-    Error(io::Error),
+    Error(String, io::Error),
 }
 
 pub struct Function {
@@ -86,7 +86,7 @@ impl Thread {
 
         let thread = thread::spawn(move || {
             if let Err(e) = f(debug_tx.clone(), server_rx) {
-                debug_tx.send(DebugMessage::Error(e)).unwrap();
+                debug_tx.send(DebugMessage::Error(format!("Failed to spawn thread"), e)).unwrap();
             }
         });
 

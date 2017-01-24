@@ -6,8 +6,8 @@ pub struct Error {
     pub code: i32,
     /// Unique human readable message for error
     pub message: String,
-    // TODO: this needs to be another struct.  Data specific to error
-    pub data: i32,
+    /// Rust error description
+    pub err_data: String,
 }
 
 #[derive(Serialize, Deserialize)]
