@@ -1,15 +1,13 @@
 import { browser, element, by } from 'protractor';
 
-describe('QuickStart E2E Tests', function () {
-
-  let expectedMsg = 'Hello Angular';
+describe('E2E Tests', function () {
 
   beforeEach(function () {
     browser.get('');
   });
 
-  it('should display: ' + expectedMsg, function () {
-    expect(element(by.css('h1')).getText()).toEqual(expectedMsg);
+  it('application loaded', function () {
+    expect(element(by.tagName('spice-root'))).toBeDefined();
   });
 
 });
