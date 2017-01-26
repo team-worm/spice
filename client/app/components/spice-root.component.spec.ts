@@ -1,6 +1,3 @@
-import 'hammerjs';
-import './../rxjs-extensions';
-
 import {async, ComponentFixture, TestBed, inject} from '@angular/core/testing';
 import { By }           from '@angular/platform-browser';
 import { DebugElement } from '@angular/core';
@@ -9,7 +6,8 @@ import {SpiceRootComponent} from "./spice-root.component";
 import {SpiceModule} from "../spice.module";
 import {ViewService} from "../services/view.service";
 
-describe('SpiceRootComponent', function () {
+describe('A Service', function () {
+
 
     let comp: SpiceRootComponent;
     let fixture: ComponentFixture<SpiceRootComponent>;

@@ -16,14 +16,14 @@ export class FileBrowserComponent implements OnInit {
         file: SourceFile | undefined
     };
     @Output()
-    public fileSelected:EventEmitter<SourceFile>;
+    public onFileSelected:EventEmitter<SourceFile>;
 
     constructor(public FSS:FileSystemService) {
         this.selectedFileRef = {
             file: undefined
         };
 
-        this.fileSelected = new EventEmitter<SourceFile>();
+        this.onFileSelected = new EventEmitter<SourceFile>();
     }
 
     ngOnInit() {
@@ -36,7 +36,7 @@ export class FileBrowserComponent implements OnInit {
         let self = this;
         return (file:SourceFile) => {
             self.selectedFileRef.file = file;
-            self.fileSelected.emit(file);
+            self.onFileSelected.emit(file);
         };
     }
 

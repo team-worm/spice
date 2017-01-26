@@ -22,6 +22,9 @@ import {DebuggerService} from "./services/debugger.service";
 import {DebuggerHttpService} from "./services/debugger-http.service";
 import {FileBrowserComponent} from "./components/common/file-browser.component";
 import {FileBrowserNodeComponent} from "./components/common/file-browser-node.component";
+import {FunctionListComponent} from "./components/common/function-list.component";
+import {ProcessListComponent} from "./components/common/process-list.component";
+import {FilterByStringPipe} from "./pipes/filter-by-string.pipe";
 
 @NgModule({
     imports: [MaterialModule.forRoot(), FormsModule, RouterModule, BrowserModule, HttpModule],
@@ -34,7 +37,10 @@ import {FileBrowserNodeComponent} from "./components/common/file-browser-node.co
         ConfigurationComponent,
         DebuggerComponent,
         FileBrowserComponent,
-        FileBrowserNodeComponent
+        FileBrowserNodeComponent,
+        FunctionListComponent,
+        ProcessListComponent,
+        FilterByStringPipe
     ],
     providers: [
         FileSystemService,

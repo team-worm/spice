@@ -32,6 +32,7 @@ $text-color-error: rgb(220, 49, 32);
 @import 'components/debugger';
 @import 'components/configuration';
 @import 'components/file-browser';
+@import 'components/process-list';
 
 .mockup {
     color: gray;

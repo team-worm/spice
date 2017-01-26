@@ -2,6 +2,7 @@ import {Component} from "@angular/core";
 import { DebuggerHttpService } from "../../services/debugger-http.service";
 import {ViewService} from "../../services/view.service";
 import {SourceFile} from "../../models/SourceFile";
+import {Process} from "../../models/Process";
 
 @Component({
     selector: 'spice-launcher',
@@ -10,6 +11,7 @@ import {SourceFile} from "../../models/SourceFile";
 export class LauncherComponent {
 
     public selectedFile: SourceFile | undefined;
+    public selectedProcess: Process | undefined;
 
     constructor(private debuggerHttpService: DebuggerHttpService,
                 private viewService:ViewService) {
@@ -21,17 +23,11 @@ export class LauncherComponent {
 		//debuggerHttpService.executeBinary('', '', '').subscribe(function(execution) { console.log(execution); });
     }
 
-    public FileSelected($event:SourceFile) {
+    public OnFileSelected($event:SourceFile) {
         this.selectedFile = $event;
     }
-
-    public SelectedFileName():string {
-        if(this.selectedFile) {
-            return this.selectedFile.name;
-        } else {
-            return '...'
-        }
+    public OnProcessSelected($event:Process) {
+        this.selectedProcess = $event;
     }
-
 
 }
