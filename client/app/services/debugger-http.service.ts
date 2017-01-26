@@ -17,9 +17,9 @@ export class DebuggerHttpService {
 	}
 
 	private static handleServerDataError(err: any) {
-		//if(err instanceof InvalidTypeError) {
-			//return Observable.throw(new InvalidServerDataError('SourceFunction', err));
-		//}
+		if(err instanceof InvalidTypeError) {
+			return Observable.throw(new InvalidServerDataError('SourceFunction', err));
+		}
 
 		return Observable.throw(err);
 	}
@@ -27,7 +27,7 @@ export class DebuggerHttpService {
 	public attachBinary(path: string): Observable<DebuggerState> {
 		return this.http.post(`/api/v1/debug/attach/bin/${path}`, undefined)
 			.map(function(res: any) {
-				return DebuggerState.fromObjectStrict(res.json().data);
+				return DebuggerState.fromObjectStrict(res.json().data, this);
 			})
 			.catch(DebuggerHttpService.handleServerDataError);
 	}

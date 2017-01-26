@@ -17,3 +17,9 @@ export class InvalidServerDataError extends SpiceError {
 		super(3, "InvalidServerDataError", `Failed to construct ${ typeName }: ${ message }.`, data);
 	}
 }
+
+export class KeyNotFoundError extends SpiceError {
+	constructor(key: string) {
+		super(4, "KeyNotFoundError", `Key '${key}' not found`);
+	}
+}

@@ -3,7 +3,7 @@ describe('DebuggerService', function () {
 
 	let ds: DebuggerService;
 	beforeEach(function () {
-		ds = new DebuggerService();
+		//ds = new DebuggerService();
 	});
 
 });
