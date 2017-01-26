@@ -128,7 +128,16 @@ fn run(
 
     let event = debug::Event::wait_event()?;
     if let debug::EventInfo::CreateProcess { ref file, main_thread, base, .. } = event.info {
-        state.symbols.load_module(file.as_ref().unwrap(), base)?;
+        match state.symbols.load_module(file.as_ref().unwrap(), base) {
+            Ok(_) => {},
+            Err(err) => {
+                tx.send(DebugMessage::Error(
+                    format!("Error loading modules during create process"),
+                    err,
+                )).unwrap();
+                return Ok(());
+            },
+        };
         state.threads.insert(event.thread_id, main_thread);
 
         tx.send(DebugMessage::Attached).unwrap();
@@ -140,33 +149,121 @@ fn run(
     loop {
         match rx.recv().unwrap() {
             ServerMessage::ListFunctions => {
-                list_functions(&mut state, &tx)?;
+                match list_functions(&mut state) {
+                    Ok(functions) => tx.send(DebugMessage::Functions(functions)).unwrap(),
+                    Err(err) => {
+                        tx.send(DebugMessage::Error(
+                            format!("Error getting list of functions"),
+                            err)).unwrap();
+                    },
+                }
             }
             ServerMessage::DescribeFunction { address } => {
-                let (function, _) = state.symbols.symbol_from_address(address)?;
-                let module = state.symbols.module_from_address(address)?;
-                let fn_type = state.symbols.type_from_index(module, function.type_index)?;
-                let function = describe_function(&mut state.symbols, &function, &fn_type)?;
+                let (function, _) = match state.symbols.symbol_from_address(address) {
+                    Ok((symbol, size)) => (symbol, size),
+                    Err(err) => {
+                        tx.send(DebugMessage::Error(
+                            format!("Error loading function information"),
+                            err,
+                        )).unwrap();
+                        continue;
+                    },
+                };
+                
+                let module = match state.symbols.module_from_address(address) {
+                    Ok(m) => m,
+                    Err(err) => {
+                        tx.send(DebugMessage::Error(
+                            format!("Error loading function from address"),
+                            err,
+                        )).unwrap();
+                        continue;
+                    },
+                };
+                let fn_type = match state.symbols.type_from_index(module, function.type_index) {
+                    Ok(t) => t,
+                    Err(err) => {
+                        tx.send(DebugMessage::Error(
+                            format!("Error getting function return type"),
+                            err,
+                        )).unwrap();
+                        continue;
+                    },
+                    
+                };
+                let function = match describe_function(&mut state.symbols, &function, &fn_type) {
+                    Ok(func) => func,
+                    Err(err) => {
+                        tx.send(DebugMessage::Error(
+                            format!("Error gathering information about the function"),
+                            err,
+                        )).unwrap();
+                        continue;
+                    },
+                };
                 tx.send(DebugMessage::Function(function)).unwrap();
             }
 
             ServerMessage::ListBreakpoints => {}
 
             ServerMessage::SetBreakpoint { address } => {
-                let (function, _off) = state.symbols.symbol_from_address(address)?;
-                let lines = state.symbols.lines_from_symbol(&function)?;
+                let (function, _off) = match state.symbols.symbol_from_address(address){
+                    Ok((symbol, offset)) => (symbol, offset),
+                    Err(err) => {
+                        tx.send(DebugMessage::Error(
+                            format!("Error getting symbol from address"),
+                            err,
+                        )).unwrap();
+                        continue;
+                    },
+                };
+                let lines = match state.symbols.lines_from_symbol(&function) {
+                    Ok(l) => l,
+                    Err(err) => {
+                        tx.send(DebugMessage::Error(
+                            format!("Error iterating over lines of a function"),
+                            err,
+                        )).unwrap();
+                        continue;
+                    },
+                };
+
+                let mut success = true;
                 for line in lines {
-                    let breakpoint = state.child.set_breakpoint(line.address)?;
+                    let breakpoint = match state.child.set_breakpoint(line.address){
+                        Ok(bp) => bp,
+                        Err(err) => {
+                            tx.send(DebugMessage::Error(
+                                format!("Error placing breakpoint on line number {}", line.line),
+                                err,
+                            )).unwrap();
+                            success = false;
+                            break;
+                        },
+                    };
                     state.breakpoints.insert(line.address, Some(breakpoint));
                 }
 
-                tx.send(DebugMessage::Breakpoint).unwrap();
+                if success {
+                    tx.send(DebugMessage::Breakpoint).unwrap();                    
+                } else {
+                    state.breakpoints = HashMap::new();
+                }
             }
 
             ServerMessage::ClearBreakpoint { .. } => {}
 
             ServerMessage::Continue => {
-                event.take().unwrap().continue_event(true)?;
+                match event.take().unwrap().continue_event(true) {
+                    Ok(_) => {},
+                    Err(err) => {
+                        tx.send(DebugMessage::Error(
+                            format!("There was an error in the debugging process.  You will have to reattach"),
+                            err,
+                        )).unwrap();
+                        continue;
+                    },
+                };
                 tx.send(DebugMessage::Executing).unwrap();
             }
 
@@ -175,7 +272,17 @@ fn run(
             // TODO: handle process-type traces
             ServerMessage::Trace => {
                 assert!(event.is_none());
-                event = Some(trace_function(&mut state, &tx)?);
+                // Error handling may have to become more fine grained for trace
+                event = Some(match trace_function(&mut state, &tx) {
+                    Ok(debug_event) => debug_event,
+                    Err(err) => {
+                        tx.send(DebugMessage::Error(
+                            format!("There was an error executing trace.  Try again."),
+                            err,
+                        )).unwrap();
+                        continue;
+                    },
+                });
             }
 
             ServerMessage::Stop => {}
@@ -183,18 +290,17 @@ fn run(
             ServerMessage::Quit => { break; }
         }
     }
+    
 
     Ok(())
 }
 
-fn list_functions(
-    state: &DebugState, tx: &SyncSender<DebugMessage>
-) -> io::Result<()> {
+fn list_functions(state: &DebugState) -> io::Result<(Vec<Function>)> {
     let DebugState { ref symbols, .. } = *state;
 
     let mut functions = vec![];
-    symbols.enumerate_globals(|symbol, _| {
-        let module = symbols.module_from_address(symbol.address).unwrap();
+    match symbols.enumerate_globals(|symbol, _| {
+        let module = symbols.module_from_address(symbol.address).unwrap(); 
         let fn_type = match symbols.type_from_index(module, symbol.type_index) {
             Ok(fn_type @ debug::Type::Function { .. }) => fn_type,
             _ => return true,
@@ -202,13 +308,18 @@ fn list_functions(
 
         functions.push((symbol, fn_type));
         true
-    })?;
+    }){
+        Ok(_) => {},
+        Err(e) => {
+            return Err(e);  
+        },
+    };
 
     let functions: Vec<_> = functions.into_iter()
         .flat_map(|(function, fn_type)| describe_function(symbols, &function, &fn_type))
         .collect();
-    tx.send(DebugMessage::Functions(functions)).unwrap();
-    Ok(())
+//    tx.send(DebugMessage::Functions(functions)).unwrap();
+    Ok((functions))
 }
 
 fn describe_function(

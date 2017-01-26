@@ -159,7 +159,7 @@ fn filesystem(mut req: Request, mut res: Response, caps: Captures) {
                 err_data: format!("{}", err.description())
             };
             *res.status_mut() = StatusCode::NotFound;
-            send(res, &serde_json::to_vec(&message).unwrap());
+            send(res, &serde_json::to_vec(&message).unwrap()).unwrap();
             return;
         },
     };
@@ -174,7 +174,7 @@ fn filesystem(mut req: Request, mut res: Response, caps: Captures) {
                     err_data: format!("{}", err.description())
                 };
                 *res.status_mut() = StatusCode::NotFound;
-                send(res, &serde_json::to_vec(&message).unwrap());
+                send(res, &serde_json::to_vec(&message).unwrap()).unwrap();
                 return;
             },
         };
@@ -228,7 +228,7 @@ fn processes(mut req: Request, mut res: Response, _: Captures) {
             };
             
             *res.status_mut() = StatusCode::NotFound;
-            send(res, &serde_json::to_vec(&message).unwrap());
+            send(res, &serde_json::to_vec(&message).unwrap()).unwrap();
             return;
         },
     };
@@ -271,7 +271,7 @@ fn debug_attach_pid(mut req: Request, mut res: Response, caps: Captures, child: 
             *res.status_mut() = StatusCode::NotFound;
             let message = serde_types::Error {
                 code: 0,
-                message: format!("pid {} not found", pid),
+                message: format!("Couldn't attach to pid: {} -- {}", pid, msg),
                 err_data: format!("{}", err.description())
             };
 
@@ -318,7 +318,7 @@ fn debug_attach_bin(mut req: Request, mut res: Response, caps: Captures, child: 
             *res.status_mut() = StatusCode::NotFound;
             let message = serde_types::Error {
                 code: 0,
-                message: format!("binary {} not found", attached_process),
+                message: format!("Couldn't attach to binary: {} -- {}", attached_process, msg),
                 err_data: format!("{}", err.description())
             };
 
@@ -353,7 +353,7 @@ fn debug_functions(mut req: Request, mut res: Response, _: Captures, child: Chil
             };
 
             *res.status_mut() = StatusCode::Forbidden; 
-            send(res, &serde_json::to_vec(&message).unwrap());
+            send(res, &serde_json::to_vec(&message).unwrap()).unwrap();
             return;
         },
     };
@@ -398,7 +398,7 @@ fn debug_function(mut req: Request, mut res: Response, caps: Captures, child: Ch
             };
             
             *res.status_mut() = StatusCode::Forbidden; 
-            send(res, &serde_json::to_vec(&message).unwrap());
+            send(res, &serde_json::to_vec(&message).unwrap()).unwrap();
             return;
         },
     };
@@ -479,7 +479,7 @@ fn debug_breakpoint_put(mut req: Request, mut res: Response, caps: Captures, chi
             };
             
             *res.status_mut() = StatusCode::Forbidden; 
-            send(res, &serde_json::to_vec(&message).unwrap());
+            send(res, &serde_json::to_vec(&message).unwrap()).unwrap();
             return;
         },
     };
@@ -528,7 +528,7 @@ fn debug_breakpoint_delete(mut req: Request, mut res: Response, caps: Captures, 
             };
             
             *res.status_mut() = StatusCode::NotFound;
-            send(res, &serde_json::to_vec(&message).unwrap());
+            send(res, &serde_json::to_vec(&message).unwrap()).unwrap();
             return;
         },
     };
@@ -554,7 +554,7 @@ fn debug_execute(mut req: Request, mut res: Response, caps: Captures, child: Chi
                 err_data: format!("")
             };
             *res.status_mut() = StatusCode::Forbidden; 
-            send(res, &serde_json::to_vec(&message).unwrap());
+            send(res, &serde_json::to_vec(&message).unwrap()).unwrap();
             return;
         },
     };
@@ -630,7 +630,7 @@ fn debug_execution_trace(mut req: Request, mut res: Response, caps: Captures, ch
                 err_data: format!("")
             };
             *res.status_mut() = StatusCode::Forbidden; 
-            send(res, &serde_json::to_vec(&message).unwrap());
+            send(res, &serde_json::to_vec(&message).unwrap()).unwrap();
             return;
         },
     };
