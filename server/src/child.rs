@@ -40,6 +40,7 @@ pub struct Function {
 pub enum DebugTrace {
     Line(u32, Vec<(String, String)>),
     Terminated(u32),
+    Error(String, io::Error, u32),
 }
 
 /// messages the server sends to the debug event loop to request info
@@ -58,6 +59,8 @@ pub enum ServerMessage {
     Quit,
 }
 
+
+// need to figure out error handling for if 'run' returns an error
 impl Thread {
     pub fn launch(path: PathBuf) -> Thread {
         Thread::spawn(move |debug_tx, server_rx| {
@@ -403,8 +406,13 @@ fn trace_function(
             CreateThread { thread, .. } => { threads.insert(event.thread_id, thread); }
             ExitThread { .. } => { threads.remove(&event.thread_id); }
 
-            LoadDll { ref file, base } => { symbols.load_module(file.as_ref().unwrap(), base)?; }
-            UnloadDll { base } => { symbols.unload_module(base)?; }
+            LoadDll { ref file, base } => {
+                 let _ = symbols.load_module(file.as_ref().unwrap(), base);
+
+            }
+            UnloadDll { base } => {
+                 let _ = symbols.unload_module(base);
+            }
 
             Exception { first_chance, code, address } => {
                 let thread = threads[&event.thread_id];
@@ -415,14 +423,41 @@ fn trace_function(
                 } else if code == winapi::EXCEPTION_BREAKPOINT {
                     // disable and save the breakpoint
                     let breakpoint = breakpoints.get_mut(&address).unwrap().take();
-                    child.remove_breakpoint(breakpoint.unwrap())?;
+                    match child.remove_breakpoint(breakpoint.unwrap()) {
+                        Ok(()) => {},
+                        Err(err) => {
+                            tx.send(DebugMessage::Trace(DebugTrace::Error(
+                                format!("Error removing breakpoint on line {}", last_line),
+                                err,
+                                last_line))).unwrap();
+                            return Ok(event);
+                        },
+                    };
                     *last_breakpoint = Some(address);
 
                     // restart the instruction and enable singlestep
-                    let mut context = debug::get_thread_context(thread, winapi::CONTEXT_FULL)?;
+                    let mut context = match debug::get_thread_context(thread, winapi::CONTEXT_FULL){
+                        Ok(c) => c,
+                        Err(err) => {
+                            tx.send(DebugMessage::Trace(DebugTrace::Error(
+                                format!("Error getting thread context on line {}", last_line),
+                                err,
+                                last_line))).unwrap();
+                            return Ok(event);
+                        },
+                    };
                     context.set_instruction_pointer(address);
                     context.set_singlestep(true);
-                    debug::set_thread_context(thread, &context)?;
+                    match debug::set_thread_context(thread, &context){
+                        Ok(()) => {},
+                        Err(err) => {
+                            tx.send(DebugMessage::Trace(DebugTrace::Error(
+                                format!("Error setting thread context on line {}", last_line),
+                                err,
+                                last_line))).unwrap();
+                            return Ok(event);
+                        },
+                    };
 
                     // collect locals
 
@@ -431,10 +466,20 @@ fn trace_function(
                     let ref stack = frame.stack;
 
                     let instruction = stack.AddrPC.Offset as usize;
-                    let (line, _off) = symbols.line_from_address(instruction)?;
+                    let (line, _off) = match symbols.line_from_address(instruction) {
+                        Ok((line, offset)) => (line, offset),
+                        Err(err) => {
+                            tx.send(DebugMessage::Trace(DebugTrace::Error(
+                                format!("Error getting line from address on line {}", last_line),
+                                err,
+                                last_line))).unwrap();
+                            return Ok(event);
+                        },
+
+                    };
 
                     let mut locals = vec![];
-                    symbols.enumerate_locals(instruction, |symbol, size| {
+                    match symbols.enumerate_locals(instruction, |symbol, size| {
                         if size == 0 { return true; }
 
                         let mut buffer = vec![0u8; size];
@@ -453,20 +498,57 @@ fn trace_function(
                         }
 
                         true
-                    })?;
+                    }) {
+                        Ok(()) => {},
+                        Err(err) => {
+                            tx.send(DebugMessage::Trace(DebugTrace::Error(
+                                format!("Error loading symbols on line {}", last_line),
+                                err,
+                                last_line))).unwrap();
+                            return Ok(event);
+                        },
+                    };
 
                     tx.send(DebugMessage::Trace(DebugTrace::Line(last_line, locals))).unwrap();
                     last_line = line.line;
                 } else if code == winapi::EXCEPTION_SINGLE_STEP {
                     // restore the disabled breakpoint
                     let address = last_breakpoint.take().unwrap();
-                    let breakpoint = child.set_breakpoint(address)?;
+                    let breakpoint = match child.set_breakpoint(address) {
+                        Ok(br) => br,
+                        Err(err) => {
+                            tx.send(DebugMessage::Trace(DebugTrace::Error(
+                                format!("Error setting breakpoint on line {}", last_line),
+                                err,
+                                last_line))).unwrap();
+                            return Ok(event);
+                        },
+                        
+                    };
                     breakpoints.insert(address, Some(breakpoint));
 
                     // disable singlestep
-                    let mut context = debug::get_thread_context(thread, winapi::CONTEXT_FULL)?;
+                    let mut context = match debug::get_thread_context(thread, winapi::CONTEXT_FULL) {
+                        Ok(c) => c,
+                        Err(err) => {
+                            tx.send(DebugMessage::Trace(DebugTrace::Error(
+                                format!("Error getting thread context on line {}", last_line),
+                                err,
+                                last_line))).unwrap();
+                            return Ok(event);
+                        },
+                    };
                     context.set_singlestep(false);
-                    debug::set_thread_context(thread, &context)?;
+                    match debug::set_thread_context(thread, &context) {
+                        Ok(()) => {},
+                        Err(err) => {
+                            tx.send(DebugMessage::Trace(DebugTrace::Error(
+                                format!("Error setting thread context on line {}", last_line),
+                                err,
+                                last_line))).unwrap();
+                            return Ok(event);
+                        },
+                    };
                 }
             }
 

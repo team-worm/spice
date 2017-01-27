@@ -654,9 +654,6 @@ fn debug_execution_trace(mut req: Request, mut res: Response, caps: Captures, ch
         return;
     }
 
-    //let mut child = child.lock().unwrap();
-    //let child = child.as_mut().unwrap();
-
     child.tx.send(ServerMessage::Trace).unwrap();
     child.rx.recv().unwrap();
 
@@ -697,6 +694,16 @@ fn debug_execution_trace(mut req: Request, mut res: Response, caps: Captures, ch
                 done = true;
 
                 Trace { index: index, t_type: 2, line: line, data: Vec::<Trace>::new().to_json() }
+            }
+
+            Ok(DebugMessage::Trace(DebugTrace::Error(msg, err, line))) => {
+                done = true;
+
+                Trace { index: index,
+                        t_type: 2,
+                        line: line,
+                        data: format!("{} -- {}", msg, err.description()).to_json()
+                }
             }
 
             _ => unreachable!()
