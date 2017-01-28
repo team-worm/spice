@@ -1,14 +1,29 @@
 import {Trace} from "./Trace";
 import {SourceVariable} from "../SourceVariable";
+import { InvalidValueError } from "../errors/Errors";
+import { SpiceValidator } from "../../util/SpiceValidator";
 
-export class TraceOfIntruction implements Trace {
-    public index: number; //Index of the trace, beginning at 0 and totally ordered for each execution.
-    public tType: number = 0; //Type of trace: `0`=instruction (state changes), `1`=output (to stdout), `2`=termination (data about how the execution ended)
-    public line: number; //Line number that produced this trace.
-    public data: {
-        state: {
-            variable: SourceVariable;
-            value: any;
-        }[];
-    };
+export type InstructionState = {sVariable: SourceVariable, value: any};
+export class TraceOfIntruction extends Trace {
+	constructor(index: number, line: number, data: { state: InstructionState[] }) {
+			super(index, 0, line, data);
+		}
+
+	/** validate data, assume all other fields are already valid */
+	public static fromObjectStrictData(obj: any): TraceOfIntruction {
+		SpiceValidator.assertTypeofStrict(obj.data, 'object');
+		SpiceValidator.assertArrayStrict(obj.data.state);
+
+		let state = obj.data.state.map(function(is: any) {
+			SpiceValidator.assertTypeofStrict(is, 'object');
+			SpiceValidator.assertTypeofStrict(is.sVariable, 'object');
+			let sVariable = obj.data.sVariable;
+			if(!(sVariable instanceof SourceVariable)) {
+				sVariable = SourceVariable.fromObjectStrict(sVariable);
+			}
+			return { sVariable: sVariable, value: is.value};
+		});
+
+		return new TraceOfIntruction(obj.index, obj.line, { state: state });
+	}
 }

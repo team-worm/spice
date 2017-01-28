@@ -20,10 +20,12 @@ export class ExecutionOfFunction extends Execution {
 	public static fromObjectStrictData(obj: any): ExecutionOfFunction {
 		SpiceValidator.assertTypeofStrict(obj.data, 'object');
 		SpiceValidator.assertTypeofStrict(obj.data.sFunction, 'object');
-		if(!(obj.data.sFunction instanceof SourceFunction)) {
-			obj.data.sFunction = SourceFunction.fromObjectStrict(obj.data.sFunction);
+
+		let sFunction = obj.data.sFunction;
+		if(!(sFunction instanceof SourceFunction)) {
+			sFunction = SourceFunction.fromObjectStrict(sFunction);
 		}
 
-		return new ExecutionOfFunction(obj.id, obj.status, obj.executionTime, obj.data);
+		return new ExecutionOfFunction(obj.id, obj.status, obj.executionTime, { sFunction: sFunction });
 	}
 }

@@ -1,10 +1,16 @@
 import {Trace} from "./Trace";
+import { SpiceValidator } from "../../util/SpiceValidator";
 
-export class TraceOfOutput implements Trace {
-    public index: number; //Index of the trace, beginning at 0 and totally ordered for each execution.
-    public tType: number = 1; //Type of trace: `0`=instruction (state changes), `1`=output (to stdout), `2`=termination (data about how the execution ended)
-    public line: number; //Line number that produced this trace.
-    public data: {
-        output: string
-    }
+export class TraceOfOutput extends Trace {
+	constructor(index: number, line: number, data: { output: string }) {
+		super(index, 1, line, data);
+	}
+
+	/** validate data, assume all other fields are already valid */
+	public static fromObjectStrictData(obj: any): TraceOfOutput {
+		SpiceValidator.assertTypeofStrict(obj.data, 'object');
+		SpiceValidator.assertTypeofStrict(obj.data.output, 'string');
+
+		return new TraceOfOutput(obj.index, obj.line, { output: obj.data.output });
+	}
 }
