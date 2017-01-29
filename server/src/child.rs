@@ -275,22 +275,15 @@ fn run(
             // TODO: handle process-type traces
             ServerMessage::Trace => {
                 assert!(event.is_none());
-                // Error handling may have to become more fine grained for trace
-                event = Some(match trace_function(&mut state, &tx) {
-                    Ok(debug_event) => debug_event,
-                    Err(err) => {
-                        tx.send(DebugMessage::Error(
-                            format!("There was an error executing trace.  Try again."),
-                            err,
-                        )).unwrap();
-                        continue;
-                    },
-                });
+                event = Some(trace_function(&mut state, &tx)?);
             }
 
             ServerMessage::Stop => {}
 
-            ServerMessage::Quit => { break; }
+            ServerMessage::Quit => {
+                state.child.terminate()?;
+                break;
+            }
         }
     }
     
@@ -388,6 +381,7 @@ fn trace_function(
         ref mut attached,
 
         ref mut threads,
+
         ref mut breakpoints,
         ref mut last_breakpoint,
     } = *state;

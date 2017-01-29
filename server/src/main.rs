@@ -672,6 +672,7 @@ fn debug_execution_trace(mut req: Request, mut res: Response, caps: Captures, ch
 
     let mut index = 0;
     let mut done = false;
+
     while !done {
         let message = match child.rx.recv() {
             Ok(DebugMessage::Trace(DebugTrace::Line(line, locals))) => {
@@ -699,6 +700,9 @@ fn debug_execution_trace(mut req: Request, mut res: Response, caps: Captures, ch
             Ok(DebugMessage::Trace(DebugTrace::Error(msg, err, line))) => {
                 done = true;
 
+                child.tx.send(ServerMessage::Quit).unwrap();
+                *child = None;
+
                 Trace { index: index,
                         t_type: 2,
                         line: line,
@@ -713,6 +717,8 @@ fn debug_execution_trace(mut req: Request, mut res: Response, caps: Captures, ch
         res.write_all(&json).unwrap();
         if !done { res.write_all(b",\n").unwrap(); }
         res.flush().unwrap();
+
+
     }
 
     res.write_all(b"]").unwrap();
