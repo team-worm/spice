@@ -8,7 +8,7 @@ use winapi;
 use kernel32;
 use advapi32;
 
-use FromWide;
+use {FromWide, AsBytes};
 
 /// A running or exited debugee process, created via a `Command`
 pub struct Child(RawHandle);
@@ -58,6 +58,16 @@ impl Child {
         Ok(())
     }
 
+    pub fn stack_push<B: AsBytes>(&mut self, context: &mut Context, value: B) -> io::Result<()> {
+        let bytes = value.as_bytes();
+        let address = context.stack_pointer() - bytes.len();
+
+        context.set_stack_pointer(address);
+        self.write_memory(address, &bytes)?;
+
+        Ok(())
+    }
+
     pub fn attach(pid: u32) -> io::Result<Child> {
         unsafe {
             let access = winapi::PROCESS_VM_READ | winapi::PROCESS_QUERY_INFORMATION;
@@ -99,6 +109,16 @@ impl Child {
             Ok(Child(process))
         }
     }
+
+    pub fn terminate(self) -> io::Result<()> {
+        unsafe {
+            if kernel32::TerminateProcess(self.0, 0) == winapi::FALSE {
+                return Err(io::Error::last_os_error());
+            }
+
+            Ok(())
+        }
+    }
 }
 
 impl AsRawHandle for Child {
@@ -116,9 +136,22 @@ pub struct Breakpoint {
 }
 
 /// The state of a suspended thread
+#[derive(Clone)]
 pub struct Context(winapi::CONTEXT);
 
 impl Context {
+    pub fn stack_pointer(&self) -> usize {
+        self.0.Rsp as usize
+    }
+
+    pub fn set_stack_pointer(&mut self, address: usize) {
+        self.0.Rsp = address as winapi::DWORD64;
+    }
+
+    pub fn instruction_pointer(&self) -> usize {
+        self.0.Rip as usize
+    }
+
     pub fn set_instruction_pointer(&mut self, address: usize) {
         self.0.Rip = address as winapi::DWORD64;
     }
@@ -132,6 +165,8 @@ impl Context {
     }
 
     pub fn into_raw(self) -> winapi::CONTEXT { self.0 }
+    pub fn as_raw(&self) -> &winapi::CONTEXT { &self.0 }
+    pub fn as_raw_mut(&mut self) -> &mut winapi::CONTEXT { &mut self.0 }
 }
 
 /// Read a suspended thread's CPU state

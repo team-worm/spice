@@ -10,7 +10,7 @@ extern crate advapi32;
 #[macro_use]
 extern crate lazy_static;
 
-use std::slice;
+use std::{mem, slice};
 use std::ffi::OsString;
 use std::os::windows::ffi::OsStringExt;
 
@@ -19,12 +19,14 @@ pub use event::*;
 pub use symbol::*;
 pub use types::*;
 pub use value::*;
+pub use call::*;
 
 mod process;
 mod event;
 mod symbol;
 mod types;
 mod value;
+mod call;
 
 trait FromWide where Self: Sized {
     fn from_wide(wide: &[u16]) -> Self;
@@ -50,5 +52,23 @@ trait FromWide where Self: Sized {
 impl FromWide for OsString {
     fn from_wide(wide: &[u16]) -> OsString {
         OsStringExt::from_wide(wide)
+    }
+}
+
+pub trait AsBytes {
+    fn as_bytes(&self) -> &[u8];
+}
+
+impl AsBytes for usize {
+    fn as_bytes(&self) -> &[u8] {
+        unsafe {
+            slice::from_raw_parts(self as *const _ as *const _, mem::size_of::<Self>())
+        }
+    }
+}
+
+impl<'a> AsBytes for &'a Value {
+    fn as_bytes(&self) -> &[u8] {
+        &self.data
     }
 }
