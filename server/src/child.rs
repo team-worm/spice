@@ -331,7 +331,7 @@ fn trace_function(
                         if let Ok(_) = child.read_memory(address, &mut buffer) {
                             let name = symbol.name.to_string_lossy().into_owned();
 
-                            let value = debug::Value::read(&child, &symbols, &context, &symbol);
+                            let value = debug::Value::read(&child, &context, &symbols, &symbol);
                             if let Ok(value) = value {
                                 if value.data[0] == 0xcc {
                                     return true;
