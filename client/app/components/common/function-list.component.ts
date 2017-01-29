@@ -4,7 +4,7 @@ import {SourceFunction} from "../../models/SourceFunction";
 @Component({
     selector: 'spice-function-list',
     template: `
-I am a list of functions
+<div>I am a TODO function list component.</div>
 `
 })
 export class FunctionListComponent{

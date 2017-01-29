@@ -1,6 +1,4 @@
 import {Component} from "@angular/core";
-import { DebuggerHttpService } from "../../services/debugger-http.service";
-import {ViewService} from "../../services/view.service";
 import {SourceFile} from "../../models/SourceFile";
 import {Process} from "../../models/Process";
 
@@ -13,8 +11,7 @@ export class LauncherComponent {
     public selectedFile: SourceFile | undefined;
     public selectedProcess: Process | undefined;
 
-    constructor(private debuggerHttpService: DebuggerHttpService,
-                private viewService:ViewService) {
+    constructor() {
 
         this.selectedFile = undefined;
 
