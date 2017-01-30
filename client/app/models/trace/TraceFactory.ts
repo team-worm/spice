@@ -20,7 +20,7 @@ export class TraceFactory {
 			case 2:
 				return TraceOfTermination.fromObjectStrictData(obj);
 			default:
-				throw new InvalidValueError(obj.tType, 'Trace eType must have value 0, 1, or 2');
+				throw new InvalidValueError(obj.tType, 'Trace tType must have value 0, 1, or 2');
 		}
 	}
 }

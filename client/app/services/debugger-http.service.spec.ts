@@ -1,7 +1,7 @@
 import { ReflectiveInjector } from "@angular/core";
 import {tick, fakeAsync} from '@angular/core/testing';
 import {ConnectionBackend, Http, RequestOptions, BaseRequestOptions, Response, ResponseOptions} from "@angular/http";
-import {MockBackend, MockConnection} from '@angular/http/testing';
+import {MockBackend } from '@angular/http/testing';
 
 import { DebuggerHttpService } from "./debugger-http.service";
 import { SourceFunction } from "../models/SourceFunction";
@@ -79,9 +79,9 @@ describe('DebuggerHttpService', function () {
 		});
 	});
 
-	describe('getFunctions', () => {
+	describe('getSourceFunctions', () => {
 		it('should get all functions', done => {
-			this.debuggerHttpService.getFunctions(0).subscribe(
+			this.debuggerHttpService.getSourceFunctions(0).subscribe(
 				(sfs:SourceFunction[]) => {
 					expect(sfs).toBeDefined();
 
@@ -107,9 +107,9 @@ describe('DebuggerHttpService', function () {
 	});
 
 
-	describe('getFunction', () => {
+	describe('getSourceFunction', () => {
 		it('should get the specified function', done => {
-			this.debuggerHttpService.getFunction(0, 0).subscribe(
+			this.debuggerHttpService.getSourceFunction(0, 0).subscribe(
 				(sf:SourceFunction) => {
 					expect(sf).toBeDefined();
 					expect(sf.id).toEqual('0');

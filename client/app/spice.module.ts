@@ -26,6 +26,11 @@ import {FunctionListComponent} from "./components/common/function-list.component
 import {ProcessListComponent} from "./components/common/process-list.component";
 import {FilterByStringPipe} from "./pipes/filter-by-string.pipe";
 
+import { MockBackend } from "@angular/http/testing";
+import { Http, BaseRequestOptions, RequestOptions, ConnectionBackend } from "@angular/http";
+import { SpiceMockBackend } from "./spice-mock-backend";
+import { XHRBackend } from "@angular/http";
+
 @NgModule({
     imports: [MaterialModule.forRoot(), FormsModule, RouterModule, BrowserModule, HttpModule],
     declarations: [
@@ -43,6 +48,12 @@ import {FilterByStringPipe} from "./pipes/filter-by-string.pipe";
         FilterByStringPipe
     ],
     providers: [
+        //BEGIN MOCK PROVIDERS--Comment these out to disable backend mocking!
+		MockBackend,
+		BaseRequestOptions,
+		SpiceMockBackend,
+        //END MOCK PROVIDERS
+        
         FileSystemService,
         ViewService,
         DebuggerHttpService,

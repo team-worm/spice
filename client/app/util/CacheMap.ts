@@ -3,6 +3,7 @@ export class CacheMap<T> {
 	public map: {[key: string]: T};
 
 	constructor(protected onMissing?: (k: string) => T) {
+		this.map = {};
 	}
 
 	public get(key: string): T {

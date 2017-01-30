@@ -30,14 +30,14 @@ export class TraceOfTermination extends Trace {
 		TraceOfTermination.assertTraceCause(obj.data.cause);
 		switch(obj.data.cause) {
 			case 'crashed':
-			SpiceValidator.assertTypeofStrict(obj.data.stack, 'string');
-			break;
+				SpiceValidator.assertTypeofStrict(obj.data.stack, 'string');
+				break;
 			case 'ended':
-			SpiceValidator.assertTypeofStrict(obj.data.returnValue, 'number');
-			break;
+				SpiceValidator.assertTypeofStrict(obj.data.returnValue, 'number');
+				break;
 			case 'breakpoint':
-			SpiceValidator.assertTypeofStrict(obj.data.nextExecution, 'string');
-			break;
+				SpiceValidator.assertTypeofStrict(obj.data.nextExecution, 'string');
+				break;
 		}
 
 		return new TraceOfTermination(obj.index, obj.line, {
