@@ -1,4 +1,4 @@
-use std::{io, env, iter, mem, ptr};
+use std::{mem, ptr, iter, io, env};
 use std::ffi::{OsString, OsStr};
 use std::os::windows::ffi::OsStrExt;
 use std::os::windows::io::{RawHandle, AsRawHandle, IntoRawHandle};
@@ -6,9 +6,12 @@ use std::collections::HashMap;
 
 use winapi;
 use kernel32;
+use advapi32;
+
+use FromWide;
 
 /// A running or exited debugee process, created via a `Command`
-pub struct Child(winapi::HANDLE);
+pub struct Child(RawHandle);
 
 impl Child {
     /// Read `buffer.len()` bytes from a process's address space at `address`
@@ -53,6 +56,48 @@ impl Child {
     pub fn remove_breakpoint(&mut self, breakpoint: Breakpoint) -> io::Result<()> {
         self.write_memory(breakpoint.address, &breakpoint.saved)?;
         Ok(())
+    }
+
+    pub fn attach(pid: u32) -> io::Result<Child> {
+        unsafe {
+            let access = winapi::PROCESS_VM_READ | winapi::PROCESS_QUERY_INFORMATION;
+            let process = kernel32::OpenProcess(access, winapi::TRUE, pid);
+            if process == ptr::null_mut() {
+                return Err(io::Error::last_os_error());
+            }
+
+            let mut token = mem::zeroed();
+            advapi32::OpenProcessToken(process, winapi::TOKEN_ALL_ACCESS, &mut token);
+            if token == ptr::null_mut() {
+                return Err(io::Error::last_os_error());
+            }
+
+            let name: Vec<_> = OsStr::new("SeDebugPrivilege")
+                .encode_wide().chain(iter::once(0)).collect();
+            let mut luid: winapi::LUID = mem::zeroed();
+            if advapi32::LookupPrivilegeValueW(
+                ptr::null(), name.as_ptr(), &mut luid
+            ) == winapi::FALSE {
+                return Err(io::Error::last_os_error());
+            }
+
+            let mut tp = (winapi::TOKEN_PRIVILEGES {
+                PrivilegeCount: 1, ..mem::zeroed()
+            }, [winapi::LUID_AND_ATTRIBUTES {
+                Luid: luid, Attributes: winapi::SE_PRIVILEGE_ENABLED
+            }]);
+            if advapi32::AdjustTokenPrivileges(
+                token, winapi::FALSE, &mut tp.0, 0, ptr::null_mut(), ptr::null_mut()
+            ) == winapi::FALSE {
+                return Err(io::Error::last_os_error());
+            }
+
+            if kernel32::DebugActiveProcess(pid) == winapi::FALSE {
+                panic!("Error in AdjustTokenPrivileges");
+            }
+
+            Ok(Child(process))
+        }
     }
 }
 
@@ -263,5 +308,118 @@ fn ensure_no_nuls<S: AsRef<OsStr>>(s: S) -> io::Result<S> {
         Err(io::Error::new(io::ErrorKind::InvalidInput, "nul byte found in provided data"))
     } else {
         Ok(s)
+    }
+}
+
+/// A running process
+pub struct Process {
+    pub id: u32,
+    pub name: OsString,
+}
+
+#[cfg(windows)]
+impl Process {
+    /// Iterate over currently-running processes
+    pub fn running() -> io::Result<Processes> {
+        unsafe {
+            let snap = kernel32::CreateToolhelp32Snapshot(winapi::TH32CS_SNAPPROCESS, 0);
+            if snap == winapi::INVALID_HANDLE_VALUE {
+                kernel32::CloseHandle(snap);
+                return Err(io::Error::last_os_error());
+            }
+
+            let mut pe32 = winapi::PROCESSENTRY32W {
+                dwSize: mem::size_of::<winapi::PROCESSENTRY32W>() as u32,
+                ..mem::zeroed()
+            };
+            if kernel32::Process32FirstW(snap, &mut pe32) == winapi::FALSE {
+                kernel32::CloseHandle(snap);
+                return Err(io::Error::last_os_error());
+            }
+
+            Ok(Processes { snap: snap, pe32: pe32 })
+        }
+    }
+}
+
+#[cfg(windows)]
+pub struct Processes {
+    snap: winapi::HANDLE,
+    pe32: winapi::PROCESSENTRY32W,
+}
+
+#[cfg(windows)]
+impl Iterator for Processes {
+    type Item = Process;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.snap == ptr::null_mut() {
+            return None;
+        }
+
+        let result = Process {
+            id: self.pe32.th32ProcessID,
+            name: OsString::from_wide_null(&self.pe32.szExeFile),
+        };
+
+        unsafe {
+            if kernel32::Process32NextW(self.snap, &mut self.pe32) == winapi::FALSE {
+                kernel32::CloseHandle(self.snap);
+                self.snap = ptr::null_mut();
+            }
+        }
+
+        Some(result)
+    }
+}
+
+#[cfg(unix)]
+impl Process {
+    /// Iterate over currently-running processes
+    pub fn running() -> io::Result<Processes> {
+        Processes(fs::read_dir("/proc")?)
+    }
+}
+
+#[cfg(unix)]
+struct Processes(fs::ReadDir);
+
+#[cfg(unix)]
+impl Iterator for Processes {
+    type Item = Process;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0
+            .flat_map(|entry| entry)
+            .filter(|entry| entry.metadata().is_dir())
+            .flat_map(|dir| {
+                let path = dir.path();
+                path.push("status");
+
+                let status = fs::File::open(path).map_err(|_| ())?;
+                let reader = io::BufReader::new(status);
+
+                let mut id = None;
+                let mut name = None;
+                for line in reader.lines() {
+                    let line = line.map_err(|_| ())?;
+                    if line.starts_with("Name:") {
+                        name = Some(line.trim_left_matches("Name:").trim().to_owned());
+                    } else if line.starts_with("Pid:") {
+                        id = Some(line.trim_left_matches("Pid:").trim().to_owned());
+                    }
+
+                    if id.is_some() && name.is_some() {
+                        break;
+                    }
+                }
+
+                let id = id.ok_or(())?
+                    .parse::<u32>().map_err(|_| ())?;
+                let name = name.ok_or(())?;
+
+                Ok(Process { id: id, name: name })
+            })
+            .next()
     }
 }

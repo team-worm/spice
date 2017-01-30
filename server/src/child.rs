@@ -1,15 +1,14 @@
-use std::{io, ptr};
+use std::io;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::ffi::OsString;
 use std::sync::mpsc::{sync_channel, SyncSender, Receiver};
 use std::thread;
 use std::thread::JoinHandle;
-use std::os::windows::io::AsRawHandle;
+use std::os::windows::io::RawHandle;
 
 use debug;
-
 use winapi;
-use kernel32;
 
 pub struct Thread {
     pub thread: JoinHandle<()>,
@@ -20,14 +19,26 @@ pub struct Thread {
 /// messages the debug event loop sends to the server
 pub enum DebugMessage {
     Attached,
+    Functions(Vec<Function>),
+    Function(Function),
     Breakpoint,
     Executing,
     Trace(DebugTrace),
     Error(io::Error),
 }
 
+pub struct Function {
+    pub address: usize,
+    pub name: OsString,
+    pub source_path: PathBuf,
+    pub line_number: u32,
+    pub line_count: u32,
+    pub parameters: Vec<(i32, OsString, usize)>,
+    pub local_variables: Vec<(i32, OsString, usize)>,
+}
+
 pub enum DebugTrace {
-    Line(u32, Vec<(String, u64)>),
+    Line(u32, Vec<(String, String)>),
     Terminated(u32),
 }
 
@@ -49,11 +60,32 @@ pub enum ServerMessage {
 
 impl Thread {
     pub fn launch(path: PathBuf) -> Thread {
+        Thread::spawn(move |debug_tx, server_rx| {
+            let child = debug::Command::new(&path)
+                .env_clear()
+                .debug()?;
+
+            run(child, debug_tx, server_rx)
+        })
+    }
+
+    pub fn attach(pid: u32) -> Thread {
+        Thread::spawn(move |debug_tx, server_rx| {
+            let child = debug::Child::attach(pid)?;
+
+            run(child, debug_tx, server_rx)
+        })
+    }
+
+    fn spawn<F>(f: F) -> Thread where
+        F: FnOnce(SyncSender<DebugMessage>, Receiver<ServerMessage>) -> io::Result<()>,
+        F: Send + 'static
+    {
         let (server_tx, server_rx) = sync_channel(0);
         let (debug_tx, debug_rx) = sync_channel(0);
 
         let thread = thread::spawn(move || {
-            if let Err(e) = run(path, debug_tx.clone(), server_rx) {
+            if let Err(e) = f(debug_tx.clone(), server_rx) {
                 debug_tx.send(DebugMessage::Error(e)).unwrap();
             }
         });
@@ -71,20 +103,18 @@ struct DebugState {
     symbols: debug::SymbolHandler,
     attached: bool,
 
-    threads: HashMap<winapi::DWORD, winapi::HANDLE>,
+    threads: HashMap<winapi::DWORD, RawHandle>,
     breakpoints: HashMap<usize, Option<debug::Breakpoint>>,
     last_breakpoint: Option<usize>,
 }
 
-fn run(path: PathBuf, tx: SyncSender<DebugMessage>, rx: Receiver<ServerMessage>) -> io::Result<()> {
-    let child = debug::Command::new(&path)
-        .env_clear()
-        .debug()?;
-
+fn run(
+    child: debug::Child, tx: SyncSender<DebugMessage>, rx: Receiver<ServerMessage>
+) -> io::Result<()> {
     let options = debug::SymbolHandler::get_options();
     debug::SymbolHandler::set_options(winapi::SYMOPT_DEBUG | winapi::SYMOPT_LOAD_LINES | options);
 
-    let symbols = debug::SymbolHandler::initialize(child.as_raw_handle())?;
+    let symbols = debug::SymbolHandler::initialize(&child)?;
 
     let mut state = DebugState {
         child: child,
@@ -96,13 +126,10 @@ fn run(path: PathBuf, tx: SyncSender<DebugMessage>, rx: Receiver<ServerMessage>)
         last_breakpoint: None,
     };
 
-    let event = debug::DebugEvent::wait_event()?;
-    if let debug::DebugEventInfo::CreateProcess(cp) = event.info {
-        state.symbols.load_module(cp.hFile, cp.lpBaseOfImage as usize)?;
-        state.threads.insert(event.thread_id, cp.hThread);
-        if cp.hFile != ptr::null_mut() {
-            unsafe { kernel32::CloseHandle(cp.hFile) };
-        }
+    let event = debug::Event::wait_event()?;
+    if let debug::EventInfo::CreateProcess { ref file, main_thread, base, .. } = event.info {
+        state.symbols.load_module(file.as_ref().unwrap(), base)?;
+        state.threads.insert(event.thread_id, main_thread);
 
         tx.send(DebugMessage::Attached).unwrap();
     } else {
@@ -112,8 +139,17 @@ fn run(path: PathBuf, tx: SyncSender<DebugMessage>, rx: Receiver<ServerMessage>)
     let mut event = Some(event);
     loop {
         match rx.recv().unwrap() {
-            ServerMessage::ListFunctions => {}
-            ServerMessage::DescribeFunction { .. } => {}
+            ServerMessage::ListFunctions => {
+                list_functions(&mut state, &tx)?;
+            }
+            ServerMessage::DescribeFunction { address } => {
+                let (function, _) = state.symbols.symbol_from_address(address)?;
+                let module = state.symbols.module_from_address(address)?;
+                let fn_type = state.symbols.type_from_index(module, function.type_index)?;
+                let function = describe_function(&mut state.symbols, &function, &fn_type)?;
+                tx.send(DebugMessage::Function(function)).unwrap();
+            }
+
             ServerMessage::ListBreakpoints => {}
 
             ServerMessage::SetBreakpoint { address } => {
@@ -151,9 +187,87 @@ fn run(path: PathBuf, tx: SyncSender<DebugMessage>, rx: Receiver<ServerMessage>)
     Ok(())
 }
 
+fn list_functions(
+    state: &DebugState, tx: &SyncSender<DebugMessage>
+) -> io::Result<()> {
+    let DebugState { ref symbols, .. } = *state;
+
+    let mut functions = vec![];
+    symbols.enumerate_globals(|symbol, _| {
+        let module = symbols.module_from_address(symbol.address).unwrap();
+        let fn_type = match symbols.type_from_index(module, symbol.type_index) {
+            Ok(fn_type @ debug::Type::Function { .. }) => fn_type,
+            _ => return true,
+        };
+
+        functions.push((symbol, fn_type));
+        true
+    })?;
+
+    let functions: Vec<_> = functions.into_iter()
+        .flat_map(|(function, fn_type)| describe_function(symbols, &function, &fn_type))
+        .collect();
+    tx.send(DebugMessage::Functions(functions)).unwrap();
+    Ok(())
+}
+
+fn describe_function(
+    symbols: &debug::SymbolHandler, function: &debug::Symbol, _fn_type: &debug::Type
+) -> io::Result<Function> {
+    let debug::Symbol { ref name, address, size, .. } = *function;
+
+    let start = match symbols.line_from_address(address) {
+        Ok((line, _)) => line,
+        Err(_) => return Err(io::Error::from(io::ErrorKind::NotFound)),
+    };
+    let end = match symbols.line_from_address(address + size - 1) {
+        Ok((line, _)) => line,
+        Err(_) => return Err(io::Error::from(io::ErrorKind::NotFound)),
+    };
+
+    let mut id = 0;
+
+    let mut parameters = vec![];
+    symbols.enumerate_locals(address, |symbol, _| {
+        if symbol.flags & winapi::SYMFLAG_PARAMETER != 0 {
+            parameters.push((id, symbol.name.clone(), symbol.address));
+            id += 1;
+        }
+        true
+    })?;
+
+    let mut locals = HashMap::new();
+    for line in symbols.lines_from_symbol(&function)? {
+        symbols.enumerate_locals(line.address, |symbol, _| {
+            if symbol.flags & winapi::SYMFLAG_PARAMETER != 0 {
+                let name = symbol.name.clone();
+                locals.entry(name).or_insert_with(|| {
+                    let this_id = id;
+                    id += 1;
+                    (this_id, symbol.address)
+                });
+            }
+            true
+        })?;
+    }
+    let local_variables = locals.into_iter()
+        .map(|(name, (id, address))| (id, name, address))
+        .collect();
+
+    Ok(Function {
+        address: address,
+        name: name.clone(),
+        source_path: PathBuf::from(&start.file),
+        line_number: start.line,
+        line_count: end.line - start.line + 1,
+        parameters: parameters,
+        local_variables: local_variables,
+    })
+}
+
 fn trace_function(
     state: &mut DebugState, tx: &SyncSender<DebugMessage>
-) -> io::Result<debug::DebugEvent> {
+) -> io::Result<debug::Event> {
     let DebugState {
         ref mut child,
         ref mut symbols,
@@ -166,37 +280,29 @@ fn trace_function(
 
     let mut last_line = 0;
     loop {
-        let event = debug::DebugEvent::wait_event()?;
+        let event = debug::Event::wait_event()?;
 
-        use debug::DebugEventInfo::*;
+        use debug::EventInfo::*;
         match event.info {
-            ExitProcess(_ep) => {
+            ExitProcess { .. } => {
                 tx.send(DebugMessage::Trace(DebugTrace::Terminated(last_line))).unwrap();
                 return Ok(event);
             }
 
-            CreateThread(ct) => { threads.insert(event.thread_id, ct.hThread); }
-            ExitThread(..) => { threads.remove(&event.thread_id); }
+            CreateThread { thread, .. } => { threads.insert(event.thread_id, thread); }
+            ExitThread { .. } => { threads.remove(&event.thread_id); }
 
-            LoadDll(ld) => {
-                symbols.load_module(ld.hFile, ld.lpBaseOfDll as usize)?;
-                if ld.hFile != ptr::null_mut() {
-                    unsafe { kernel32::CloseHandle(ld.hFile) };
-                }
-            }
-            UnloadDll(ud) => {
-                symbols.unload_module(ud.lpBaseOfDll as usize)?;
-            }
+            LoadDll { ref file, base } => { symbols.load_module(file.as_ref().unwrap(), base)?; }
+            UnloadDll { base } => { symbols.unload_module(base)?; }
 
-            Exception(e) => {
-                let ref er = e.ExceptionRecord;
+            Exception { first_chance, code, address } => {
                 let thread = threads[&event.thread_id];
 
                 if !*attached {
                     *attached = true;
-                } else if er.ExceptionCode == winapi::EXCEPTION_BREAKPOINT {
+                } else if !first_chance {
+                } else if code == winapi::EXCEPTION_BREAKPOINT {
                     // disable and save the breakpoint
-                    let address = er.ExceptionAddress as usize;
                     let breakpoint = breakpoints.get_mut(&address).unwrap().take();
                     child.remove_breakpoint(breakpoint.unwrap())?;
                     *last_breakpoint = Some(address);
@@ -217,7 +323,7 @@ fn trace_function(
                     let (line, _off) = symbols.line_from_address(instruction)?;
 
                     let mut locals = vec![];
-                    symbols.enumerate_symbols(instruction, |symbol, size| {
+                    symbols.enumerate_locals(instruction, |symbol, size| {
                         if size == 0 { return true; }
 
                         let mut buffer = vec![0u8; size];
@@ -225,13 +331,14 @@ fn trace_function(
                         if let Ok(_) = child.read_memory(address, &mut buffer) {
                             let name = symbol.name.to_string_lossy().into_owned();
 
-                            let value = match size {
-                                4 => unsafe { *(buffer.as_ptr() as *const u32) as u64 },
-                                8 => unsafe { *(buffer.as_ptr() as *const u64) as u64 },
-                                _ => unsafe { *(buffer.as_ptr() as *const u32) as u64 },
-                            };
+                            let value = debug::Value::read(&child, &symbols, &context, &symbol);
+                            if let Ok(value) = value {
+                                if value.data[0] == 0xcc {
+                                    return true;
+                                }
 
-                            locals.push((name, value));
+                                locals.push((name, format!("{}", value.display(&symbols))));
+                            }
                         }
 
                         true
@@ -239,7 +346,7 @@ fn trace_function(
 
                     tx.send(DebugMessage::Trace(DebugTrace::Line(last_line, locals))).unwrap();
                     last_line = line.line;
-                } else if er.ExceptionCode == winapi::EXCEPTION_SINGLE_STEP {
+                } else if code == winapi::EXCEPTION_SINGLE_STEP {
                     // restore the disabled breakpoint
                     let address = last_breakpoint.take().unwrap();
                     let breakpoint = child.set_breakpoint(address)?;

@@ -1,41 +1,33 @@
-#![feature(field_init_shorthand)]
+#![feature(custom_derive, field_init_shorthand)]
 
 extern crate hyper;
 extern crate unicase;
 extern crate reroute;
+
+#[macro_use]
+extern crate serde_derive;
 
 extern crate serde;
 extern crate serde_json;
 
 extern crate debug;
 extern crate winapi;
-extern crate kernel32;
 
-use std::{io, fs, mem};
+use std::{io, fs};
 use std::sync::{Mutex, Arc};
-use std::io::{BufRead, Write};
+use std::io::{Write};
 use std::path::{PathBuf, Path};
 use std::collections::HashMap;
 
 use hyper::status::StatusCode;
 use hyper::server::{Server, Request, Response};
-use reroute::{Captures, Router};
+use reroute::{RouterBuilder, Captures};
 
-use serde_json::value::ToJson;
-
-use kernel32::{CreateToolhelp32Snapshot, Process32NextW, CloseHandle};
-
-use winapi::{tlhelp32};
-
-               
-    
 use serde_types::*;
+use serde_json::value::ToJson;
 use child::{ServerMessage, DebugMessage, DebugTrace};
 
-mod serde_types {
-    include!(concat!(env!("OUT_DIR"), "/serde_types.rs"));
-}
-
+mod serde_types;
 mod child;
 
 type ChildThread = Arc<Mutex<Option<child::Thread>>>;
@@ -44,69 +36,76 @@ fn main() {
     // current child thread (only one at a time)
     let child_thread = Arc::new(Mutex::new(None));
 
-    let mut router = Router::new();
+    let mut router = RouterBuilder::new();
 
     // host system info
 
-    router.get(r"^/api/v1/filesystem/(.*)$", filesystem);
-    router.get(r"^/api/v1/processes$", process);
+    router.get(r"/api/v1/filesystem/(.*)", filesystem);
+    router.get(r"/api/v1/processes", processes);
 
     // attaching
 
     let child = child_thread.clone();
-    router.post(r"^/api/v1/debug/attach/pid/([0-9]*)$", move |req, res, caps| {
+    router.post(r"/api/v1/debug/attach/pid/([0-9]*)", move |req, res, caps| {
         debug_attach_pid(req, res, caps, child.clone());
     });
 
     let child = child_thread.clone();
-    router.post(r"^/api/v1/debug/attach/bin/(.*)$", move |req, res, caps| {
+    router.post(r"/api/v1/debug/attach/bin/(.*)", move |req, res, caps| {
         debug_attach_bin(req, res, caps, child.clone());
     });
 
     let child = child_thread.clone();
-    router.get(r"^/api/v1/debug$", move |req, res, caps| {
+    router.get(r"/api/v1/debug", move |req, res, caps| {
         debug(req, res, caps, child.clone());
     });
 
     // functions
 
-    router.get(r"^/api/v1/debug/([0-9]*)/functions$", debug_functions);
-    router.get(r"^/api/v1/debug/([0-9]*)/functions/(.*)$", debug_function);
+    let child = child_thread.clone();
+    router.get(r"/api/v1/debug/([0-9]*)/functions", move |req, res, caps| {
+        debug_functions(req, res, caps, child.clone());
+    });
+
+    let child = child_thread.clone();
+    router.get(r"/api/v1/debug/([0-9]*)/functions/(.*)", move |req, res, caps| {
+        debug_function(req, res, caps, child.clone());
+    });
 
     // breakpoints
 
-    router.get(r"^/api/v1/debug/([0-9]*)/breakpoints$", debug_breakpoints);
+    router.get(r"/api/v1/debug/([0-9]*)/breakpoints", debug_breakpoints);
 
     let child = child_thread.clone();
-    router.put(r"^/api/v1/debug/([0-9]*)/breakpoints/([0-9]*)$", move |req, res, caps| {
+    router.put(r"/api/v1/debug/([0-9]*)/breakpoints/([0-9]*)", move |req, res, caps| {
         debug_breakpoint_put(req, res, caps, child.clone());
     });
 
     let child = child_thread.clone();
-    router.delete(r"^/api/v1/debug/([0-9]*)/breakpoints/([0-9]*)$", move |req, res, caps| {
+    router.delete(r"/api/v1/debug/([0-9]*)/breakpoints/([0-9]*)", move |req, res, caps| {
         debug_breakpoint_delete(req, res, caps, child.clone());
     });
 
     let child = child_thread.clone();
-    router.post(r"^/api/v1/debug/([0-9]*)/execute$", move |req, res, caps| {
+    router.post(r"/api/v1/debug/([0-9]*)/execute", move |req, res, caps| {
         debug_execute(req, res, caps, child.clone());
     });
 
-    router.put(r"^/api/v1/debug/([0-9]*)/functions/([0-9]*)/execute$", debug_function_execute);
+    router.put(r"/api/v1/debug/([0-9]*)/functions/([0-9]*)/execute", debug_function_execute);
     
     // executions
 
-    router.get(r"^/api/v1/debug/([0-9]*)/executions$", debug_executions);
-    router.get(r"^/api/v1/debug/([0-9]*)/executions/([0-9]*)$", debug_execution);
+    router.get(r"/api/v1/debug/([0-9]*)/executions", debug_executions);
+    router.get(r"/api/v1/debug/([0-9]*)/executions/([0-9]*)", debug_execution);
 
     let child = child_thread.clone();
-    router.get(r"^/api/v1/debug/([0-9]*)/executions/([0-9]*)/trace$", move |req, res, caps| {
+    router.get(r"/api/v1/debug/([0-9]*)/executions/([0-9]*)/trace", move |req, res, caps| {
         debug_execution_trace(req, res, caps, child.clone());
     });
 
-    router.post(r"^/api/v1/debug/([0-9]*)/executions/([0-9]*)/stop$", debug_execution_stop);
+    router.post(r"/api/v1/debug/([0-9]*)/executions/([0-9]*)/stop", debug_execution_stop);
 
-    router.options(r"^.*$", move |_, mut res, _| {
+    router.options(r".*", move |_, mut res, _| {
         {
             use hyper::header::*;
             use hyper::method::Method;
@@ -126,7 +125,7 @@ fn main() {
         res.send(b"").unwrap();
     });
 
-    router.finalize().unwrap();
+    let router = router.finalize().unwrap();
 
     let server = Server::http("127.0.0.1:3000").unwrap();
     server.handle(router).unwrap();
@@ -188,99 +187,58 @@ fn filesystem(mut req: Request, res: Response, caps: Captures) {
 }
 
 /// GET /processes -- gets the list of processes running on the host machine
-fn process(mut req: Request, res: Response, _: Captures) {
+fn processes(mut req: Request, res: Response, _: Captures) {
     io::copy(&mut req, &mut io::sink()).unwrap();
 
-    //    let curr_procs = read_proc_dir(); // uncomment this line for linux
-    let curr_procs = read_win_proc(); // use this line for windows
+    let procs: Vec<_> = debug::Process::running().unwrap()
+        .map(|debug::Process { id, name }| Process {
+            id: id, name: name.to_string_lossy().into_owned()
+        })
+        .collect();
 
-    let json = serde_json::to_vec(&curr_procs).unwrap();
+    let json = serde_json::to_vec(&procs).unwrap();
     send(res, &json).unwrap();
 }
 
-fn read_win_proc() -> Vec<Process> {
-    println!("in read_win_proc");
-    let mut processes = vec![];
-
-    unsafe {
-        let h_process_snap = CreateToolhelp32Snapshot(tlhelp32::TH32CS_SNAPPROCESS, 0);
-
-        let mut pe32 = tlhelp32::PROCESSENTRY32W{
-            dwSize: mem::size_of::<tlhelp32::PROCESSENTRY32W>() as u32, cntUsage: 0,
-            th32ProcessID: 0, th32DefaultHeapID: 0,
-            th32ModuleID: 0,  cntThreads: 0, th32ParentProcessID: 0,
-            pcPriClassBase: 0, dwFlags: 0, szExeFile: [0; 260]
-        };
-
-        while Process32NextW(h_process_snap, &mut pe32) != 0 {
-
-            processes.push(Process{
-                id: pe32.th32ProcessID, name: String::from_utf16(&mut pe32.szExeFile)
-                    .unwrap()
-                    .replace("\0", "")});
-        }
-
-        CloseHandle(h_process_snap);
-    }
-
-    processes
-
-}
-
-/// helper function to recursively go through /proc directory
-fn read_proc_dir() -> Vec<Process> {
-    println!("in read_proc_dir");
-    let mut processes = vec![];
-    let paths = fs::read_dir("/proc").unwrap();
-
-    for path in paths {
-        let dir_entry = path.unwrap();
-        let f_name = dir_entry.file_name().into_string().unwrap();
-        let mut path_name = dir_entry.path().into_os_string().into_string().unwrap();
-
-        if dir_entry.metadata().unwrap().is_dir()
-            && !f_name.parse::<i32>().is_err() {
-
-                path_name.push_str("/status");
-                println!("stat path is: {}", f_name);// debug line
-                let proc_stats = fs::File::open(path_name).unwrap();
-                let reader = io::BufReader::new(proc_stats);
-
-                let mut p_name = "".to_string();
-                let mut p_id = "".to_string();
-
-                for line in reader.lines() {
-                    let l = line.unwrap();
-                    if l.starts_with("Name:") {
-                        p_name = l.split("Name:").nth(1).unwrap().trim().to_string();
-                    } else if l.starts_with("Pid") {
-                        p_id = l.split("Pid:").nth(1).unwrap().trim().to_string();
-                    }
-
-                    if !p_name.is_empty() && !p_id.is_empty() {
-                        processes.push(Process {
-                            id: p_id.parse::<u32>().unwrap(), name: p_name.to_string()
-                        });
-                        break;
-                    }
-
-
-                } // end reading lines of status file                
-            }
-    } //end iteration over dirs in proc
-
-    //return processes
-    processes
-}
-
 /// POST /debug/attach/pid/:pid -- attach to a running process
-fn debug_attach_pid(mut req: Request, mut res: Response, caps: Captures, _child: ChildThread) {
+fn debug_attach_pid(mut req: Request, mut res: Response, caps: Captures, child: ChildThread) {
     let caps = caps.unwrap();
-    let _pid = caps[1].parse::<u64>().unwrap();
+    let pid = caps[1].parse::<u32>().unwrap();
     io::copy(&mut req, &mut io::sink()).unwrap();
 
-    *res.status_mut() = StatusCode::NotImplemented;
-    send(res, b"").unwrap();
+    let mut child = child.lock().unwrap();
+    if let Some(child) = child.take() {
+        child.tx.send(ServerMessage::Quit).unwrap();
+        child.thread.join().unwrap();
+    }
+    *child = Some(child::Thread::attach(pid));
+
+    let child = child.as_mut().unwrap();
+
+    let json = match child.rx.recv() {
+        Ok(DebugMessage::Attached) => {
+            let message = DebugInfo {
+                id: 0,
+                attached_process: Process {
+                    id: pid,
+                    name: String::new(),
+                },
+                source_path: String::new(),
+            };
+
+            serde_json::to_vec(&message).unwrap()
+        }
+
+        Ok(DebugMessage::Error(_)) | _ => {
+            *res.status_mut() = StatusCode::NotFound;
+            let message = Error {
+                code: 0, message: format!("pid {} not found", pid), data: 0
+            };
+
+            serde_json::to_vec(&message).unwrap()
+        }
+    };
+    send(res, &json).unwrap();
 }
 
 /// POST /debug/attach/bin/:path -- attach to a binary
@@ -335,58 +293,88 @@ fn debug(mut req: Request, mut res: Response, _: Captures, _child: ChildThread) 
 }
 
 /// GET /debug/:id/functions -- return a list of debuggable functions
-fn debug_functions(mut req: Request, res: Response, _: Captures) {
+fn debug_functions(mut req: Request, mut res: Response, _: Captures, child: ChildThread) {
     io::copy(&mut req, &mut io::sink()).unwrap();
 
-    let functions = vec![hardcoded_function()];
+    let mut child = child.lock().unwrap();
+    let child = child.as_mut().unwrap();
 
-    let json = serde_json::to_vec(&functions).unwrap();
+    child.tx.send(ServerMessage::ListFunctions).unwrap();
+    let json = match child.rx.recv().unwrap() {
+        DebugMessage::Functions(functions) => {
+            let message: Vec<_> = functions.into_iter().map(Function::from).collect();
+            serde_json::to_vec(&message).unwrap()
+        }
+
+        DebugMessage::Error(e) => {
+            *res.status_mut() = StatusCode::InternalServerError;
+            let message = Error {
+                code: 0, message: format!("{}", e), data: 0
+            };
+
+            serde_json::to_vec(&message).unwrap()
+        }
+
+        _ => unreachable!()
+    };
     send(res, &json).unwrap();
-}
-
-fn hardcoded_function() -> Function {
-    Function {
-        address: 0x00007ff694cf16f0usize,
-        name: String::from("binarySearch"),
-        source_path: String::from("binary-search.c"),
-        line_number: 15,
-        line_count: 19,
-        parameters: vec![
-            Variable {
-                id: 0, name: String::from("key"), s_type: String::from("int"), address: 12345,
-            },
-            Variable {
-                id: 1, name: String::from("array"), s_type: String::from("int*"), address: 12346,
-            },
-            Variable {
-                id: 2, name: String::from("length"), s_type: String::from("int"), address: 12347,
-            },
-        ],
-        local_variables: vec![
-            Variable {
-                id: 3, name: String::from("low"), s_type: String::from("int"), address: 12348,
-            },
-            Variable {
-                id: 4, name: String::from("high"), s_type: String::from("int"), address: 12349,
-            },
-            Variable {
-                id: 5, name: String::from("mid"), s_type: String::from("int"), address: 12340,
-            },
-            Variable {
-                id: 6, name: String::from("value"), s_type: String::from("int"), address: 12341,
-            },
-        ],
-    }
 }
 
 /// GET /debug/:id/functions/:function
-fn debug_function(mut req: Request, res: Response, _: Captures) {
+fn debug_function(mut req: Request, mut res: Response, caps: Captures, child: ChildThread) {
+    let caps = caps.unwrap();
+    let address = caps[2].parse::<usize>().unwrap();
     io::copy(&mut req, &mut io::sink()).unwrap();
 
-    let message = hardcoded_function();
+    let mut child = child.lock().unwrap();
+    let child = child.as_mut().unwrap();
 
-    let json = serde_json::to_vec(&message).unwrap();
+    child.tx.send(ServerMessage::DescribeFunction { address }).unwrap();
+    let json = match child.rx.recv().unwrap() {
+        DebugMessage::Function(function) => {
+            let message = Function::from(function);
+            serde_json::to_vec(&message).unwrap()
+        }
+
+        DebugMessage::Error(e) => {
+            *res.status_mut() = StatusCode::InternalServerError;
+            let message = Error {
+                code: 0, message: format!("{}", e), data: 0
+            };
+
+            serde_json::to_vec(&message).unwrap()
+        }
+
+        _ => unreachable!()
+    };
     send(res, &json).unwrap();
+}
+
+impl From<child::Function> for Function {
+    fn from(function: child::Function) -> Function {
+        let child::Function {
+            address, name, source_path, line_number, line_count,
+            parameters, local_variables: locals
+        } = function;
+
+        let parameters = parameters.into_iter().map(|(id, name, address)| Variable {
+            id: id, name: name.to_string_lossy().into_owned(), address: address,
+            s_type: String::from("int"),
+        }).collect();
+
+        let local_variables = locals.into_iter().map(|(id, name, address)| Variable {
+            id: id, name: name.to_string_lossy().into_owned(), address: address,
+            s_type: String::from("int"),
+        }).collect();
+
+        Function {
+            address,
+            name: name.to_string_lossy().into_owned(),
+            source_path: source_path.to_string_lossy().into_owned(),
+            line_number: line_number as i32, line_count: line_count as i32,
+            parameters, local_variables,
+        }
+    }
 }
 
 /// GET /debug/:id/breakpoints
@@ -410,7 +398,7 @@ fn debug_breakpoint_put(mut req: Request, mut res: Response, caps: Captures, chi
     let json = match child.rx.recv().unwrap() {
         DebugMessage::Breakpoint => {
             let message = Breakpoint {
-                function: hardcoded_function(),
+                function: address,
                 metadata: String::new(),
             };
 
@@ -561,13 +549,10 @@ fn debug_execution_trace(mut req: Request, mut res: Response, caps: Captures, ch
                 index += 1;
 
                 let mut state = vec![];
-                for &(ref name, value) in locals.iter() {
-                    if value == 0xcccccccc {
-                        continue;
-                    }
-
-                    if prev_locals.get(name).map(|&prev_value| value != prev_value).unwrap_or(true) {
-                        state.push(TraceState { variable: name.clone(), value });
+                for &(ref name, ref value) in locals.iter() {
+                    let prev_value = prev_locals.get(name);
+                    if prev_value.map(|prev_value| value != prev_value).unwrap_or(true) {
+                        state.push(TraceState { variable: name.clone(), value: value.clone() });
                     }
                 }
                 prev_locals.extend(locals.into_iter());
