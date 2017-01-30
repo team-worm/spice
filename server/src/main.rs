@@ -620,109 +620,114 @@ fn debug_execution_trace(mut req: Request, mut res: Response, caps: Captures, ch
     let execution = caps[2].parse::<u64>().unwrap();
     io::copy(&mut req, &mut io::sink()).unwrap();
 
+    let mut error = false;
     let mut child = child.lock().unwrap();
-    let child = match child.as_mut() {
-        Some(t) => t,
-        None => {
-            let message = serde_types::Error{
-                code: -1,
-                message: format!("You must attach to a binary or process first"),
-                err_data: format!("")
-            };
-            *res.status_mut() = StatusCode::Forbidden; 
-            send(res, &serde_json::to_vec(&message).unwrap()).unwrap();
-            return;
-        },
-    };
-
-
-    // TODO: this is a hack for the prototype; implement process executions
-    if execution == 0 {
-        use serde_json::{Value, Map};
-
-        let mut map = Map::new();
-        map.insert(String::from("cause"), Value::String(String::from("breakpoint")));
-        map.insert(String::from("nextExecution"), Value::U64(1));
-        let object = Value::Object(map);
-
-        let message = vec![
-            Trace { index: 0, t_type: 2, line: 0, data: object },
-        ];
-
-        let json = serde_json::to_vec(&message).unwrap();
-        send(res, &json).unwrap();
-        return;
-    }
-
-    child.tx.send(ServerMessage::Trace).unwrap();
-    child.rx.recv().unwrap();
-
-    let mut prev_locals = HashMap::new();
-
-    {
-        use hyper::header::*;
-
-        let headers = res.headers_mut();
-        headers.set(AccessControlAllowOrigin::Any);
-        headers.set(ContentType("application/json".parse().unwrap()));
-    }
-
-    let mut res = res.start().unwrap();
-    res.write_all(b"[\n").unwrap();
-
-    let mut index = 0;
-    let mut done = false;
-
-    while !done {
-        let message = match child.rx.recv() {
-            Ok(DebugMessage::Trace(DebugTrace::Line(line, locals))) => {
-                let this_index = index;
-                index += 1;
-
-                let mut state = vec![];
-                for &(ref name, ref value) in locals.iter() {
-                    let prev_value = prev_locals.get(name);
-                    if prev_value.map(|prev_value| value != prev_value).unwrap_or(true) {
-                        state.push(TraceState { variable: name.clone(), value: value.clone() });
-                    }
-                }
-                prev_locals.extend(locals.into_iter());
-
-                Trace { index: this_index, t_type: 0, line: line, data: state.to_json() }
-            }
-
-            Ok(DebugMessage::Trace(DebugTrace::Terminated(line))) => {
-                done = true;
-
-                Trace { index: index, t_type: 2, line: line, data: Vec::<Trace>::new().to_json() }
-            }
-
-            Ok(DebugMessage::Trace(DebugTrace::Error(msg, err, line))) => {
-                done = true;
-
-                child.tx.send(ServerMessage::Quit).unwrap();
-                *child = None;
-
-                Trace { index: index,
-                        t_type: 2,
-                        line: line,
-                        data: format!("{} -- {}", msg, err.description()).to_json()
-                }
-            }
-
-            _ => unreachable!()
+    {    
+        let child_t = match child.as_mut() {
+            Some(t) => t,
+            None => {
+                let message = serde_types::Error{
+                    code: -1,
+                    message: format!("You must attach to a binary or process first"),
+                    err_data: format!("")
+                };
+                *res.status_mut() = StatusCode::Forbidden; 
+                send(res, &serde_json::to_vec(&message).unwrap()).unwrap();
+                return;
+            },
         };
 
-        let json = serde_json::to_vec(&message).unwrap();
-        res.write_all(&json).unwrap();
-        if !done { res.write_all(b",\n").unwrap(); }
-        res.flush().unwrap();
 
+        // TODO: this is a hack for the prototype; implement process executions
+        if execution == 0 {
+            use serde_json::{Value, Map};
+
+            let mut map = Map::new();
+            map.insert(String::from("cause"), Value::String(String::from("breakpoint")));
+            map.insert(String::from("nextExecution"), Value::U64(1));
+            let object = Value::Object(map);
+
+            let message = vec![
+                Trace { index: 0, t_type: 2, line: 0, data: object },
+            ];
+
+            let json = serde_json::to_vec(&message).unwrap();
+            send(res, &json).unwrap();
+            return;
+        }
+
+        child_t.tx.send(ServerMessage::Trace).unwrap();
+        child_t.rx.recv().unwrap();
+
+        let mut prev_locals = HashMap::new();
+
+        {
+            use hyper::header::*;
+
+            let headers = res.headers_mut();
+            headers.set(AccessControlAllowOrigin::Any);
+            headers.set(ContentType("application/json".parse().unwrap()));
+        }
+
+        let mut res = res.start().unwrap();
+        res.write_all(b"[\n").unwrap();
+
+        let mut index = 0;
+        let mut done = false;
+
+        while !done {
+            let message = match child_t.rx.recv() {
+                Ok(DebugMessage::Trace(DebugTrace::Line(line, locals))) => {
+                    let this_index = index;
+                    index += 1;
+
+                    let mut state = vec![];
+                    for &(ref name, ref value) in locals.iter() {
+                        let prev_value = prev_locals.get(name);
+                        if prev_value.map(|prev_value| value != prev_value).unwrap_or(true) {
+                            state.push(TraceState { variable: name.clone(), value: value.clone() });
+                        }
+                    }
+                    prev_locals.extend(locals.into_iter());
+
+                    Trace { index: this_index, t_type: 0, line: line, data: state.to_json() }
+                }
+
+                Ok(DebugMessage::Trace(DebugTrace::Terminated(line))) => {
+                    done = true;
+
+                    Trace { index: index, t_type: 2, line: line, data: Vec::<Trace>::new().to_json() }
+                }
+
+                Ok(DebugMessage::Trace(DebugTrace::Error(msg, err, line))) => {
+                    done = true;
+                    error = true;
+                    child_t.tx.send(ServerMessage::Quit).unwrap();
+                    
+                    Trace { index: index,
+                            t_type: 2,
+                            line: line,
+                            data: format!("{} -- {}", msg, err.description()).to_json()
+                    }
+                }
+
+                _ => unreachable!()
+            };
+
+
+            let json = serde_json::to_vec(&message).unwrap();
+            res.write_all(&json).unwrap();
+            if !done { res.write_all(b",\n").unwrap(); }
+            res.flush().unwrap();
+        }
+        res.write_all(b"]").unwrap();
+        res.end().unwrap();
 
     }
 
-    res.write_all(b"]").unwrap();
-    res.end().unwrap();
+    if error {
+        *child = None;        
+    }
 }
 
 /// POST /debug/:id/executions/:execution/stop -- Halts a running execution
