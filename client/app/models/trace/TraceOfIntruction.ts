@@ -17,7 +17,7 @@ export class TraceOfIntruction extends Trace {
 		let state = obj.data.state.map(function(is: any) {
 			SpiceValidator.assertTypeofStrict(is, 'object');
 			SpiceValidator.assertTypeofStrict(is.sVariable, 'object');
-			let sVariable = obj.data.sVariable;
+			let sVariable = is.sVariable;
 			if(!(sVariable instanceof SourceVariable)) {
 				sVariable = SourceVariable.fromObjectStrict(sVariable);
 			}

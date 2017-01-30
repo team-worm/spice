@@ -30,7 +30,7 @@ export class DebuggerHttpService {
 	}
 
 	/**
-	 * Attach to binary
+	 * Debugger State
 	 */
 	public attachBinary(path: string): Observable<DebuggerState> {
 		return this.http.post(`/api/v1/debug/attach/bin/${path}`, undefined)
@@ -40,21 +40,20 @@ export class DebuggerHttpService {
 			.catch(DebuggerHttpService.handleServerDataError);
 	}
 
-	public getFunctions(id: DebugId): Observable<{[id: string]: SourceFunction}> {
+	/**
+	 * Functions
+	 */
+	public getFunctions(id: DebugId): Observable<SourceFunction[]> {
 		return this.http.get(`/api/v1/debug/${id}/functions`)
 			.map(function(res: any) {
 				let data = res.json();
 				SpiceValidator.assertArrayStrict(data);
 
-				return (<any[]>data).map(sf => SourceFunction.fromObjectStrict(sf))
-					.reduce((o, sf) => { o[sf.id] = sf; return o; });
+				return (<any[]>data).map(sf => SourceFunction.fromObjectStrict(sf));
 			})
 			.catch(DebuggerHttpService.handleServerDataError);
 	}
 
-	/**
-	 * Functions
-	 */
 	public getFunction(id: DebugId, sourceFunctionId: SourceFunctionId): Observable<SourceFunction> {
 		return this.http.get(`/api/v1/debug/${id}/functions/${sourceFunctionId}`)
 			.map(function(res: any) {

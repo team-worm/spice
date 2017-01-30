@@ -16,7 +16,7 @@ export class Execution {
 	}
 
 	public static assertExecutionStatus(status: string): void {
-		if(['pending', 'execution', 'stopped', 'done'].indexOf(status) === -1) {
+		if(['pending', 'executing', 'stopped', 'done'].indexOf(status) === -1) {
 			throw new InvalidValueError(status);
 		}
 	}

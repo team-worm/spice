@@ -1,6 +1,6 @@
 import { KeyNotFoundError } from "../models/errors/Errors";
 export class CacheMap<T> {
-	protected map: {[key: string]: T};
+	public map: {[key: string]: T};
 
 	constructor(protected onMissing?: (k: string) => T) {
 	}
