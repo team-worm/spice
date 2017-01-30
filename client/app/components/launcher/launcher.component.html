@@ -4,15 +4,15 @@
             <i *ngIf="!selectedFile">No file selected</i>
             <span *ngIf="!!selectedFile">{{selectedFile.name}}</span>:
         </h3>
-        <button md-raised-button [disabled]="!selectedFile">Launch</button>
+        <button md-raised-button [disabled]="!selectedFile" (click)="LaunchBinary()">Launch</button>
         <button md-raised-button [disabled]="!selectedFile">Kill</button>
         <h4>Select a File</h4>
         <spice-file-browser (onFileSelected)="OnFileSelected($event)"></spice-file-browser>
     </md-tab>
     <md-tab label="Existing Process">
-        <h3>Select a process from this big ol' list: {{selectedProcess ? selectedProcess.name : 'none'}}</h3>
+        <h3>Select a process to attach to: {{selectedProcess ? selectedProcess.name : 'none'}}</h3>
         <div>
-            <button md-raised-button [disabled]="!selectedProcess">Attach</button>
+            <button md-raised-button [disabled]="!selectedProcess" (click)="AttachToProcess()">Attach</button>
         </div>
         <spice-process-list (onProcessSelected)="OnProcessSelected($event)"></spice-process-list>
     </md-tab>
