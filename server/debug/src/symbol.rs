@@ -208,6 +208,8 @@ impl SymbolHandler {
             let TypeChildren(count) = self.get_type_info(module, type_index)?;
             Ok(Type::Array { type_index: element, count: count as usize })
         } else if tag == winapi::SymTagFunctionType {
+            let TypeCallingConvention(cc) = self.get_type_info(module, type_index)?;
+
             let TypeIndex(ret) = self.get_type_info(module, type_index)?;
 
             let args = self.get_type_children(module, type_index)?;
@@ -218,7 +220,7 @@ impl SymbolHandler {
                 })
                 .collect();
 
-            Ok(Type::Function { type_index: ret, args: args? })
+            Ok(Type::Function { calling_convention: cc, type_index: ret, args: args? })
         } else if tag == winapi::SymTagUDT {
             let name = self.get_type_name(module, type_index)?;
             let TypeLength(size) = self.get_type_info(module, type_index)?;
@@ -477,6 +479,11 @@ debug_property!(TypeOffset, winapi::TI_GET_OFFSET);
 #[allow(dead_code)]
 struct TypeChildren(winapi::DWORD);
 debug_property!(TypeChildren, winapi::TI_GET_CHILDRENCOUNT);
+
+#[repr(C)]
+#[allow(dead_code)]
+struct TypeCallingConvention(winapi::DWORD);
+debug_property!(TypeCallingConvention, winapi::TI_GET_CALLING_CONVENTION);
 
 /// The file, line number, and first instruction address of a source line
 pub struct Line {

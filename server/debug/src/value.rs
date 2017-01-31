@@ -1,5 +1,5 @@
-use std::{io, fmt};
-use {Child, SymbolHandler, Symbol, Type, Field};
+use std::{ptr, io, fmt};
+use {Child, SymbolHandler, Symbol, Type, Primitive, Field};
 
 use winapi;
 
@@ -11,7 +11,7 @@ pub struct Value {
 
 impl Value {
     pub fn read(
-        child: &Child, symbols: &SymbolHandler, context: &winapi::CONTEXT, symbol: &Symbol
+        child: &Child, context: &winapi::CONTEXT, symbols: &SymbolHandler, symbol: &Symbol
     ) -> io::Result<Value> {
         let regrel = symbol.flags & winapi::SYMFLAG_REGREL != 0;
         let parameter = symbol.flags & winapi::SYMFLAG_PARAMETER != 0;
@@ -23,7 +23,7 @@ impl Value {
 
         let address = if regrel {
             let address = context.Rbp as usize + symbol.address;
-            if let (true, &Type::Struct { .. }) = (parameter, &data_type) {
+            if let (&Type::Struct { .. }, true) = (&data_type, parameter && symbol.size > 8) {
                 let mut buffer = [0u8; 8]; // TODO: mem::size_of::<usize>()
                 child.read_memory(address, &mut buffer)?;
                 unsafe { *(buffer.as_ptr() as *const usize) }
@@ -36,6 +36,42 @@ impl Value {
 
         let mut buffer = vec![0u8; symbol.size];
         child.read_memory(address, &mut buffer)?;
+
+        Ok(Value { data: buffer, data_type: data_type, module: module })
+    }
+
+    pub fn read_return(
+        child: &Child, context: &winapi::CONTEXT, symbols: &SymbolHandler, data_type: Type
+    ) -> io::Result<Value> {
+        let module = symbols.module_from_address(context.Rip as usize)?;
+        let data_size = data_type.size(symbols, module);
+
+        let float = match data_type {
+            Type::Base { base: Primitive::Float, .. } => true,
+            _ => false,
+        };
+
+        let mut buffer = vec![0u8; data_size];
+        match data_type {
+            Type::Base { .. } | Type::Pointer { .. } | Type::Struct { .. } if data_size <= 8 => {
+                let source = if !float {
+                    &context.Rax as *const _ as *const u8
+                } else {
+                    &context.FltSave.XmmRegisters[0].Low as *const _ as *const u8
+                };
+                unsafe { ptr::copy(source, buffer.as_mut_ptr(), buffer.len()) };
+            }
+
+            Type::Struct { .. } if data_size > 8 => {
+                child.read_memory(context.Rax as usize, &mut buffer)?;
+            }
+
+            _ => {
+                return Err(io::Error::new(
+                    io::ErrorKind::Other, "cannot return a dynamically sized value"
+                ));
+            }
+        }
 
         Ok(Value { data: buffer, data_type: data_type, module: module })
     }
@@ -65,19 +101,19 @@ impl<'a, 'b, 'c> fmt::Display for ValueDisplay<'a, 'b, 'c> {
                         2 => write!(fmt, "{}", unsafe { *(value as *const i16) }),
                         4 => write!(fmt, "{}", unsafe { *(value as *const i32) }),
                         8 => write!(fmt, "{}", unsafe { *(value as *const i64) }),
-                        _ => write!(fmt, "?"),
+                        _ => unreachable!(),
                     },
                     Int { signed: false } => match size {
                         1 => write!(fmt, "{}", unsafe { *(value as *const u8) }),
                         2 => write!(fmt, "{}", unsafe { *(value as *const u16) }),
                         4 => write!(fmt, "{}", unsafe { *(value as *const u32) }),
                         8 => write!(fmt, "{}", unsafe { *(value as *const u64) }),
-                        _ => write!(fmt, "?"),
+                        _ => unreachable!(),
                     },
                     Float => match size {
                         4 => write!(fmt, "{}", unsafe { *(value as *const f32) }),
                         8 => write!(fmt, "{}", unsafe { *(value as *const f64) }),
-                        _ => write!(fmt, "?"),
+                        _ => unreachable!(),
                     },
                 }
             }
