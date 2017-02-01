@@ -13,11 +13,11 @@ export class SourceVariable {
 
 	public static fromObjectStrict(obj: any): SourceVariable {
 		SpiceValidator.assertTypeofStrict(obj, 'object');
-		SpiceValidator.assertTypeofStrict(obj.id, 'string');
+		SpiceValidator.assertTypeofStrict(obj.id, 'number');
 		SpiceValidator.assertTypeofStrict(obj.name, 'string');
 		SpiceValidator.assertTypeofStrict(obj.sType, 'string');
 		SpiceValidator.assertTypeofStrict(obj.address, 'number');
 
-		return new SourceVariable(obj.id, obj.name, obj.sType, obj.address);
+		return new SourceVariable(obj.id.toString(), obj.name, obj.sType, obj.address);
 	}
 }

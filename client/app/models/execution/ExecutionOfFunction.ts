@@ -26,6 +26,6 @@ export class ExecutionOfFunction extends Execution {
 			sFunction = SourceFunction.fromObjectStrict(sFunction);
 		}
 
-		return new ExecutionOfFunction(obj.id, obj.status, obj.executionTime, { sFunction: sFunction });
+		return new ExecutionOfFunction(obj.id.toString(), obj.status, obj.executionTime, { sFunction: sFunction });
 	}
 }

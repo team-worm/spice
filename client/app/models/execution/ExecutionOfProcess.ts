@@ -20,8 +20,10 @@ export class ExecutionOfProcess extends Execution {
 
 	public static fromObjectStrictData(obj: any): ExecutionOfProcess {
 		SpiceValidator.assertTypeofStrict(obj.data, 'object');
-		SpiceValidator.assertTypeofStrict(obj.data.nextExecution, 'string');
+		SpiceValidator.assertTypeofStrict(obj.data.nextExecution, 'number');
 
-		return new ExecutionOfProcess(obj.id, obj.status, obj.executionTime, obj.data);
+		obj.data.nextExecution = obj.data.nextExecution.toString();
+
+		return new ExecutionOfProcess(obj.id.toString(), obj.status, obj.executionTime, obj.data);
 	}
 }

@@ -7,7 +7,7 @@ import { SpiceValidator } from "../../util/SpiceValidator";
 export class ExecutionFactory {
 	public static fromObjectStrict(obj: any): Execution {
 		SpiceValidator.assertTypeofStrict(obj, 'object');
-		SpiceValidator.assertTypeofStrict(obj.id, 'string');
+		SpiceValidator.assertTypeofStrict(obj.id, 'number');
 		SpiceValidator.assertTypeofStrict(obj.eType, 'string');
 		SpiceValidator.assertTypeofStrict(obj.status, 'string');
 		SpiceValidator.assertTypeofStrict(obj.executionTime, 'number');

@@ -36,7 +36,8 @@ export class TraceOfTermination extends Trace {
 				SpiceValidator.assertTypeofStrict(obj.data.returnValue, 'number');
 				break;
 			case 'breakpoint':
-				SpiceValidator.assertTypeofStrict(obj.data.nextExecution, 'string');
+				SpiceValidator.assertTypeofStrict(obj.data.nextExecution, 'number');
+				obj.data.nextExecution = obj.data.nextExecution.toString();
 				break;
 		}
 

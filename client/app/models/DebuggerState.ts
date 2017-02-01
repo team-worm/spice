@@ -40,12 +40,12 @@ export class DebuggerState {
 					//this.sourceFunctions['0'] = new SourceFunction(0, 'add', 'add.cpp', 0, 5,
 					//[this.sourceVariables['0'], this.sourceVariables['1']],
 					//[this.sourceVariables['1']])
-				}),
-			//initialize breakpoints
-			this.debuggerHttp.getBreakpoints(this.id)
-				.map((bs) => {
-					bs.forEach(b => this.breakpoints.set(b.sFunction.id, Observable.of(b)));
 				}))
+			//initialize breakpoints
+			// this.debuggerHttp.getBreakpoints(this.id)
+			// 	.map((bs) => {
+			// 		bs.forEach(b => this.breakpoints.set(b.sFunction.id, Observable.of(b)));
+			// 	}))
 			.map(() => null);
 	}
 
@@ -57,7 +57,7 @@ export class DebuggerState {
 
 	public getSourceFunctions(): Observable<{[id: string]: SourceFunction}> {
 		//for now, assume we have all functions, and just flatten them into a map
-		return Observable.forkJoin(Object.keys(this.sourceFunctions.map).map(k => this.sourceFunctions[k]))
+		return Observable.forkJoin(Object.keys(this.sourceFunctions.map).map(k => this.sourceFunctions.get(k)))
 			.switchMap((vals: SourceFunction[]) => {
 				return Observable.of(vals.reduce((o: {[id: string]: SourceFunction}, v: SourceFunction) => { o[v.id] = v; return o;}, {}));
 			});
@@ -71,7 +71,7 @@ export class DebuggerState {
 
 	public getSourceVariables(): Observable<{[id: string]: SourceVariable}> {
 		//for now, assume we have all functions, and just flatten them into a map
-		return Observable.forkJoin(Object.keys(this.sourceVariables.map).map(k => this.sourceVariables[k]))
+		return Observable.forkJoin(Object.keys(this.sourceVariables.map).map(k => this.sourceVariables.get(k)))
 			.switchMap((vals: SourceVariable[]) => {
 				return Observable.of(vals.reduce((o: {[id: string]: SourceVariable}, v: SourceVariable) => { o[v.id] = v; return o;}, {}));
 			});
@@ -85,7 +85,7 @@ export class DebuggerState {
 
 	public getExecutions(): Observable<{[id: string]: Execution}> {
 		//for now, assume we have all functions, and just flatten them into a map
-		return Observable.forkJoin(Object.keys(this.executions.map).map(k => this.executions[k]))
+		return Observable.forkJoin(Object.keys(this.executions.map).map(k => this.executions.get(k)))
 			.switchMap((vals: Execution[]) => {
 				return Observable.of(vals.reduce((o: {[id: string]: Execution}, v: Execution) => { o[v.id] = v; return o;}, {}));
 			});
@@ -121,7 +121,7 @@ export class DebuggerState {
 
 	public getBreakpoints(): Observable<{[id: string]: Breakpoint}> {
 		//for now, assume we have all functions, and just flatten them into a map
-		return Observable.forkJoin(Object.keys(this.breakpoints.map).map(k => this.breakpoints[k]))
+		return Observable.forkJoin(Object.keys(this.breakpoints.map).map(k => this.breakpoints.get(k)))
 			.switchMap((vals: Breakpoint[]) => {
 				return Observable.of(vals.reduce((o: {[id: string]: Breakpoint}, v: Breakpoint) => { o[v.sFunction.id] = v; return o;}, {}));
 			});
@@ -144,9 +144,9 @@ export class DebuggerState {
 
 	public static fromObjectStrict(obj: any, debuggerHttp: DebuggerHttpService): DebuggerState {
 		SpiceValidator.assertTypeofStrict(obj, 'object');
-		SpiceValidator.assertTypeofStrict(obj.id, 'string');
+		SpiceValidator.assertTypeofStrict(obj.id, 'number');
 
-		return new DebuggerState(obj.id, debuggerHttp);
+		return new DebuggerState(obj.id.toString(), debuggerHttp);
 	}
 
 }
