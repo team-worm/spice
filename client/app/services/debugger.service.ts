@@ -7,9 +7,20 @@ import { DebugId } from "../models/DebugId";
 
 @Injectable()
 export class DebuggerService {
+	protected currentDebuggerState: DebuggerState | null;
 	protected debuggerStates: CacheMap<Observable<DebuggerState>>;
+
 	constructor(private debuggerHttp: DebuggerHttpService) {
 		this.debuggerStates = new CacheMap<Observable<DebuggerState>>();
+		this.currentDebuggerState = null;
+	}
+
+	public getCurrentDebuggerState(): DebuggerState | null {
+		return this.currentDebuggerState;
+	}
+
+	public setCurrentDebuggerState(state: DebuggerState | null): void {
+		this.currentDebuggerState = state;
 	}
 
 	public getDebuggerState(id: DebugId): Observable<DebuggerState> {
