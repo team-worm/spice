@@ -52,18 +52,8 @@ export class DebuggerComponent implements OnInit {
                     })
                     .switchMap((b) => ds.executeBinary('', ''))
                     .switchMap((e: Execution) => {
-                        console.log(e);
                         return ds.getTrace(e.id);
                     })
-                    // .mergeMap((t: Trace) => {
-                    //     console.log('hello');
-                    //     if (t.tType === 2 && (t as TraceOfTermination).data.cause === 'breakpoint') {
-                    //                 // ds.getTrace((t as TraceOfTermination).data.nextExecution).map((t2: Trace) => console.log('a', t2));
-                    //                 return Observable.of(t);
-                    //             } else {
-                    //                 return Observable.of(t);
-                    //             }
-                    // })
                     .mergeMap((t: Trace) => {
                         if (t.tType === 2 && (t as TraceOfTermination).data.cause === 'breakpoint') {
                             return Observable.of(Observable.of(t).concat(ds.getTrace((t as TraceOfTermination).data.nextExecution))).concatAll();
@@ -71,7 +61,7 @@ export class DebuggerComponent implements OnInit {
                             return Observable.of(t);
                         }
                     });
-            }).subscribe(t => console.log(t), e => console.log(e));
+            }).subscribe(t => console.log(JSON.stringify(t)), e => console.log(e));
 
     }
 }

@@ -1,7 +1,7 @@
 import { InvalidValueError } from "../errors/Errors";
 import { SpiceValidator } from "../../util/SpiceValidator";
 import { Trace } from "./Trace";
-import { TraceOfIntruction } from "./TraceOfIntruction";
+import { TraceOfInstruction } from "./TraceOfInstruction";
 import { TraceOfOutput } from "./TraceOfOutput";
 import { TraceOfTermination } from "./TraceOfTermination";
 
@@ -14,7 +14,7 @@ export class TraceFactory {
 
 		switch(obj.tType) {
 			case 0:
-				return TraceOfIntruction.fromObjectStrictData(obj);
+				return TraceOfInstruction.fromObjectStrictData(obj);
 			case 1:
 				return TraceOfOutput.fromObjectStrictData(obj);
 			case 2:

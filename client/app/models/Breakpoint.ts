@@ -12,9 +12,9 @@ export class Breakpoint {
 	public static fromObjectStrict(obj: any): Breakpoint {
 		SpiceValidator.assertTypeofStrict(obj, 'object');
 		SpiceValidator.assertTypeofStrict(obj.metadata, 'string');
-		SpiceValidator.assertTypeofStrict(obj.function, 'number');  //TODO: rename this to sFunction on backend
-		obj.function = obj.function.toString();
+		SpiceValidator.assertTypeofStrict(obj.sFunction, 'number');  //TODO: rename this to sFunction on backend
+		obj.sFunction = obj.sFunction.toString();
 
-		return new Breakpoint(obj.function, obj.metadata);
+		return new Breakpoint(obj.sFunction, obj.metadata);
 	}
 }

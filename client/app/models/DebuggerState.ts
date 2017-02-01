@@ -123,7 +123,7 @@ export class DebuggerState {
 		//for now, assume we have all functions, and just flatten them into a map
 		return Observable.forkJoin(Object.keys(this.breakpoints.map).map(k => this.breakpoints.get(k)))
 			.switchMap((vals: Breakpoint[]) => {
-				return Observable.of(vals.reduce((o: {[id: string]: Breakpoint}, v: Breakpoint) => { o[v.sFunction.id] = v; return o;}, {}));
+				return Observable.of(vals.reduce((o: {[id: string]: Breakpoint}, v: Breakpoint) => { o[v.sFunction] = v; return o;}, {}));
 			});
 	}
 

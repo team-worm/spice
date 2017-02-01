@@ -5,7 +5,7 @@ import { InvalidValueError } from "../errors/Errors";
 export type TraceOfTerminationData = {
 	cause: 'stopped' | 'crashed' | 'ended' | 'breakpoint'; //Reason for termination. Either `stopped`, `crashed`, `ended`, or `breakpoint`.
 	stack: string; //(defined if cause=crashed): Stack trace output.
-	returnValue: number; //(defined if cause=ended): Function return value or program exit code.
+	returnValue: string; //(defined if cause=ended): Function return value or program exit code.
 	nextExecution: string; //(defined if cause=breakpoint): Id of the following function execution
 };
 
@@ -33,7 +33,7 @@ export class TraceOfTermination extends Trace {
 				SpiceValidator.assertTypeofStrict(obj.data.stack, 'string');
 				break;
 			case 'ended':
-				SpiceValidator.assertTypeofStrict(obj.data.returnValue, 'number');
+				SpiceValidator.assertTypeofStrict(obj.data.returnValue, 'string');
 				break;
 			case 'breakpoint':
 				SpiceValidator.assertTypeofStrict(obj.data.nextExecution, 'number');
