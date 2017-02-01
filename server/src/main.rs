@@ -674,10 +674,16 @@ fn debug_execution_trace(mut req: Request, mut res: Response, caps: Captures, ch
             }
 
             DebugMessage::Trace(DebugTrace::Terminated(line)) => {
+                use serde_json::{Value, Map};
+
                 done = true;
 
-                let data = TraceData { state: Vec::<TraceState>::new() };
-                Trace { index: index, t_type: 2, line: line, data: data.to_json() }
+                let mut map = Map::new();
+                map.insert(String::from("cause"), Value::String(String::from("ended")));
+                map.insert(String::from("returnValue"), Value::String(String::from("0")));
+                let object = Value::Object(map);
+
+                Trace { index: index, t_type: 2, line: line, data: object }
             }
 
             _ => unreachable!()
