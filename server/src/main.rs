@@ -18,7 +18,6 @@ use std::sync::{Mutex, Arc};
 use std::io::{Write};
 use std::path::{PathBuf, Path};
 use std::collections::HashMap;
-use std::error::Error;
 
 use hyper::status::StatusCode;
 use hyper::server::{Server, Request, Response};
@@ -41,8 +40,17 @@ fn main() {
 
     // host system info
 
-    router.get(r"/api/v1/filesystem/(.*)", filesystem);
-    router.get(r"/api/v1/processes", processes);
+    router.get(r"/api/v1/filesystem/(.*)", move |req, res, caps| {
+        if let Err(_) = filesystem(req, res, caps) {
+            println!("failed to get files");
+        }
+    });
+
+    router.get(r"/api/v1/processes", move |req, res, caps| {
+        if let Err(_) = processes(req, res, caps) {
+            println!("failed to get processes");
+        }
+    });
 
     // attaching
 
@@ -93,7 +101,7 @@ fn main() {
     });
 
     router.put(r"/api/v1/debug/([0-9]*)/functions/([0-9]*)/execute", debug_function_execute);
-    
+
     // executions
 
     router.get(r"/api/v1/debug/([0-9]*)/executions", debug_executions);
@@ -145,39 +153,15 @@ fn send(mut res: Response, body: &[u8]) -> io::Result<()> {
 }
 
 /// GET /filesystem/:path* -- gets the file(s) within the given path
-fn filesystem(mut req: Request, mut res: Response, caps: Captures) {
+fn filesystem(mut req: Request, res: Response, caps: Captures) -> io::Result<()> {
     let caps = caps.unwrap();
     let path = Path::new(&caps[1]);
     io::copy(&mut req, &mut io::sink()).unwrap();
 
-    let meta = match fs::metadata(path) {
-        Ok(m) => m,
-        Err(err) => {
-            let message = serde_types::Error{
-                code: -1,
-                message: format!("Error getting metadata for file"),
-                err_data: format!("{}", err.description())
-            };
-            *res.status_mut() = StatusCode::NotFound;
-            send(res, &serde_json::to_vec(&message).unwrap()).unwrap();
-            return;
-        },
-    };
+    let meta = fs::metadata(path)?;
 
     let (file_type, contents) = if meta.is_dir() {
-        let entries = match fs::read_dir(path){
-            Ok(iter) => iter,
-            Err(err) => {
-                let message = serde_types::Error{
-                    code: -1,
-                    message: format!("Unable to read directory contents"),
-                    err_data: format!("{}", err.description())
-                };
-                *res.status_mut() = StatusCode::NotFound;
-                send(res, &serde_json::to_vec(&message).unwrap()).unwrap();
-                return;
-            },
-        };
+        let entries = fs::read_dir(path)?;
         let contents: Vec<_> = entries.map(|entry| {
             let entry = entry.unwrap();
             let child_file_type = if entry.file_type().unwrap().is_dir() {
@@ -209,32 +193,24 @@ fn filesystem(mut req: Request, mut res: Response, caps: Captures) {
 
     let json = serde_json::to_vec(&my_file).unwrap();
     send(res, &json).unwrap();
+
+    Ok(())
 }
 
 /// GET /processes -- gets the list of processes running on the host machine
-fn processes(mut req: Request, mut res: Response, _: Captures) {
+fn processes(mut req: Request, res: Response, _: Captures) -> io::Result<()> {
     io::copy(&mut req, &mut io::sink()).unwrap();
 
-    let procs: Vec<_> = match debug::Process::running() {
-        Ok(processes) => processes.map(|debug::Process { id, name }| Process {
+    let procs: Vec<_> = debug::Process::running()?
+        .map(|debug::Process { id, name }| Process {
             id: id, name: name.to_string_lossy().into_owned()
-        }).collect(),
-
-        Err(err) => {
-            let message = serde_types::Error{
-                code: -1,
-                message: format!("Unable to get list of running processes"),
-                err_data: format!("{}", err.description())
-            };
-            
-            *res.status_mut() = StatusCode::NotFound;
-            send(res, &serde_json::to_vec(&message).unwrap()).unwrap();
-            return;
-        },
-    };
+        })
+        .collect();
 
     let json = serde_json::to_vec(&procs).unwrap();
     send(res, &json).unwrap();
+
+    Ok(())
 }
 
 /// POST /debug/attach/pid/:pid -- attach to a running process
@@ -250,11 +226,10 @@ fn debug_attach_pid(mut req: Request, mut res: Response, caps: Captures, child: 
     }
     *child = Some(child::Thread::attach(pid));
 
-    // need to figure out what this will be if the above line errors out
     let child = child.as_mut().unwrap();
 
-    let json = match child.rx.recv() {
-        Ok(DebugMessage::Attached) => {
+    let json = match child.rx.recv().unwrap() {
+        DebugMessage::Attached => {
             let message = DebugInfo {
                 id: 0,
                 attached_process: Process {
@@ -267,12 +242,12 @@ fn debug_attach_pid(mut req: Request, mut res: Response, caps: Captures, child: 
             serde_json::to_vec(&message).unwrap()
         }
 
-        Ok(DebugMessage::Error(msg, err))  => {
+        DebugMessage::Error(_) => {
             *res.status_mut() = StatusCode::NotFound;
             let message = serde_types::Error {
                 code: 0,
-                message: format!("Couldn't attach to pid: {} -- {}", pid, msg),
-                err_data: format!("{}", err.description())
+                message: format!("Couldn't attach to pid: {}", pid),
+                data: 0
             };
 
             serde_json::to_vec(&message).unwrap()
@@ -300,8 +275,8 @@ fn debug_attach_bin(mut req: Request, mut res: Response, caps: Captures, child: 
 
     let child = child.as_mut().unwrap();
 
-    let json = match child.rx.recv() {
-        Ok(DebugMessage::Attached) => {
+    let json = match child.rx.recv().unwrap() {
+        DebugMessage::Attached => {
             let message = DebugInfo {
                 id: 0,
                 attached_process: Process {
@@ -314,12 +289,12 @@ fn debug_attach_bin(mut req: Request, mut res: Response, caps: Captures, child: 
             serde_json::to_vec(&message).unwrap()
         }
 
-        Ok(DebugMessage::Error(msg, err)) => {
+        DebugMessage::Error(_) => {
             *res.status_mut() = StatusCode::NotFound;
             let message = serde_types::Error {
                 code: 0,
-                message: format!("Couldn't attach to binary: {} -- {}", attached_process, msg),
-                err_data: format!("{}", err.description())
+                message: format!("Couldn't attach to binary: {}", attached_process),
+                data: 0
             };
 
             serde_json::to_vec(&message).unwrap()
@@ -346,13 +321,13 @@ fn debug_functions(mut req: Request, mut res: Response, _: Captures, child: Chil
     let child = match child.as_mut() {
         Some(t) => t,
         None => {
-            let message = serde_types::Error{
+            let message = serde_types::Error {
                 code: -1,
                 message: format!("You must attach to a binary or process first"),
-                err_data: format!("")
+                data: 0
             };
 
-            *res.status_mut() = StatusCode::Forbidden; 
+            *res.status_mut() = StatusCode::Forbidden;
             send(res, &serde_json::to_vec(&message).unwrap()).unwrap();
             return;
         },
@@ -365,12 +340,13 @@ fn debug_functions(mut req: Request, mut res: Response, _: Captures, child: Chil
             serde_json::to_vec(&message).unwrap()
         }
 
-        DebugMessage::Error(msg, e) => {
+        DebugMessage::Error(_) => {
+
             *res.status_mut() = StatusCode::InternalServerError;
             let message = serde_types::Error {
                 code: 0,
-                message: format!("{}", msg),
-                err_data: format!("{}", e.description())
+                message: format!(""),
+                data: 0
             };
 
             serde_json::to_vec(&message).unwrap()
@@ -394,10 +370,10 @@ fn debug_function(mut req: Request, mut res: Response, caps: Captures, child: Ch
             let message = serde_types::Error{
                 code: -1,
                 message: format!("You must attach to a binary or process first"),
-                err_data: format!("")
+                data: 0
             };
-            
-            *res.status_mut() = StatusCode::Forbidden; 
+
+            *res.status_mut() = StatusCode::Forbidden;
             send(res, &serde_json::to_vec(&message).unwrap()).unwrap();
             return;
         },
@@ -410,12 +386,12 @@ fn debug_function(mut req: Request, mut res: Response, caps: Captures, child: Ch
             serde_json::to_vec(&message).unwrap()
         }
 
-        DebugMessage::Error(msg, e) => {
+        DebugMessage::Error(_) => {
             *res.status_mut() = StatusCode::InternalServerError;
             let message = serde_types::Error {
                 code: 0,
-                message: format!("{}", msg),
-                err_data: format!("{}", e.description())
+                message: format!(""),
+                data: 0
             };
 
             serde_json::to_vec(&message).unwrap()
@@ -475,10 +451,10 @@ fn debug_breakpoint_put(mut req: Request, mut res: Response, caps: Captures, chi
             let message = serde_types::Error{
                 code: -1,
                 message: format!("You must attach to a binary or process first"),
-                err_data: format!("")
+                data: 0
             };
-            
-            *res.status_mut() = StatusCode::Forbidden; 
+
+            *res.status_mut() = StatusCode::Forbidden;
             send(res, &serde_json::to_vec(&message).unwrap()).unwrap();
             return;
         },
@@ -495,12 +471,12 @@ fn debug_breakpoint_put(mut req: Request, mut res: Response, caps: Captures, chi
             serde_json::to_vec(&message).unwrap()
         }
 
-        DebugMessage::Error(msg, e) => {
+        DebugMessage::Error(_) => {
             *res.status_mut() = StatusCode::InternalServerError;
             let message = serde_types::Error {
                 code: 0,
-                message: format!("{}", msg),
-                err_data: format!("{}", e)
+                message: format!(""),
+                data: 0
             };
 
             serde_json::to_vec(&message).unwrap()
@@ -524,9 +500,9 @@ fn debug_breakpoint_delete(mut req: Request, mut res: Response, caps: Captures, 
             let message = serde_types::Error{
                 code: -1,
                 message: format!("You must attach to a binary or process first"),
-                err_data: format!("")
+                data: 0
             };
-            
+
             *res.status_mut() = StatusCode::NotFound;
             send(res, &serde_json::to_vec(&message).unwrap()).unwrap();
             return;
@@ -551,9 +527,9 @@ fn debug_execute(mut req: Request, mut res: Response, caps: Captures, child: Chi
             let message = serde_types::Error{
                 code: -1,
                 message: format!("You must attach to a binary or process first"),
-                err_data: format!("")
+                data: 0
             };
-            *res.status_mut() = StatusCode::Forbidden; 
+            *res.status_mut() = StatusCode::Forbidden;
             send(res, &serde_json::to_vec(&message).unwrap()).unwrap();
             return;
         },
@@ -580,7 +556,7 @@ fn debug_execute(mut req: Request, mut res: Response, caps: Captures, child: Chi
             let message = serde_types::Error {
                 code: 0,
                 message: format!("failed to execute process"),
-                err_data: format!("{}", "")
+                data: 0
             };
 
             serde_json::to_vec(&message).unwrap()
@@ -620,114 +596,99 @@ fn debug_execution_trace(mut req: Request, mut res: Response, caps: Captures, ch
     let execution = caps[2].parse::<u64>().unwrap();
     io::copy(&mut req, &mut io::sink()).unwrap();
 
-    let mut error = false;
+    // TODO: this is a hack for the prototype; implement process executions
+    if execution == 0 {
+        use serde_json::{Value, Map};
+
+        let mut map = Map::new();
+        map.insert(String::from("cause"), Value::String(String::from("breakpoint")));
+        map.insert(String::from("nextExecution"), Value::U64(1));
+        let object = Value::Object(map);
+
+        let message = vec![
+            Trace { index: 0, t_type: 2, line: 0, data: object },
+        ];
+
+        let json = serde_json::to_vec(&message).unwrap();
+        send(res, &json).unwrap();
+        return;
+    }
+
     let mut child = child.lock().unwrap();
-    {    
-        let child_t = match child.as_mut() {
+    {
+        let child = match child.as_mut() {
             Some(t) => t,
             None => {
                 let message = serde_types::Error{
                     code: -1,
                     message: format!("You must attach to a binary or process first"),
-                    err_data: format!("")
+                    data: 0
                 };
-                *res.status_mut() = StatusCode::Forbidden; 
+                *res.status_mut() = StatusCode::Forbidden;
                 send(res, &serde_json::to_vec(&message).unwrap()).unwrap();
                 return;
             },
         };
 
-
-        // TODO: this is a hack for the prototype; implement process executions
-        if execution == 0 {
-            use serde_json::{Value, Map};
-
-            let mut map = Map::new();
-            map.insert(String::from("cause"), Value::String(String::from("breakpoint")));
-            map.insert(String::from("nextExecution"), Value::U64(1));
-            let object = Value::Object(map);
-
-            let message = vec![
-                Trace { index: 0, t_type: 2, line: 0, data: object },
-            ];
-
-            let json = serde_json::to_vec(&message).unwrap();
-            send(res, &json).unwrap();
-            return;
-        }
-
-        child_t.tx.send(ServerMessage::Trace).unwrap();
-        child_t.rx.recv().unwrap();
-
-        let mut prev_locals = HashMap::new();
-
-        {
-            use hyper::header::*;
-
-            let headers = res.headers_mut();
-            headers.set(AccessControlAllowOrigin::Any);
-            headers.set(ContentType("application/json".parse().unwrap()));
-        }
-
-        let mut res = res.start().unwrap();
-        res.write_all(b"[\n").unwrap();
-
-        let mut index = 0;
-        let mut done = false;
-
-        while !done {
-            let message = match child_t.rx.recv() {
-                Ok(DebugMessage::Trace(DebugTrace::Line(line, locals))) => {
-                    let this_index = index;
-                    index += 1;
-
-                    let mut state = vec![];
-                    for &(ref name, ref value) in locals.iter() {
-                        let prev_value = prev_locals.get(name);
-                        if prev_value.map(|prev_value| value != prev_value).unwrap_or(true) {
-                            state.push(TraceState { variable: name.clone(), value: value.clone() });
-                        }
-                    }
-                    prev_locals.extend(locals.into_iter());
-
-                    Trace { index: this_index, t_type: 0, line: line, data: state.to_json() }
-                }
-
-                Ok(DebugMessage::Trace(DebugTrace::Terminated(line))) => {
-                    done = true;
-
-                    Trace { index: index, t_type: 2, line: line, data: Vec::<Trace>::new().to_json() }
-                }
-
-                Ok(DebugMessage::Trace(DebugTrace::Error(msg, err, line))) => {
-                    done = true;
-                    error = true;
-                    child_t.tx.send(ServerMessage::Quit).unwrap();
-                    
-                    Trace { index: index,
-                            t_type: 2,
-                            line: line,
-                            data: format!("{} -- {}", msg, err.description()).to_json()
-                    }
-                }
-
-                _ => unreachable!()
-            };
-
-
-            let json = serde_json::to_vec(&message).unwrap();
-            res.write_all(&json).unwrap();
-            if !done { res.write_all(b",\n").unwrap(); }
-            res.flush().unwrap();
-        }
-        res.write_all(b"]").unwrap();
-        res.end().unwrap();
-
+        child.tx.send(ServerMessage::Trace).unwrap();
+        child.rx.recv().unwrap();
     }
 
-    if error {
-        *child = None;        
+    let mut prev_locals = HashMap::new();
+
+    {
+        use hyper::header::*;
+
+        let headers = res.headers_mut();
+        headers.set(AccessControlAllowOrigin::Any);
+        headers.set(ContentType("application/json".parse().unwrap()));
     }
+
+    let mut res = res.start().unwrap();
+    res.write_all(b"[\n").unwrap();
+
+    let mut index = 0;
+    let mut done = false;
+    while !done {
+        let message = {
+            let child = child.as_mut().unwrap();
+            child.rx.recv().unwrap()
+        };
+
+        let message = match message {
+            DebugMessage::Trace(DebugTrace::Line(line, locals)) => {
+                let this_index = index;
+                index += 1;
+
+                let mut state = vec![];
+                for &(ref name, ref value) in locals.iter() {
+                    let prev_value = prev_locals.get(name);
+                    if prev_value.map(|prev_value| value != prev_value).unwrap_or(true) {
+                        state.push(TraceState { variable: name.clone(), value: value.clone() });
+                    }
+                }
+                prev_locals.extend(locals.into_iter());
+
+                Trace { index: this_index, t_type: 0, line: line, data: state.to_json() }
+            }
+
+            DebugMessage::Trace(DebugTrace::Terminated(line)) => {
+                done = true;
+
+                Trace { index: index, t_type: 2, line: line, data: Vec::<Trace>::new().to_json() }
+            }
+
+            _ => unreachable!()
+        };
+
+
+        let json = serde_json::to_vec(&message).unwrap();
+        res.write_all(&json).unwrap();
+        if !done { res.write_all(b",\n").unwrap(); }
+        res.flush().unwrap();
+    }
+    res.write_all(b"]").unwrap();
+    res.end().unwrap();
 }
 
 /// POST /debug/:id/executions/:execution/stop -- Halts a running execution
