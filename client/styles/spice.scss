@@ -1,3 +1,5 @@
+/* Variable Declarations */
+
 $background-color-0: #2B2B2B;
 $background-color-1: #313335;
 $background-color-2: #3C3F41;
@@ -18,6 +20,27 @@ $highlight-alt-color-0: rgb(233, 30, 99);
 
 $text-color-error: rgb(220, 49, 32);
 
+/* Imports */
+
+//Import custom theme for Angular Materials
+@import 'spicy-theme';
+//Important normalize-scss https://github.com/JohnAlbin/normalize-scss
+@import '../node_modules/normalize-scss/sass/normalize/_import-now';
+
+@import 'components/toolbar';
+@import 'components/launcher';
+@import 'components/debugger';
+@import 'components/configuration';
+@import 'components/file-browser';
+@import 'components/process-list';
+
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+
+}
+
 .mockup {
     color: gray;
     padding-top: 1em;
@@ -26,123 +49,11 @@ $text-color-error: rgb(220, 49, 32);
     font-size: larger;
 }
 
-.error-box {
+.about-view {
     text-align: center;
 }
 
 .error-text {
     color: $text-color-error;
     font-style:italic;
-}
-
-.launcher {
-    .bottom-right {
-        position: absolute;
-        bottom: 0;
-        right: 0;
-    }
-
-    .filesystem {
-        :focus {
-            outline: 0;
-        }
-        .file {
-            &:hover {
-                cursor: pointer;
-                color: black;
-                background-color: $foreground-color-2;
-            }
-            &.lit {
-                color: black;
-                padding: 2px;
-                border: 2px solid $highlight-secondary-color-0;
-                background-color: $foreground-color-2;
-            }
-        }
-    }
-}
-
-.configuration {
-
-    .spacer {
-        margin-left:1em;
-        margin-right:1em;
-    }
-
-    .spacer-xs {
-        margin-left:0.25em;
-        margin-right:0.25em;
-    }
-    #console {
-        background: black;
-        color: white;
-        margin-top: 1em;
-        font-family: Courier, 'NewCourier', monospace;
-        border: 1px solid gray;
-    }
-
-    #function-list {
-        height: 6em;
-        width: 100%;
-        border: 1px solid $highlight-alt-color-0;
-        margin-top: 1em;
-
-        .repeated-item {
-            border-bottom: 1px solid #aaa;
-            cursor: pointer;
-            padding-top: 10px;
-            padding-left: 5px;
-            height: 2em;
-        }
-    }
-}
-
-.debugger {
-    background: $background-color-0;
-    font-family: Courier, 'NewCourier', monospace;
-    font-size: 1em;
-
-    .reactive-height-cell {
-
-        padding-left: 8px;
-        padding-right: 8px;;
-
-        background: $background-color-0;
-
-        pre {
-            margin: 2px;
-        }
-    }
-
-    .debug-column reactive-height-cell:nth-of-type(odd) .reactive-height-cell {
-        background: $background-color-1;
-    }
-
-    .line-number-column {
-        background: $background-color-1;
-        border-left: 2px solid $background-color-2;
-        border-right: 2px solid $background-color-2;
-        text-align: right;
-    }
-
-    .code-column {
-        border-right: 4px solid $background-color-2;
-    }
-
-    .state-column {
-        .trace-column {
-            border-right: 2px solid $background-color-2;
-            .trace {
-                .trace-state {
-                    ul {
-                        margin: 0px;
-                        padding-left: 0px;
-                    }
-                    li {
-                        list-style-type: none;
-                    }
-                }
-            }
-        }
-    }
 }
