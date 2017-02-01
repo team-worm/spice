@@ -59,12 +59,12 @@ pub struct Trace {
     #[serde(rename = "tType")]
     pub t_type: i32,
     pub line: u32,
-    pub data: TraceData,
+    pub data: Value,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct TraceData {
-    pub state: Value,
+    pub state: Vec<TraceState>,
 }
 
 #[derive(Serialize, Deserialize)]
