@@ -605,9 +605,8 @@ fn debug_execution_trace(mut req: Request, mut res: Response, caps: Captures, ch
         map.insert(String::from("nextExecution"), Value::U64(1));
         let object = Value::Object(map);
 
-        let data = TraceData { state: object };
         let message = vec![
-            Trace { index: 0, t_type: 2, line: 0, data: data },
+            Trace { index: 0, t_type: 2, line: 0, data: object },
         ];
 
         let json = serde_json::to_vec(&message).unwrap();
@@ -670,15 +669,15 @@ fn debug_execution_trace(mut req: Request, mut res: Response, caps: Captures, ch
                 }
                 prev_locals.extend(locals.into_iter());
 
-                let data = TraceData { state: state.to_json() };
-                Trace { index: this_index, t_type: 0, line: line, data: data }
+                let data = TraceData { state: state };
+                Trace { index: this_index, t_type: 0, line: line, data: data.to_json() }
             }
 
             DebugMessage::Trace(DebugTrace::Terminated(line)) => {
                 done = true;
 
-                let data = TraceData { state: Vec::<Trace>::new().to_json() };
-                Trace { index: index, t_type: 2, line: line, data: data }
+                let data = TraceData { state: Vec::<TraceState>::new() };
+                Trace { index: index, t_type: 2, line: line, data: data.to_json() }
             }
 
             _ => unreachable!()
