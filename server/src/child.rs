@@ -1,4 +1,4 @@
-use std::io;
+use std::{io, ptr, mem};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::ffi::OsString;
@@ -57,6 +57,7 @@ pub enum ServerMessage {
     Stop,
     Quit,
 }
+
 
 impl Thread {
     pub fn launch(path: PathBuf) -> Thread {
@@ -128,9 +129,10 @@ fn run(
 
     let event = debug::Event::wait_event()?;
     if let debug::EventInfo::CreateProcess { ref file, main_thread, base, .. } = event.info {
-        state.symbols.load_module(file.as_ref().unwrap(), base)?;
-        state.threads.insert(event.thread_id, main_thread);
+        let _ = file.as_ref().ok_or(io::Error::from(io::ErrorKind::Other))
+            .and_then(|file| state.symbols.load_module(file, base));
 
+        state.threads.insert(event.thread_id, main_thread);
         tx.send(DebugMessage::Attached).unwrap();
     } else {
         panic!("got another debug event before CreateProcess");
@@ -140,34 +142,45 @@ fn run(
     loop {
         match rx.recv().unwrap() {
             ServerMessage::ListFunctions => {
-                list_functions(&mut state, &tx)?;
+                let message = list_functions(&mut state)
+                    .map(DebugMessage::Functions)
+                    .unwrap_or_else(DebugMessage::Error);
+                tx.send(message).unwrap();
             }
+
             ServerMessage::DescribeFunction { address } => {
-                let (function, _) = state.symbols.symbol_from_address(address)?;
-                let module = state.symbols.module_from_address(address)?;
-                let fn_type = state.symbols.type_from_index(module, function.type_index)?;
-                let function = describe_function(&mut state.symbols, &function, &fn_type)?;
-                tx.send(DebugMessage::Function(function)).unwrap();
+                let message = describe_function(&mut state, address)
+                    .map(DebugMessage::Function)
+                    .unwrap_or_else(DebugMessage::Error);
+
+                tx.send(message).unwrap();
             }
 
             ServerMessage::ListBreakpoints => {}
 
             ServerMessage::SetBreakpoint { address } => {
-                let (function, _off) = state.symbols.symbol_from_address(address)?;
-                let lines = state.symbols.lines_from_symbol(&function)?;
-                for line in lines {
-                    let breakpoint = state.child.set_breakpoint(line.address)?;
-                    state.breakpoints.insert(line.address, Some(breakpoint));
-                }
+                let message = set_breakpoint(&mut state, address)
+                    .map(|breakpoints| {
+                        let breakpoints = breakpoints.into_iter()
+                            .map(|(address, breakpoint)| (address, Some(breakpoint)));
+                        state.breakpoints.extend(breakpoints);
 
-                tx.send(DebugMessage::Breakpoint).unwrap();
+                        DebugMessage::Breakpoint
+                    })
+                    .unwrap_or_else(DebugMessage::Error);
+
+                tx.send(message).unwrap();
             }
 
             ServerMessage::ClearBreakpoint { .. } => {}
 
             ServerMessage::Continue => {
-                event.take().unwrap().continue_event(true)?;
-                tx.send(DebugMessage::Executing).unwrap();
+                let message = event.take().ok_or(io::Error::new(io::ErrorKind::Other, "Nothing to continue"))
+                    .and_then(|event| event.continue_event(true))
+                    .map(|()| DebugMessage::Executing)
+                    .unwrap_or_else(DebugMessage::Error);
+
+                tx.send(message).unwrap();
             }
 
             ServerMessage::CallFunction { .. } => {}
@@ -175,46 +188,50 @@ fn run(
             // TODO: handle process-type traces
             ServerMessage::Trace => {
                 assert!(event.is_none());
-                event = Some(trace_function(&mut state, &tx)?);
+                event = trace_function(&mut state, &tx)
+                    .unwrap_or_else(|(error, event)| {
+                        tx.send(DebugMessage::Error(error)).unwrap();
+                        event
+                    });
             }
 
             ServerMessage::Stop => {}
 
-            ServerMessage::Quit => { break; }
+            ServerMessage::Quit => {
+                state.child.terminate()?;
+                break;
+            }
         }
     }
+
 
     Ok(())
 }
 
-fn list_functions(
-    state: &DebugState, tx: &SyncSender<DebugMessage>
-) -> io::Result<()> {
+fn list_functions(state: &mut DebugState) -> io::Result<Vec<Function>> {
     let DebugState { ref symbols, .. } = *state;
 
     let mut functions = vec![];
     symbols.enumerate_globals(|symbol, _| {
-        let module = symbols.module_from_address(symbol.address).unwrap();
-        let fn_type = match symbols.type_from_index(module, symbol.type_index) {
-            Ok(fn_type @ debug::Type::Function { .. }) => fn_type,
-            _ => return true,
-        };
-
-        functions.push((symbol, fn_type));
+        functions.push(symbol.address);
         true
     })?;
 
     let functions: Vec<_> = functions.into_iter()
-        .flat_map(|(function, fn_type)| describe_function(symbols, &function, &fn_type))
+        .flat_map(|address| describe_function(state, address))
         .collect();
-    tx.send(DebugMessage::Functions(functions)).unwrap();
-    Ok(())
+
+    Ok((functions))
 }
 
-fn describe_function(
-    symbols: &debug::SymbolHandler, function: &debug::Symbol, _fn_type: &debug::Type
-) -> io::Result<Function> {
-    let debug::Symbol { ref name, address, size, .. } = *function;
+fn describe_function(state: &DebugState, address: usize) -> io::Result<Function> {
+    let DebugState { ref symbols, .. } = *state;
+
+    let (function, _) = symbols.symbol_from_address(address)?;
+    let module = symbols.module_from_address(address)?;
+    let _fn_type = symbols.type_from_index(module, function.type_index)?;
+
+    let debug::Symbol { ref name, size, .. } = function;
 
     let start = match symbols.line_from_address(address) {
         Ok((line, _)) => line,
@@ -265,103 +282,167 @@ fn describe_function(
     })
 }
 
+struct BreakpointTransaction<'a>(&'a mut debug::Child, HashMap<usize, debug::Breakpoint>);
+
+impl<'a> Drop for BreakpointTransaction<'a> {
+    fn drop(&mut self) {
+        let BreakpointTransaction(ref mut child, ref mut breakpoints) = *self;
+
+        for (_address, breakpoint) in breakpoints.drain() {
+            let _ = child.remove_breakpoint(breakpoint);
+        }
+    }
+}
+
+impl<'a> BreakpointTransaction<'a> {
+    fn commit(self) -> HashMap<usize, debug::Breakpoint> {
+        let breakpoints = unsafe { ptr::read(&self.1) };
+        mem::forget(self);
+
+        breakpoints
+    }
+}
+
+fn set_breakpoint(state: &mut DebugState, address: usize) -> io::Result<HashMap<usize, debug::Breakpoint>> {
+    let DebugState { ref symbols, ref mut child, .. } = *state;
+
+    let (function, _off) = symbols.symbol_from_address(address)?;
+    let lines = symbols.lines_from_symbol(&function)?;
+
+    let mut breakpoints = BreakpointTransaction(child, HashMap::new());
+    for line in lines {
+        let breakpoint = breakpoints.0.set_breakpoint(line.address)?;
+        breakpoints.1.insert(line.address, breakpoint);
+    }
+
+    Ok(breakpoints.commit())
+}
+
 fn trace_function(
     state: &mut DebugState, tx: &SyncSender<DebugMessage>
-) -> io::Result<debug::Event> {
-    let DebugState {
-        ref mut child,
-        ref mut symbols,
-        ref mut attached,
-
-        ref mut threads,
-        ref mut breakpoints,
-        ref mut last_breakpoint,
-    } = *state;
-
+) -> Result<Option<debug::Event>, (io::Error, Option<debug::Event>)> {
     let mut last_line = 0;
     loop {
-        let event = debug::Event::wait_event()?;
+        let event = debug::Event::wait_event()
+            .map_err(|e| (e, None))?;
 
         use debug::EventInfo::*;
         match event.info {
             ExitProcess { .. } => {
                 tx.send(DebugMessage::Trace(DebugTrace::Terminated(last_line))).unwrap();
-                return Ok(event);
+                return Ok(Some(event));
             }
 
-            CreateThread { thread, .. } => { threads.insert(event.thread_id, thread); }
-            ExitThread { .. } => { threads.remove(&event.thread_id); }
+            CreateThread { thread, .. } => { state.threads.insert(event.thread_id, thread); }
+            ExitThread { .. } => { state.threads.remove(&event.thread_id); }
 
-            LoadDll { ref file, base } => { symbols.load_module(file.as_ref().unwrap(), base)?; }
-            UnloadDll { base } => { symbols.unload_module(base)?; }
+            LoadDll { ref file, base } => {
+                let _ = file.as_ref().ok_or(io::Error::from(io::ErrorKind::Other))
+                    .and_then(|file| state.symbols.load_module(file, base));
+            }
+            UnloadDll { base } => { let _ = state.symbols.unload_module(base); }
 
             Exception { first_chance, code, address } => {
-                let thread = threads[&event.thread_id];
+                let thread = state.threads[&event.thread_id];
 
-                if !*attached {
-                    *attached = true;
+                if !state.attached {
+                    state.attached = true;
                 } else if !first_chance {
                 } else if code == winapi::EXCEPTION_BREAKPOINT {
                     // disable and save the breakpoint
-                    let breakpoint = breakpoints.get_mut(&address).unwrap().take();
-                    child.remove_breakpoint(breakpoint.unwrap())?;
-                    *last_breakpoint = Some(address);
-
-                    // restart the instruction and enable singlestep
-                    let mut context = debug::get_thread_context(thread, winapi::CONTEXT_FULL)?;
-                    context.set_instruction_pointer(address);
-                    context.set_singlestep(true);
-                    debug::set_thread_context(thread, &context)?;
-
-                    // collect locals
-
-                    let frame = symbols.walk_stack(thread)?.nth(0).unwrap();
-                    let ref context = frame.context;
-                    let ref stack = frame.stack;
-
-                    let instruction = stack.AddrPC.Offset as usize;
-                    let (line, _off) = symbols.line_from_address(instruction)?;
-
-                    let mut locals = vec![];
-                    symbols.enumerate_locals(instruction, |symbol, size| {
-                        if size == 0 { return true; }
-
-                        let mut buffer = vec![0u8; size];
-                        let address = context.Rbp as usize + symbol.address;
-                        if let Ok(_) = child.read_memory(address, &mut buffer) {
-                            let name = symbol.name.to_string_lossy().into_owned();
-
-                            let value = debug::Value::read(&child, &context, &symbols, &symbol);
-                            if let Ok(value) = value {
-                                if value.data[0] == 0xcc {
-                                    return true;
-                                }
-
-                                locals.push((name, format!("{}", value.display(&symbols))));
-                            }
+                    let breakpoint = match state.breakpoints.get_mut(&address) {
+                        Some(breakpoint) => breakpoint.take(),
+                        None => {
+                            event.continue_event(true)
+                                .map_err(|e| (e, None))?;
+                            continue;
                         }
+                    };
 
-                        true
-                    })?;
+                    let (line, locals) = match trace_breakpoint(state, address, breakpoint.unwrap(), thread) {
+                        Ok((line, locals)) => (line, locals),
+                        Err(e) => return Err((e, Some(event))),
+                    };
 
                     tx.send(DebugMessage::Trace(DebugTrace::Line(last_line, locals))).unwrap();
                     last_line = line.line;
                 } else if code == winapi::EXCEPTION_SINGLE_STEP {
-                    // restore the disabled breakpoint
-                    let address = last_breakpoint.take().unwrap();
-                    let breakpoint = child.set_breakpoint(address)?;
-                    breakpoints.insert(address, Some(breakpoint));
-
-                    // disable singlestep
-                    let mut context = debug::get_thread_context(thread, winapi::CONTEXT_FULL)?;
-                    context.set_singlestep(false);
-                    debug::set_thread_context(thread, &context)?;
+                    if let Err(e) = trace_step(state, thread) {
+                        return Err((e, Some(event)));
+                    }
                 }
             }
 
             _ => {}
         }
 
-        event.continue_event(true)?;
+        event.continue_event(true)
+            .map_err(|e| (e, None))?;
     }
 }
+
+fn trace_breakpoint(
+    state: &mut DebugState, address: usize, breakpoint: debug::Breakpoint, thread: RawHandle
+) -> io::Result<(debug::Line, Vec<(String, String)>)> {
+    let DebugState { ref mut child, ref mut symbols, ref mut last_breakpoint, .. } = *state;
+
+    child.remove_breakpoint(breakpoint)?;
+    *last_breakpoint = Some(address);
+
+    // restart the instruction and enable singlestep
+    let mut context = debug::get_thread_context(thread, winapi::CONTEXT_FULL)?;
+    context.set_instruction_pointer(address);
+    context.set_singlestep(true);
+    debug::set_thread_context(thread, &context)?;
+
+    // collect locals
+
+    let frame = symbols.walk_stack(thread)?.nth(0).unwrap();
+    let ref context = frame.context;
+    let ref stack = frame.stack;
+
+    let instruction = stack.AddrPC.Offset as usize;
+    let (line, _off) = symbols.line_from_address(instruction)?;
+
+    let mut locals = vec![];
+    symbols.enumerate_locals(instruction, |symbol, size| {
+        if size == 0 { return true; }
+
+        let mut buffer = vec![0u8; size];
+        let address = context.Rbp as usize + symbol.address;
+        if let Ok(_) = child.read_memory(address, &mut buffer) {
+            let name = symbol.name.to_string_lossy().into_owned();
+
+            let value = debug::Value::read(&child, &context, &symbols, &symbol);
+            if let Ok(value) = value {
+                if value.data[0] == 0xcc {
+                    return true;
+                }
+
+                locals.push((name, format!("{}", value.display(&symbols))));
+            }
+        }
+
+        true
+    })?;
+
+    Ok((line, locals))
+}
+
+fn trace_step(state: &mut DebugState, thread: RawHandle) -> io::Result<()> {
+    let DebugState { ref mut child, ref mut breakpoints, ref mut last_breakpoint, .. } = *state;
+
+    // restore the disabled breakpoint
+    let address = last_breakpoint.take().unwrap();
+    let breakpoint = child.set_breakpoint(address)?;
+    breakpoints.insert(address, Some(breakpoint));
+
+    // disable singlestep
+    let mut context = debug::get_thread_context(thread, winapi::CONTEXT_FULL)?;
+    context.set_singlestep(false);
+    debug::set_thread_context(thread, &context)?;
+
+    Ok(())
+}
+
+

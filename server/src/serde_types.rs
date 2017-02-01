@@ -59,11 +59,17 @@ pub struct Trace {
     #[serde(rename = "tType")]
     pub t_type: i32,
     pub line: u32,
-    pub data: Value,
+    pub data: TraceData,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct TraceData {
+    pub state: Value,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct TraceState {
+    #[serde(rename = "sVariable")]
     pub variable: String,
     pub value: String,
 }
@@ -94,6 +100,7 @@ pub struct DebugInfo {
 
 #[derive(Serialize, Deserialize)]
 pub struct Breakpoint {
+    #[serde(rename = "sFunction")]
     pub function: usize,
     pub metadata: String
 }

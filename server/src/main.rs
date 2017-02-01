@@ -40,8 +40,17 @@ fn main() {
 
     // host system info
 
-    router.get(r"/api/v1/filesystem/(.*)", filesystem);
-    router.get(r"/api/v1/processes", processes);
+    router.get(r"/api/v1/filesystem/(.*)", move |req, res, caps| {
+        if let Err(_) = filesystem(req, res, caps) {
+            println!("failed to get files");
+        }
+    });
+
+    router.get(r"/api/v1/processes", move |req, res, caps| {
+        if let Err(_) = processes(req, res, caps) {
+            println!("failed to get processes");
+        }
+    });
 
     // attaching
 
@@ -92,7 +101,7 @@ fn main() {
     });
 
     router.put(r"/api/v1/debug/([0-9]*)/functions/([0-9]*)/execute", debug_function_execute);
-    
+
     // executions
 
     router.get(r"/api/v1/debug/([0-9]*)/executions", debug_executions);
@@ -144,15 +153,15 @@ fn send(mut res: Response, body: &[u8]) -> io::Result<()> {
 }
 
 /// GET /filesystem/:path* -- gets the file(s) within the given path
-fn filesystem(mut req: Request, res: Response, caps: Captures) {
+fn filesystem(mut req: Request, res: Response, caps: Captures) -> io::Result<()> {
     let caps = caps.unwrap();
     let path = Path::new(&caps[1]);
     io::copy(&mut req, &mut io::sink()).unwrap();
 
-    let meta = fs::metadata(path).unwrap();
+    let meta = fs::metadata(path)?;
 
     let (file_type, contents) = if meta.is_dir() {
-        let entries = fs::read_dir(path).unwrap();
+        let entries = fs::read_dir(path)?;
         let contents: Vec<_> = entries.map(|entry| {
             let entry = entry.unwrap();
             let child_file_type = if entry.file_type().unwrap().is_dir() {
@@ -184,13 +193,15 @@ fn filesystem(mut req: Request, res: Response, caps: Captures) {
 
     let json = serde_json::to_vec(&my_file).unwrap();
     send(res, &json).unwrap();
+
+    Ok(())
 }
 
 /// GET /processes -- gets the list of processes running on the host machine
-fn processes(mut req: Request, res: Response, _: Captures) {
+fn processes(mut req: Request, res: Response, _: Captures) -> io::Result<()> {
     io::copy(&mut req, &mut io::sink()).unwrap();
 
-    let procs: Vec<_> = debug::Process::running().unwrap()
+    let procs: Vec<_> = debug::Process::running()?
         .map(|debug::Process { id, name }| Process {
             id: id, name: name.to_string_lossy().into_owned()
         })
@@ -198,6 +209,8 @@ fn processes(mut req: Request, res: Response, _: Captures) {
 
     let json = serde_json::to_vec(&procs).unwrap();
     send(res, &json).unwrap();
+
+    Ok(())
 }
 
 /// POST /debug/attach/pid/:pid -- attach to a running process
@@ -215,8 +228,8 @@ fn debug_attach_pid(mut req: Request, mut res: Response, caps: Captures, child: 
 
     let child = child.as_mut().unwrap();
 
-    let json = match child.rx.recv() {
-        Ok(DebugMessage::Attached) => {
+    let json = match child.rx.recv().unwrap() {
+        DebugMessage::Attached => {
             let message = DebugInfo {
                 id: 0,
                 attached_process: Process {
@@ -229,14 +242,18 @@ fn debug_attach_pid(mut req: Request, mut res: Response, caps: Captures, child: 
             serde_json::to_vec(&message).unwrap()
         }
 
-        Ok(DebugMessage::Error(_)) | _ => {
+        DebugMessage::Error(_) => {
             *res.status_mut() = StatusCode::NotFound;
-            let message = Error {
-                code: 0, message: format!("pid {} not found", pid), data: 0
+            let message = serde_types::Error {
+                code: 0,
+                message: format!("Couldn't attach to pid: {}", pid),
+                data: 0
             };
 
             serde_json::to_vec(&message).unwrap()
         }
+
+        _ => unreachable!()
     };
     send(res, &json).unwrap();
 }
@@ -258,8 +275,8 @@ fn debug_attach_bin(mut req: Request, mut res: Response, caps: Captures, child: 
 
     let child = child.as_mut().unwrap();
 
-    let json = match child.rx.recv() {
-        Ok(DebugMessage::Attached) => {
+    let json = match child.rx.recv().unwrap() {
+        DebugMessage::Attached => {
             let message = DebugInfo {
                 id: 0,
                 attached_process: Process {
@@ -272,14 +289,18 @@ fn debug_attach_bin(mut req: Request, mut res: Response, caps: Captures, child: 
             serde_json::to_vec(&message).unwrap()
         }
 
-        Ok(DebugMessage::Error(_)) | _ => {
+        DebugMessage::Error(_) => {
             *res.status_mut() = StatusCode::NotFound;
-            let message = Error {
-                code: 0, message: format!("binary {} not found", attached_process), data: 0
+            let message = serde_types::Error {
+                code: 0,
+                message: format!("Couldn't attach to binary: {}", attached_process),
+                data: 0
             };
 
             serde_json::to_vec(&message).unwrap()
         }
+
+        _ => unreachable!()
     };
     send(res, &json).unwrap();
 }
@@ -297,7 +318,20 @@ fn debug_functions(mut req: Request, mut res: Response, _: Captures, child: Chil
     io::copy(&mut req, &mut io::sink()).unwrap();
 
     let mut child = child.lock().unwrap();
-    let child = child.as_mut().unwrap();
+    let child = match child.as_mut() {
+        Some(t) => t,
+        None => {
+            let message = serde_types::Error {
+                code: -1,
+                message: format!("You must attach to a binary or process first"),
+                data: 0
+            };
+
+            *res.status_mut() = StatusCode::Forbidden;
+            send(res, &serde_json::to_vec(&message).unwrap()).unwrap();
+            return;
+        },
+    };
 
     child.tx.send(ServerMessage::ListFunctions).unwrap();
     let json = match child.rx.recv().unwrap() {
@@ -306,10 +340,13 @@ fn debug_functions(mut req: Request, mut res: Response, _: Captures, child: Chil
             serde_json::to_vec(&message).unwrap()
         }
 
-        DebugMessage::Error(e) => {
+        DebugMessage::Error(_) => {
+
             *res.status_mut() = StatusCode::InternalServerError;
-            let message = Error {
-                code: 0, message: format!("{}", e), data: 0
+            let message = serde_types::Error {
+                code: 0,
+                message: format!(""),
+                data: 0
             };
 
             serde_json::to_vec(&message).unwrap()
@@ -327,7 +364,20 @@ fn debug_function(mut req: Request, mut res: Response, caps: Captures, child: Ch
     io::copy(&mut req, &mut io::sink()).unwrap();
 
     let mut child = child.lock().unwrap();
-    let child = child.as_mut().unwrap();
+    let child = match child.as_mut() {
+        Some(t) => t,
+        None => {
+            let message = serde_types::Error{
+                code: -1,
+                message: format!("You must attach to a binary or process first"),
+                data: 0
+            };
+
+            *res.status_mut() = StatusCode::Forbidden;
+            send(res, &serde_json::to_vec(&message).unwrap()).unwrap();
+            return;
+        },
+    };
 
     child.tx.send(ServerMessage::DescribeFunction { address }).unwrap();
     let json = match child.rx.recv().unwrap() {
@@ -336,10 +386,12 @@ fn debug_function(mut req: Request, mut res: Response, caps: Captures, child: Ch
             serde_json::to_vec(&message).unwrap()
         }
 
-        DebugMessage::Error(e) => {
+        DebugMessage::Error(_) => {
             *res.status_mut() = StatusCode::InternalServerError;
-            let message = Error {
-                code: 0, message: format!("{}", e), data: 0
+            let message = serde_types::Error {
+                code: 0,
+                message: format!(""),
+                data: 0
             };
 
             serde_json::to_vec(&message).unwrap()
@@ -392,7 +444,21 @@ fn debug_breakpoint_put(mut req: Request, mut res: Response, caps: Captures, chi
     io::copy(&mut req, &mut io::sink()).unwrap();
 
     let mut child = child.lock().unwrap();
-    let child = child.as_mut().unwrap();
+
+    let child = match child.as_mut() {
+        Some(t) => t,
+        None => {
+            let message = serde_types::Error{
+                code: -1,
+                message: format!("You must attach to a binary or process first"),
+                data: 0
+            };
+
+            *res.status_mut() = StatusCode::Forbidden;
+            send(res, &serde_json::to_vec(&message).unwrap()).unwrap();
+            return;
+        },
+    };
 
     child.tx.send(ServerMessage::SetBreakpoint { address }).unwrap();
     let json = match child.rx.recv().unwrap() {
@@ -405,10 +471,12 @@ fn debug_breakpoint_put(mut req: Request, mut res: Response, caps: Captures, chi
             serde_json::to_vec(&message).unwrap()
         }
 
-        DebugMessage::Error(e) => {
+        DebugMessage::Error(_) => {
             *res.status_mut() = StatusCode::InternalServerError;
-            let message = Error {
-                code: 0, message: format!("{}", e), data: 0
+            let message = serde_types::Error {
+                code: 0,
+                message: format!(""),
+                data: 0
             };
 
             serde_json::to_vec(&message).unwrap()
@@ -420,13 +488,26 @@ fn debug_breakpoint_put(mut req: Request, mut res: Response, caps: Captures, chi
 }
 
 /// DELETE /debug/:id/breakpoints/:function
-fn debug_breakpoint_delete(mut req: Request, res: Response, caps: Captures, child: ChildThread) {
+fn debug_breakpoint_delete(mut req: Request, mut res: Response, caps: Captures, child: ChildThread) {
     let caps = caps.unwrap();
     let address = caps[2].parse::<usize>().unwrap();
     io::copy(&mut req, &mut io::sink()).unwrap();
 
     let mut child = child.lock().unwrap();
-    let child = child.as_mut().unwrap();
+    let child = match child.as_mut() {
+        Some(t) => t,
+        None => {
+            let message = serde_types::Error{
+                code: -1,
+                message: format!("You must attach to a binary or process first"),
+                data: 0
+            };
+
+            *res.status_mut() = StatusCode::NotFound;
+            send(res, &serde_json::to_vec(&message).unwrap()).unwrap();
+            return;
+        },
+    };
 
     child.tx.send(ServerMessage::ClearBreakpoint { address }).unwrap();
 
@@ -440,7 +521,19 @@ fn debug_execute(mut req: Request, mut res: Response, caps: Captures, child: Chi
     io::copy(&mut req, &mut io::sink()).unwrap();
 
     let mut child = child.lock().unwrap();
-    let child = child.as_mut().unwrap();
+    let child = match child.as_mut() {
+        Some(t) => t,
+        None => {
+            let message = serde_types::Error{
+                code: -1,
+                message: format!("You must attach to a binary or process first"),
+                data: 0
+            };
+            *res.status_mut() = StatusCode::Forbidden;
+            send(res, &serde_json::to_vec(&message).unwrap()).unwrap();
+            return;
+        },
+    };
 
     child.tx.send(ServerMessage::Continue).unwrap();
 
@@ -460,10 +553,10 @@ fn debug_execute(mut req: Request, mut res: Response, caps: Captures, child: Chi
         _ => {
             *res.status_mut() = StatusCode::InternalServerError;
 
-            let message = Error {
+            let message = serde_types::Error {
                 code: 0,
-                message: String::from("failed to execute process"),
-                data: 0,
+                message: format!("failed to execute process"),
+                data: 0
             };
 
             serde_json::to_vec(&message).unwrap()
@@ -512,8 +605,9 @@ fn debug_execution_trace(mut req: Request, mut res: Response, caps: Captures, ch
         map.insert(String::from("nextExecution"), Value::U64(1));
         let object = Value::Object(map);
 
+        let data = TraceData { state: object };
         let message = vec![
-            Trace { index: 0, t_type: 2, line: 0, data: object },
+            Trace { index: 0, t_type: 2, line: 0, data: data },
         ];
 
         let json = serde_json::to_vec(&message).unwrap();
@@ -522,10 +616,24 @@ fn debug_execution_trace(mut req: Request, mut res: Response, caps: Captures, ch
     }
 
     let mut child = child.lock().unwrap();
-    let child = child.as_mut().unwrap();
+    {
+        let child = match child.as_mut() {
+            Some(t) => t,
+            None => {
+                let message = serde_types::Error{
+                    code: -1,
+                    message: format!("You must attach to a binary or process first"),
+                    data: 0
+                };
+                *res.status_mut() = StatusCode::Forbidden;
+                send(res, &serde_json::to_vec(&message).unwrap()).unwrap();
+                return;
+            },
+        };
 
-    child.tx.send(ServerMessage::Trace).unwrap();
-    child.rx.recv().unwrap();
+        child.tx.send(ServerMessage::Trace).unwrap();
+        child.rx.recv().unwrap();
+    }
 
     let mut prev_locals = HashMap::new();
 
@@ -543,8 +651,13 @@ fn debug_execution_trace(mut req: Request, mut res: Response, caps: Captures, ch
     let mut index = 0;
     let mut done = false;
     while !done {
-        let message = match child.rx.recv() {
-            Ok(DebugMessage::Trace(DebugTrace::Line(line, locals))) => {
+        let message = {
+            let child = child.as_mut().unwrap();
+            child.rx.recv().unwrap()
+        };
+
+        let message = match message {
+            DebugMessage::Trace(DebugTrace::Line(line, locals)) => {
                 let this_index = index;
                 index += 1;
 
@@ -557,24 +670,26 @@ fn debug_execution_trace(mut req: Request, mut res: Response, caps: Captures, ch
                 }
                 prev_locals.extend(locals.into_iter());
 
-                Trace { index: this_index, t_type: 0, line: line, data: state.to_json() }
+                let data = TraceData { state: state.to_json() };
+                Trace { index: this_index, t_type: 0, line: line, data: data }
             }
 
-            Ok(DebugMessage::Trace(DebugTrace::Terminated(line))) => {
+            DebugMessage::Trace(DebugTrace::Terminated(line)) => {
                 done = true;
 
-                Trace { index: index, t_type: 2, line: line, data: Vec::<Trace>::new().to_json() }
+                let data = TraceData { state: Vec::<Trace>::new().to_json() };
+                Trace { index: index, t_type: 2, line: line, data: data }
             }
 
             _ => unreachable!()
         };
+
 
         let json = serde_json::to_vec(&message).unwrap();
         res.write_all(&json).unwrap();
         if !done { res.write_all(b",\n").unwrap(); }
         res.flush().unwrap();
     }
-
     res.write_all(b"]").unwrap();
     res.end().unwrap();
 }
