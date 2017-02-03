@@ -60,6 +60,9 @@ export class LauncherComponent {
                     self.snackBar.open('Error Launching '+launchedFile.name+' ('+error.status+'): '+error.statusText, undefined, {
                         duration: 3000
                     });
+                    if((<any>error).message) {
+                        console.error(error);
+                    }
                 }
             });
         } else {

@@ -1,49 +1,72 @@
-.debugger {
-  background: $background-color-0;
-  font-family: Courier, 'NewCourier', monospace;
-  font-size: 1em;
+.debugger-container {
+	.debugger-display {
+		display: table;
+		table-layout: fixed;
+		width: 100%;
+		.row {
+			display: table-row;
 
-  .reactive-height-cell {
+			& > div {
+				display: table-cell;
+				padding: 0.5rem;
+			}
+			.line-number-col {
+				width: 20px;
+			}
+			.source-code-col {
+				width: 700px;
+			}
+			.trace-col {
+			}
+		}
+		/*
+		background: $background-color-0;
+		font-family: Courier, 'NewCourier', monospace;
+		font-size: 1em;
 
-    padding-left: 8px;
-    padding-right: 8px;;
+		.reactive-height-cell {
 
-    background: $background-color-0;
+			padding-left: 8px;
+			padding-right: 8px;;
 
-    pre {
-      margin: 2px;
-    }
-  }
+			background: $background-color-0;
 
-  .debug-column reactive-height-cell:nth-of-type(odd) .reactive-height-cell {
-    background: $background-color-1;
-  }
+			pre {
+				margin: 2px;
+			}
+		}
 
-  .line-number-column {
-    background: $background-color-1;
-    border-left: 2px solid $background-color-2;
-    border-right: 2px solid $background-color-2;
-    text-align: right;
-  }
+		.debug-column reactive-height-cell:nth-of-type(odd) .reactive-height-cell {
+			background: $background-color-1;
+		}
 
-  .code-column {
-    border-right: 4px solid $background-color-2;
-  }
+		.line-number-column {
+			background: $background-color-1;
+			border-left: 2px solid $background-color-2;
+			border-right: 2px solid $background-color-2;
+			text-align: right;
+		}
 
-  .state-column {
-    .trace-column {
-      border-right: 2px solid $background-color-2;
-      .trace {
-        .trace-state {
-          ul {
-            margin: 0px;
-            padding-left: 0px;
-          }
-          li {
-            list-style-type: none;
-          }
-        }
-      }
-    }
-  }
+		.code-column {
+			border-right: 4px solid $background-color-2;
+		}
+
+		.state-column {
+			.trace-column {
+				border-right: 2px solid $background-color-2;
+				.trace {
+					.trace-state {
+						ul {
+							margin: 0px;
+							padding-left: 0px;
+						}
+						li {
+							list-style-type: none;
+						}
+					}
+				}
+			}
+		}
+		 */
+	}
 }

@@ -1,16 +1,21 @@
 import { Http, XHRBackend, BaseRequestOptions, RequestMethod, RequestOptions, Request, Response, ResponseOptions } from "@angular/http";
 import { MockBackend, MockConnection } from "@angular/http/testing";
 
+
+const host:string = 'http://localhost';
+const port:number = 3000;
+const responseDelay:number = 50;
+
 let debuggerStates = {
-	'0': `{"id": "0", "attachedProcess":{"id": 123, "name": "test"}, "sourcePath": "testSrc"}`
+	'0': `{"id": 0, "attachedProcess":{"id": 123, "name": "SpiceTestApp"}, "sourcePath": "testBin/SpiceTestApp.exe"}`
 };
 let sourceVariables = {
-	'0': `{"id": "0", "name": "a", "sType": "int", "address": 0}`,
-	'1': `{"id": "1", "name": "b", "sType": "int", "address": 4}`,
-	'2': `{"id": "2", "name": "tmp", "sType": "int", "address": 8}`,
-	'3': `{"id": "3", "name": "a", "sType": "int", "address": 12}`,
-	'4': `{"id": "4", "name": "b", "sType": "int", "address": 16}`,
-	'5': `{"id": "5", "name": "tmp", "sType": "int", "address": 20}`
+	'0': `{"id": 0, "name": "a", "sType": "int", "address": 0}`,
+	'1': `{"id": 1, "name": "b", "sType": "int", "address": 4}`,
+	'2': `{"id": 2, "name": "tmp", "sType": "int", "address": 8}`,
+	'3': `{"id": 3, "name": "a", "sType": "int", "address": 12}`,
+	'4': `{"id": 4, "name": "b", "sType": "int", "address": 16}`,
+	'5': `{"id": 5, "name": "tmp", "sType": "int", "address": 20}`
 };
 let sourceFunctions = {
 	'0': `{"address": 0, "name": "add", "sourcePath": "add.cpp", "lineNumber": 1, "lineCount": 5,
@@ -20,8 +25,8 @@ let sourceFunctions = {
 };
 
 let executions = {
-		'0': `{"id": "0", "eType": "process", "status": "done", "executionTime": 200, "data": { "nextExecution": "1"}}`,
-		'1': `{"id": "1", "eType": "function", "status": "executing", "executionTime": 100, "data": { "sFunction": ${sourceFunctions['0']} }}`
+		'0': `{"id": 0, "eType": "process", "status": "done", "executionTime": 200, "data": { "nextExecution": 1}}`,
+		'1': `{"id": 1, "eType": "function", "status": "executing", "executionTime": 100, "data": { "sFunction": ${sourceFunctions['0']} }}`
 };
 
 //each trace corresponds to an execution
@@ -35,14 +40,14 @@ let traces = {
 							//]`
 	'0': `[
 			{"index": 0, "tType": 1, "line": 1, "data": { "output": "beginning process"}},
-			{"index": 1, "tType": 2, "line": 3, "data": { "cause": "breakpoint", "nextExecution": "1"}}
+			{"index": 1, "tType": 2, "line": 3, "data": { "cause": "breakpoint", "nextExecution": 1}}
 		]`,
 	'1': `[
-			{"index": 0, "tType": 0, "line": 0, "data": { "state": [{"sVariable": ${sourceVariables['0']}, "value": 1}]}},
-			{"index": 1, "tType": 0, "line": 0, "data": { "state": [{"sVariable": ${sourceVariables['1']}, "value": 2}]}},
+			{"index": 0, "tType": 0, "line": 0, "data": { "state": [{"sVariable": ${sourceVariables['0']}, "value": "1"}]}},
+			{"index": 1, "tType": 0, "line": 0, "data": { "state": [{"sVariable": ${sourceVariables['1']}, "value": "2"}]}},
 			{"index": 2, "tType": 1, "line": 1, "data": { "output": "adding 1,2"}},
-			{"index": 3, "tType": 0, "line": 2, "data": { "state": [{"sVariable": ${sourceVariables['2']}, "value": 3}]}},
-			{"index": 4, "tType": 2, "line": 3, "data": { "cause": "ended", "returnValue": 3}}
+			{"index": 3, "tType": 0, "line": 2, "data": { "state": [{"sVariable": ${sourceVariables['2']}, "value": "3"}]}},
+			{"index": 4, "tType": 2, "line": 3, "data": { "cause": "ended", "returnValue": "3"}}
 		]`
 };
 
@@ -66,7 +71,7 @@ let urlsGet: {[url: string]: string} = {
 	'/api/v1/debug/0/executions/1/trace': traces['1']
 };
 let urlsPost: {[url: string]: string} = {
-	'/api/v1/debug/attach/bin/test': debuggerStates['0'],
+	'/api/v1/debug/attach/bin/testBin/SpiceTestApp.exe': debuggerStates['0'],
 	'/api/v1/debug/0/execute': executions['0']
 };
 let urlsPut: {[url: string]: string} = {
@@ -75,6 +80,15 @@ let urlsPut: {[url: string]: string} = {
 let urlsDelete: {[url: string]: string} = {
 	//'/api/v1/debug/0/functions': `{}`
 };
+
+function mapUrls(urls: {[url: string]: string}, config: {host: string, port: number}): {[url: string]: string} {
+	return Object.keys(urls).reduce((o, k) => {o[`${host}:${port}${k}`] = urls[k]; return o;}, {});
+}
+
+urlsGet = mapUrls(urlsGet, {host: host, port: port});
+urlsPost = mapUrls(urlsPost, {host: host, port: port});
+urlsPut = mapUrls(urlsPut, {host: host, port: port});
+urlsDelete = mapUrls(urlsDelete, {host: host, port: port});
 
 export let SpiceMockBackend = {
 	provide: Http,
@@ -122,7 +136,7 @@ export let SpiceMockBackend = {
 					connection.mockError(error);
 				});
 
-			}, 500);
+			}, responseDelay);
 
 		});
 

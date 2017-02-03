@@ -49,9 +49,9 @@ import { XHRBackend } from "@angular/http";
     ],
     providers: [
         //BEGIN MOCK PROVIDERS--Comment these out to disable backend mocking!
-        // MockBackend,
-        // BaseRequestOptions,
-        // SpiceMockBackend,
+		 MockBackend,
+		 BaseRequestOptions,
+		 SpiceMockBackend,
         //END MOCK PROVIDERS
         
         FileSystemService,
