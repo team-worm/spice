@@ -40,7 +40,7 @@ impl SymbolHandler {
 
         let Handle(ref mut handle) = *HANDLE.lock().unwrap();
         if handle.is_some() {
-            return Err(io::Error::new(io::ErrorKind::AlreadyExists, "symbol handler"));
+            return Err(io::Error::from(io::ErrorKind::AlreadyExists));
         }
 
         unsafe {
@@ -88,7 +88,7 @@ impl SymbolHandler {
             if dbghelp::SymGetModuleInfoW64(
                 self.0, address as winapi::DWORD64, &mut module
             ) == winapi::FALSE {
-                return Err(io::Error::last_os_error());
+                return Err(io::Error::new(io::ErrorKind::NotFound, io::Error::last_os_error()));
             }
 
             Ok(module.BaseOfImage as usize)
@@ -108,7 +108,7 @@ impl SymbolHandler {
             if dbghelp::SymFromAddrW(
                 self.0, address as winapi::DWORD64, &mut displacement, &mut symbol.0
             ) == winapi::FALSE {
-                return Err(io::Error::last_os_error());
+                return Err(io::Error::new(io::ErrorKind::NotFound, io::Error::last_os_error()));
             }
 
             let name = OsString::from_wide_raw_len(
@@ -134,7 +134,7 @@ impl SymbolHandler {
                 ..mem::zeroed()
             };
             if dbghelp::SymFromNameW(self.0, name_wide.as_ptr(), &mut symbol) == winapi::FALSE {
-                return Err(io::Error::last_os_error());
+                return Err(io::Error::new(io::ErrorKind::NotFound, io::Error::last_os_error()));
             }
 
             Ok(Symbol {
@@ -248,7 +248,7 @@ impl SymbolHandler {
                 self.0, module as winapi::DWORD64, index as winapi::ULONG, T::PROPERTY,
                 &mut property as *mut _ as *mut _
             ) == winapi::FALSE {
-                return Err(io::Error::last_os_error());
+                return Err(io::Error::new(io::ErrorKind::NotFound, io::Error::last_os_error()));
             }
 
             Ok(property)
@@ -276,7 +276,7 @@ impl SymbolHandler {
                 self.0, module as winapi::DWORD64, index as winapi::ULONG,
                 winapi::TI_FINDCHILDREN, children.as_mut_ptr() as *mut _
             ) == winapi::FALSE {
-                return Err(io::Error::last_os_error());
+                return Err(io::Error::new(io::ErrorKind::NotFound, io::Error::last_os_error()));
             }
         }
 
@@ -295,7 +295,7 @@ impl SymbolHandler {
             if dbghelp::SymGetLineFromAddrW64(
                 self.0, address as winapi::DWORD64, &mut displacement, &mut line
             ) == winapi::FALSE {
-                return Err(io::Error::last_os_error());
+                return Err(io::Error::new(io::ErrorKind::NotFound, io::Error::last_os_error()));
             }
 
             Ok((Line {
@@ -318,7 +318,7 @@ impl SymbolHandler {
             if dbghelp::SymGetLineFromAddrW64(
                 self.0, symbol.address as winapi::DWORD64, &mut displacement, &mut line
             ) == winapi::FALSE {
-                return Err(io::Error::last_os_error());
+                return Err(io::Error::new(io::ErrorKind::NotFound, io::Error::last_os_error()));
             }
 
             Ok(Lines { process: self.0, line, end: symbol.address + symbol.size })
@@ -362,13 +362,13 @@ impl SymbolHandler {
                 dbghelp::SymSetContext(self.0, &mut stack_frame, ptr::null_mut()) == winapi::FALSE
                 && kernel32::GetLastError() != winapi::ERROR_SUCCESS
             {
-                return Err(io::Error::last_os_error());
+                return Err(io::Error::new(io::ErrorKind::NotFound, io::Error::last_os_error()));
             }
 
             if dbghelp::SymEnumSymbolsW(
                 self.0, 0, ptr::null(), Some(enum_locals::<F>), &mut f as *mut _ as *mut _
             ) == winapi::FALSE {
-                return Err(io::Error::last_os_error());
+                return Err(io::Error::new(io::ErrorKind::NotFound, io::Error::last_os_error()));
             }
 
             return Ok(());
