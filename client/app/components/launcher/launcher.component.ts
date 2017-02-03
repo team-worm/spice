@@ -5,6 +5,7 @@ import {DebuggerService} from "../../services/debugger.service";
 import {MdSnackBar} from "@angular/material";
 import {DebuggerState} from "../../models/DebuggerState";
 import {Response} from "@angular/http";
+import {ViewService} from "../../services/view.service";
 
 @Component({
     selector: 'spice-launcher',
@@ -12,14 +13,19 @@ import {Response} from "@angular/http";
 })
 export class LauncherComponent {
 
-    public selectedFile: SourceFile | undefined;
-    public selectedProcess: Process | undefined;
+    public selectedFile: SourceFile | null;
+    public selectedProcess: Process | null;
+    public debugState:DebuggerState | null;
+    public debugStateFile: SourceFile | null;
 
     constructor(private debuggerService: DebuggerService,
-                private snackBar: MdSnackBar) {
+                private snackBar: MdSnackBar,
+                private viewService: ViewService) {
 
-        this.selectedFile = undefined;
-
+        this.selectedFile = null;
+        this.selectedProcess = null;
+        this.debugState = null;
+        this.debugStateFile = null;
     }
 
     public OnFileSelected($event:SourceFile) {
@@ -28,13 +34,20 @@ export class LauncherComponent {
     public OnProcessSelected($event:Process) {
         this.selectedProcess = $event;
     }
+    public MoveToConfiguration() {
+        this.viewService.activeView = 'configuration';
+    }
 
     public LaunchBinary() {
         if(this.selectedFile) {
             let self = this;
             let launchedFile = this.selectedFile;
             this.debuggerService.attachBinary(this.selectedFile.path).subscribe({
-                next: (ds:DebuggerState)=>{console.log(ds)},
+                next: (ds:DebuggerState)=>{
+                    self.debuggerService.setCurrentDebuggerState(ds);
+                    self.debugState = ds;
+                    self.debugStateFile = launchedFile;
+                },
                 complete: ()=>{},
                 error: (error:Response)=>{
                     self.snackBar.open('Error Launching '+launchedFile.name+' ('+error.status+'): '+error.statusText, undefined, {
@@ -53,5 +66,14 @@ export class LauncherComponent {
         this.snackBar.open("Attaching to process not yet implemented.", undefined, {
             duration: 1000
         });
+    }
+
+    public KillAndDetach() {
+        if(this.debugState) {
+            //TODO: When the api for detach exists do something for this.
+            this.snackBar.open("Killing and detaching not yet implemented.", undefined, {
+                duration: 1000
+            });
+        }
     }
 }

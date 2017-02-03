@@ -1,9 +1,18 @@
 <div id="ConfigurationContainer">
     <md-grid-list cols="3" rowHeight="{{GetRowHeight()}}">
         <md-grid-tile [colspan]="1" [rowspan]="4" [style.background]="'lightpink'">
-            <spice-process-list></spice-process-list>
+            <md-card>
+                <md-card-subtitle>Functions</md-card-subtitle>
+                <md-card-content>
+                    <spice-function-list [sourceFunctions]="sourceFunctions"></spice-function-list>
+                </md-card-content>
+            </md-card>
+
         </md-grid-tile>
         <md-grid-tile [colspan]="2" [rowspan]="1" [style.background]="'lightblue'">SourceType Stuff</md-grid-tile>
-        <md-grid-tile [colspan]="2" [rowspan]="3" [style.background]="'lightgreen'">Source Viewer</md-grid-tile>
+        <md-grid-tile [colspan]="2" [rowspan]="3" [style.background]="'lightgreen'">
+            Source Viewer
+            <button md-button (click)="Reload()">Reload</button>
+        </md-grid-tile>
     </md-grid-list>
 </div>

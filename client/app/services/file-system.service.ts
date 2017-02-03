@@ -25,68 +25,42 @@ export class FileSystemService {
         switch(_path) {
             case '':
                 ret = {
-                    name: 'root',
-                    path: '/',
+                    name: 'Spice Directory',
+                    path: '',
                     fType: 'directory',
                     contents: [
                         {
-                            name: 'src',
-                            path: '/src/',
+                            name: 'testBin',
+                            path: 'testBin/',
                             fType: 'directory',
                             contents: undefined
                         },
-                        {
-                            name: 'bin',
-                            path: '/bin/',
-                            fType: 'directory',
-                            contents: undefined
-                        },
-                        {
-                            name: 'unloadable',
-                            path: '/unloadable/',
-                            fType: 'directory',
-                            contents: undefined
-                        },
-                        {
-                            name: 'readme.txt',
-                            path: '/readme.txt',
-                            fType: 'file',
-                            contents: undefined
-                        }
                     ]
                 };
                 break;
-            case '/src/':
+            case 'testBin/':
                 ret = {
-                    name: 'src',
-                    path: '/src/',
+                    name: 'testBin',
+                    path: 'testBin/',
                     fType: 'directory',
                     contents: [{
-                        name: 'binary-search.c',
-                        path: '/src/binary-search.c',
+                        name: 'SpiceTestApp.exe',
+                        path: 'testBin/SpiceTestApp.exe',
                         fType: 'file',
                         contents: undefined
                     },
                     {
-                        name: 'main.c',
-                        path: '/src/main.c',
+                        name: 'SpiceTestApp.ilk',
+                        path: 'testBin/SpiceTestApp.ilk',
                         fType: 'file',
                         contents: undefined
-                    }]
-                };
-                break;
-            case '/bin/':
-                ret =  {
-                    name: 'bin',
-                    path: '/bin/',
-                    fType: 'directory',
-                    contents: [{
-                        name: 'binary-search.exe',
-                        path: '/bin/binary-search.exe',
+                    },
+                    {
+                        name: 'SpiceTestApp.pdb',
+                        path: 'testBin/SpiceTestApp.pdb',
                         fType: 'file',
                         contents: undefined
-                    }]
-                };
+                    }]};
                 break;
             default:
                 ret = undefined;

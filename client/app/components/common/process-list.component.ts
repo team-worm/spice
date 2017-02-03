@@ -12,7 +12,7 @@ import {Process} from "../../models/Process";
     <button *ngFor="let sortOption of sortingOptions" md-menu-item (click)="selectedSort=sortOption">{{sortOption.name}}<md-icon>{{sortOption.icon}}</md-icon></button>
 </md-menu>
 <md-list dense class="process-list">
-    <md-list-item *ngFor="let process of selectedSort.sortFunc(processes) | filterByString:filterString:ProcessToString" class="process-list-item" (click)="ProcessClicked(process)">
+    <md-list-item *ngFor="let process of selectedSort.sortFunc() | filterByString:filterString:ProcessToString" class="process-list-item" (click)="ProcessClicked(process)">
         <md-icon md-list-avatar class="process-icon">settings_application</md-icon>
         <p md-line class="process-header">{{process.name}}</p>
         <p md-line class="process-subheader">ID: {{process.id}}</p>
@@ -47,19 +47,19 @@ export class ProcessListComponent{
         this.sortingOptions = [{
             name: 'Name',
             icon: 'arrow_drop_up',
-            sortFunc: (processes:Process[])=>{return self.sortNameAscending(processes)}
+            sortFunc: ()=>{return self.sortNameAscending()}
         },{
             name: 'Name',
             icon: 'arrow_drop_down',
-            sortFunc: (processes:Process[])=>{return self.sortNameAscending(processes).reverse()}
+            sortFunc: ()=>{return self.sortNameAscending().reverse()}
         },{
             name: 'ID',
             icon: 'arrow_drop_up',
-            sortFunc: (processes:Process[])=>{return self.sortIDAscending(processes)}
+            sortFunc: ()=>{return self.sortIDAscending()}
         }, {
             name: 'ID',
             icon: 'arrow_drop_down',
-            sortFunc: (processes:Process[])=>{return self.sortIDAscending(processes).reverse()}
+            sortFunc: ()=>{return self.sortIDAscending().reverse()}
         }
         ];
         this.selectedSort = this.sortingOptions[0];
@@ -105,27 +105,32 @@ export class ProcessListComponent{
         return process.name;
     }
 
-    private sortNameAscending(processes:Process[]): Process[] {
-        processes.sort((a:Process, b:Process)=> {
-            if(a.name < b.name) {
-                return -1;
-            } else if(a.name > b.name) {
-                return 1;
-            }
-            return 0;
-        });
-        return processes;
+    private sortNameAscending(): Process[] {
+        if(this.processes) {
+            this.processes.sort((a:Process, b:Process)=> {
+                if(a.name < b.name) {
+                    return -1;
+                } else if(a.name > b.name) {
+                    return 1;
+                }
+                return 0;
+            });
+        }
+
+        return this.processes;
     }
-    private sortIDAscending(processes:Process[]): Process[] {
-        processes.sort((a:Process, b:Process)=> {
-            if(a.id < b.id) {
-                return -1;
-            } else if(a.id > b.id) {
-                return 1;
-            }
-            return 0;
-        });
-        return processes;
+    private sortIDAscending(): Process[] {
+        if(this.processes) {
+            this.processes.sort((a: Process, b: Process) => {
+                if (a.id < b.id) {
+                    return -1;
+                } else if (a.id > b.id) {
+                    return 1;
+                }
+                return 0;
+            });
+        }
+        return this.processes;
     }
 
 }

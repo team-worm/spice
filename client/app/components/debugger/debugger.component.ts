@@ -39,6 +39,7 @@ export class DebuggerComponent implements OnInit {
     //                 });
 		// 	}).subscribe(t => console.log(t), e => console.log(e));
 
+        /**
         this.debuggerService.attachBinary('testBin/SpiceTestApp.exe')
             .mergeMap((ds: DebuggerState) => {
                 return ds.getSourceFunctions()
@@ -62,6 +63,7 @@ export class DebuggerComponent implements OnInit {
                         }
                     });
             }).subscribe(t => console.log(JSON.stringify(t)), e => console.log(e));
+         **/
 
     }
 }
