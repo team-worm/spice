@@ -17,6 +17,7 @@ export class LauncherComponent {
     public selectedProcess: Process | null;
     public debugState:DebuggerState | null;
     public debugStateFile: SourceFile | null;
+    public attaching:boolean;
 
     constructor(private debuggerService: DebuggerService,
                 private snackBar: MdSnackBar,
@@ -26,6 +27,7 @@ export class LauncherComponent {
         this.selectedProcess = null;
         this.debugState = null;
         this.debugStateFile = null;
+        this.attaching = false;
     }
 
     public OnFileSelected($event:SourceFile) {
@@ -40,6 +42,8 @@ export class LauncherComponent {
 
     public LaunchBinary() {
         if(this.selectedFile) {
+            this.attaching = true;
+
             let self = this;
             let launchedFile = this.selectedFile;
             this.debuggerService.attachBinary(this.selectedFile.path).subscribe({
@@ -47,9 +51,12 @@ export class LauncherComponent {
                     self.debuggerService.setCurrentDebuggerState(ds);
                     self.debugState = ds;
                     self.debugStateFile = launchedFile;
+                    self.attaching = false;
                 },
-                complete: ()=>{},
+                complete: ()=>{
+                },
                 error: (error:Response)=>{
+                    self.attaching = false;
                     self.snackBar.open('Error Launching '+launchedFile.name+' ('+error.status+'): '+error.statusText, undefined, {
                         duration: 3000
                     });
