@@ -129,7 +129,8 @@ fn run(
 
     let event = debug::Event::wait_event()?;
     if let debug::EventInfo::CreateProcess { ref file, main_thread, base, .. } = event.info {
-        let _ = file.as_ref().ok_or(io::Error::from(io::ErrorKind::Other))
+        let _ = file.as_ref()
+            .ok_or(io::Error::new(io::ErrorKind::Other, "no file handle for CreateProcess"))
             .and_then(|file| state.symbols.load_module(file, base));
 
         state.threads.insert(event.thread_id, main_thread);
@@ -175,7 +176,8 @@ fn run(
             ServerMessage::ClearBreakpoint { .. } => {}
 
             ServerMessage::Continue => {
-                let message = event.take().ok_or(io::Error::new(io::ErrorKind::Other, "Nothing to continue"))
+                let message = event.take()
+                    .ok_or(io::Error::new(io::ErrorKind::AlreadyExists, "process already running"))
                     .and_then(|event| event.continue_event(true))
                     .map(|()| DebugMessage::Executing)
                     .unwrap_or_else(DebugMessage::Error);
@@ -351,7 +353,7 @@ fn trace_function(
                 } else if code == winapi::EXCEPTION_BREAKPOINT {
                     // disable and save the breakpoint
                     let breakpoint = match state.breakpoints.get_mut(&address) {
-                        Some(breakpoint) => breakpoint.take(),
+                        Some(breakpoint) => breakpoint.take().unwrap(),
                         None => {
                             event.continue_event(true)
                                 .map_err(|e| (e, None))?;
@@ -359,7 +361,7 @@ fn trace_function(
                         }
                     };
 
-                    let (line, locals) = match trace_breakpoint(state, address, breakpoint.unwrap(), thread) {
+                    let (line, locals) = match trace_breakpoint(state, address, breakpoint, thread) {
                         Ok((line, locals)) => (line, locals),
                         Err(e) => return Err((e, Some(event))),
                     };
@@ -444,5 +446,3 @@ fn trace_step(state: &mut DebugState, thread: RawHandle) -> io::Result<()> {
 
     Ok(())
 }
-
-
