@@ -1,13 +1,13 @@
-#![feature(custom_derive, field_init_shorthand)]
+#![feature(field_init_shorthand)]
 
 extern crate hyper;
 extern crate unicase;
 extern crate reroute;
 
+extern crate serde;
 #[macro_use]
 extern crate serde_derive;
-
-extern crate serde;
+#[macro_use]
 extern crate serde_json;
 
 extern crate debug;
@@ -24,7 +24,6 @@ use std::error::Error;
 use hyper::status::StatusCode;
 use hyper::server::{Server, Request, Response, Streaming};
 use reroute::{RouterBuilder, Captures};
-use serde_json::value::ToJson;
 
 use child::{ServerMessage, DebugMessage, DebugTrace};
 use api::*;
@@ -506,15 +505,9 @@ fn trace_stream(
 ) -> io::Result<()> {
     // TODO: this is a hack for the prototype; implement process executions
     if execution == 0 {
-        use serde_json::{Value, Map};
-
-        let mut map = Map::new();
-        map.insert(String::from("cause"), Value::String(String::from("breakpoint")));
-        map.insert(String::from("nextExecution"), Value::U64(1));
-        let object = Value::Object(map);
-
+        let data = json!({ "cause": "breakpoint", "nextExecution": 1 });
         let message = vec![
-            Trace { index: 0, t_type: 2, line: 0, data: object },
+            Trace { index: 0, t_type: 2, line: 0, data: data },
         ];
         serde_json::to_writer(res, &message).unwrap();
         return Ok(());
@@ -552,8 +545,8 @@ fn trace_stream(
                 }
                 prev_locals.extend(locals.into_iter());
 
-                let data = TraceData { state: state };
-                Trace { index: this_index, t_type: 0, line: line, data: data.to_json() }
+                let data = json!(TraceData { state: state });
+                Trace { index: this_index, t_type: 0, line: line, data: data }
             }
 
             DebugMessage::Trace(DebugTrace::Terminated(line)) => {
