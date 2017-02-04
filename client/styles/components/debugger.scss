@@ -1,72 +1,73 @@
 .debugger-container {
-	.debugger-display {
-		display: table;
-		table-layout: fixed;
-		width: 100%;
-		.row {
-			display: table-row;
+    margin: 1em;
+    .debugger-display {
+        display: table;
+        table-layout: fixed;
+        width: 100%;
+        .row {
+            display: table-row;
 
-			& > div {
-				display: table-cell;
-				padding: 0.5rem;
-			}
-			.line-number-col {
-				width: 20px;
-			}
-			.source-code-col {
-				width: 700px;
-			}
-			.trace-col {
-			}
-		}
-		/*
-		background: $background-color-0;
-		font-family: Courier, 'NewCourier', monospace;
-		font-size: 1em;
+            & > div {
+                display: table-cell;
+                padding: 0.5rem;
+            }
+            .line-number-col {
+                width: 20px;
+            }
+            .source-code-col {
+                width: 700px;
+            }
+            .trace-col {
+            }
+        }
+        /*
+        background: $background-color-0;
+        font-family: Courier, 'NewCourier', monospace;
+        font-size: 1em;
 
-		.reactive-height-cell {
+        .reactive-height-cell {
 
-			padding-left: 8px;
-			padding-right: 8px;;
+            padding-left: 8px;
+            padding-right: 8px;;
 
-			background: $background-color-0;
+            background: $background-color-0;
 
-			pre {
-				margin: 2px;
-			}
-		}
+            pre {
+                margin: 2px;
+            }
+        }
 
-		.debug-column reactive-height-cell:nth-of-type(odd) .reactive-height-cell {
-			background: $background-color-1;
-		}
+        .debug-column reactive-height-cell:nth-of-type(odd) .reactive-height-cell {
+            background: $background-color-1;
+        }
 
-		.line-number-column {
-			background: $background-color-1;
-			border-left: 2px solid $background-color-2;
-			border-right: 2px solid $background-color-2;
-			text-align: right;
-		}
+        .line-number-column {
+            background: $background-color-1;
+            border-left: 2px solid $background-color-2;
+            border-right: 2px solid $background-color-2;
+            text-align: right;
+        }
 
-		.code-column {
-			border-right: 4px solid $background-color-2;
-		}
+        .code-column {
+            border-right: 4px solid $background-color-2;
+        }
 
-		.state-column {
-			.trace-column {
-				border-right: 2px solid $background-color-2;
-				.trace {
-					.trace-state {
-						ul {
-							margin: 0px;
-							padding-left: 0px;
-						}
-						li {
-							list-style-type: none;
-						}
-					}
-				}
-			}
-		}
-		 */
-	}
+        .state-column {
+            .trace-column {
+                border-right: 2px solid $background-color-2;
+                .trace {
+                    .trace-state {
+                        ul {
+                            margin: 0px;
+                            padding-left: 0px;
+                        }
+                        li {
+                            list-style-type: none;
+                        }
+                    }
+                }
+            }
+        }
+         */
+    }
 }

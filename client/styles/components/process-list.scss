@@ -1,22 +1,22 @@
 .process-list {
-  .process-list-item {
-    &.selected {
-      background: #ccc;
+    .process-list-item {
+        &.selected {
+            background: #ccc;
+        }
+        cursor: pointer;
+        .process-icon {
+            text-align: center;
+            padding-top: 10px;
+        }
+        .process-header {
+            font-size: larger;
+        }
+        .process-subheader {
+            font-size: small;
+            font-style: italic;
+        }
+        &:hover {
+            background: #aaa;
+        }
     }
-    cursor:pointer;
-    .process-icon {
-      text-align: center;
-      padding-top: 10px;
-    }
-    .process-header {
-      font-size: larger;
-    }
-    .process-subheader {
-      font-size: small;
-      font-style: italic;
-    }
-    &:hover {
-      background: #aaa;
-    }
-  }
 }

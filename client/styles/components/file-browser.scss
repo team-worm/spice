@@ -1,22 +1,22 @@
 .file-browser {
-  .file-system-node {
-    &.selected {
-      background: #ccc;
+    .file-system-node {
+        &.selected {
+            background: #ccc;
+        }
+        cursor: pointer;
+        .file-icon {
+            text-align: center;
+            padding-top: 10px;
+        }
+        .file-header {
+            font-size: larger;
+        }
+        .file-subheader {
+            font-size: small;
+            font-style: italic;
+        }
+        &:hover {
+            background: #aaa;
+        }
     }
-    cursor:pointer;
-    .file-icon {
-      text-align: center;
-      padding-top: 10px;
-    }
-    .file-header {
-      font-size: larger;
-    }
-    .file-subheader {
-      font-size: small;
-      font-style: italic;
-    }
-    &:hover {
-      background: #aaa;
-    }
-  }
 }
