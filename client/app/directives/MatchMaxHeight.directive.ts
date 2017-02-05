@@ -13,7 +13,6 @@ export class MatchMaxHeightDirective implements OnInit, OnDestroy {
 	}
 
 	ngOnInit() {
-		console.log(this.matchId);
 		if(!MatchMaxHeightDirective.idMap[this.matchId]) {
 			MatchMaxHeightDirective.idMap[this.matchId] = {maxHeight: 0, directives: []};
 		}
@@ -29,6 +28,9 @@ export class MatchMaxHeightDirective implements OnInit, OnDestroy {
 
 	public static update(id: string): void {
 		let selection = MatchMaxHeightDirective.idMap[id];
+		if(!selection) {
+			throw new Error(`MatchMaxHeightDirective: invalid id '${id}'`);
+		}
 		//restore old heights
 		selection.directives.forEach(v => {
 			//update actualHeight if the height attribute appears changed
@@ -44,7 +46,6 @@ export class MatchMaxHeightDirective implements OnInit, OnDestroy {
 		
 		//calculate new max height
 		selection.maxHeight = selection.directives.reduce((max, v) => Math.max(max, MatchMaxHeightDirective.outerHeight(v.el)), 0);
-		console.log(selection.maxHeight);
 		//set heights to max height
 		selection.directives.forEach(v => {
 			v.el.nativeElement.style.height = `${selection.maxHeight}px`;

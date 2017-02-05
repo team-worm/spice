@@ -9,7 +9,7 @@
 	.debugger-container {
 		.debugger-display {
 			.row:nth-of-type(odd) {
-				background: md-color($primary, 200);
+				background: md-color($primary, 50);
 			}
 			.line-number-col {
 				border-left: 2px solid md-color($primary, 700);

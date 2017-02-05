@@ -19,15 +19,8 @@
 		}
 		.trace-col {
 			.iteration-col {
-			}
-		}
-	}
-		/*
-		.state-column {
-			.trace-column {
-				border-right: 2px solid $background-color-2;
 				.trace {
-					.trace-state {
+					.trace-instruction {
 						ul {
 							margin: 0px;
 							padding-left: 0px;
@@ -39,5 +32,5 @@
 				}
 			}
 		}
-		 */
+	}
 }

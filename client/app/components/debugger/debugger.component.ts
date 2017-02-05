@@ -8,6 +8,7 @@ import { TraceOfTermination } from "../../models/trace/TraceOfTermination";
 import { Observable } from "rxjs/Observable";
 import {SourceFunction} from "../../models/SourceFunction";
 import { MatchMaxHeightDirective } from "../../directives/MatchMaxHeight.directive";
+import { Response } from "@angular/http";
 @Component({
 	selector: 'spice-debugger',
 	templateUrl: 'app/components/debugger/debugger.component.html'
@@ -15,34 +16,69 @@ import { MatchMaxHeightDirective } from "../../directives/MatchMaxHeight.directi
 
 export class DebuggerComponent implements OnInit {
 
+	protected lines: { sourceCode: string, traces: Trace[]}[];
+	protected lastTraceLine: number;
+	protected traceColCount: number;
 	constructor(private debuggerService: DebuggerService) {
+		this.lastTraceLine = Number.POSITIVE_INFINITY;
+		this.traceColCount = 0;
 	}
 
-	public refresh(id: string): void {
-		MatchMaxHeightDirective.update(id);
+	public refresh(): void {
+		this.lines.forEach((l,i) => MatchMaxHeightDirective.update(i.toString()));
 	}
+	//
+	public load(): void {
+		let executionId = '2';
+		let sourcePath = 'collatz.c';
+		//TODO: get file contents from server
+		this.lines =
+`int collatz(int n) {
+	int t = 0;
+	while(n !== 1) {
+		if(n % 2 == 0) {
+			n /= 2;
+		} else {
+			n = 3*n + 1;
+		}
+		t++;
+	}
+	return t;
+}`.split('\n').map(l => {return { sourceCode: l, traces: []}});
+		//TODO: figure out how to do this without a delay
+		Observable.of(null).delay(100).subscribe(() => this.refresh());
+		
+		let ds:DebuggerState|null = null;
+		if(ds = this.debuggerService.getCurrentDebuggerState()) {
+			ds.getTrace(executionId).subscribe({
+				next: (t: Trace)=>{
+					this.addTrace(t);
+				},
+				complete: ()=>{},
+					error: (error:Response)=>{
+					console.error(error);
+				}
+			})
+		} else {
+			console.error('Not attached');
+		}
+	}
+
+	public addTrace(trace: Trace) {
+		let line = this.lines[trace.line - 1];
+		if(this.lastTraceLine >= trace.line) {
+			this.traceColCount++;
+		}
+
+		line.traces[this.traceColCount-1] = trace;
+
+		this.lastTraceLine = trace.line;
+
+		//TODO: figure out how to do this without a delay
+		Observable.of(null).delay(100).subscribe(() => MatchMaxHeightDirective.update((trace.line-1).toString()));
+	}
+
 	ngOnInit(): void {
-		//let ds:DebuggerState|null = null;
-		//if(ds = this.debuggerService.getCurrentDebuggerState()) {
-			//this.debugState = ds;
-			//let self = this;
-			//ds.getSourceFunctions().subscribe({
-				//next: (sfMap:{[id: string]: SourceFunction})=>{
-					//self.sourceFunctions = Object.keys(sfMap).map((key:string)=> {return sfMap[key]});
-				//},
-				//complete: ()=>{},
-					//error: (error:Response)=>{
-					//console.log(error);
-					//self.snackBar.open('Error getting Source Functions', undefined, {
-						//duration: 3000
-					//});
-				//}
-			//})
-		//} else {
-			//this.snackBar.open('Not attached.', undefined, {
-				//duration: 3000
-			//});
-		//}
 	// this.debuggerService.attachBinary('testBin/SpiceTestApp.exe')
 	// 	.mergeMap((ds: DebuggerState) => {
 	// 		return ds.getSourceFunctions()

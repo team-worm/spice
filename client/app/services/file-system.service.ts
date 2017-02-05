@@ -35,6 +35,12 @@ export class FileSystemService {
                             fType: 'directory',
                             contents: undefined
                         },
+                        {
+                            name: 'collatz.exe',
+                            path: 'collatz.exe',
+                            fType: 'file',
+                            contents: undefined
+                        },
                     ]
                 };
                 break;
