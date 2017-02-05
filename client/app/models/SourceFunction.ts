@@ -18,6 +18,28 @@ export class SourceFunction {
 	) {
 	}
 
+	public GetParametersAsString():string {
+		let out:string = '(';
+		let first:boolean = true;
+
+		for(let i = 0; i < this.parameters.length; i++) {
+			let par = this.parameters[i];
+			if(first) {
+				first = false;
+			} else {
+				out += ', '
+			}
+			out += par.sType.toString() + ' ';
+			out += par.name;
+		}
+		if(first) {
+			out += ' ';
+		}
+		out += ')';
+
+		return out;
+	}
+
 	static fromObjectStrict(obj: any): SourceFunction {
 		SpiceValidator.assertTypeofStrict(obj, 'object');
 		SpiceValidator.assertTypeofStrict(obj.address, 'number');

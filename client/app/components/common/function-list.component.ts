@@ -5,21 +5,21 @@ import {SourceType} from "../../models/SourceType";
 @Component({
     selector: 'spice-function-list',
     template: `
-<div class="function-list">
-<div class="small-padding">
+<div class="function-list" fxLayout="column" [style.height.px]="elementHeightPx">
+<div class="small-padding" fxFlex="noshrink">
     <md-input-container> 
         <md-icon md-prefix>search</md-icon>
         <input md-input [(ngModel)]="filterString"/>
     </md-input-container>
 </div>
-
-<md-list dense>
-    <md-list-item 
+<md-list dense fxFlex="grow">
+    <md-list-item
         class="function-list-item"
+        [ngClass]="{'selected': selectedFunction == func}"
         *ngFor="let func of SortNameAscending() | filterByString:filterString:FunctionToString" 
         (click)="FunctionClicked(func)">
         <md-icon class="function-icon" md-list-avatar>library_books</md-icon>
-        <p class="function-header" md-line title="{{func.name}} {{GetParametersAsString(func)}}"><b>{{func.name}}</b> {{GetParametersAsString(func)}}</p>
+        <p class="function-header" md-line title="{{func.name}} {{func.GetParametersAsString()}}"><b>{{func.name}}</b> {{func.GetParametersAsString()}}</p>
         <p class="function-subheader" md-line title="{{func.sourcePath}}">{{func.sourcePath}}</p>
     </md-list-item>
 </md-list>
@@ -30,6 +30,9 @@ export class FunctionListComponent{
 
     public filterString:string;
     public selectedFunction:SourceFunction;
+
+    @Input()
+    public elementHeightPx:number;
 
     @Input()
     public sourceFunctions: SourceFunction[];
@@ -44,29 +47,6 @@ export class FunctionListComponent{
     public FunctionClicked(func:SourceFunction) {
         this.selectedFunction = func;
         this.onFunctionSelected.emit(func);
-    }
-
-    public GetParametersAsString(func:SourceFunction):string {
-        let out:string = '(';
-        let first:boolean = true;
-
-        for(let i = 0; i < func.parameters.length; i++) {
-            let par = func.parameters[i];
-            if(first) {
-                first = false;
-            } else {
-                out += ', '
-            }
-            out += par.sType.toString() + ' ';
-            out += par.name;
-        }
-        if(first) {
-            out += ' ';
-        }
-        out += ')';
-
-        return out;
-
     }
 
     public SortNameAscending(): SourceFunction[] {

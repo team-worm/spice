@@ -1,16 +1,24 @@
-<div id="ConfigurationContainer">
-    <md-grid-list cols="3" rowHeight="{{GetRowHeight()}}">
-        <md-grid-tile [colspan]="1" [rowspan]="4" class="config-tile">
-            <md-card class="smallerMargin">
-                <md-card-title>Functions</md-card-title>
-                <spice-function-list class="width-100" [sourceFunctions]="sourceFunctions"></spice-function-list>
-            </md-card>
+<div id="ConfigurationContainer" fxLayout="row">
+    <div fxFlex="30" >
+        <md-card class="smallerMargin" [style.height.px]="GetFullCardHeight()">
+            <md-card-subtitle>Functions <button md-button [style.background]="'white'" (click)="Reload()"><md-icon>refresh</md-icon></button></md-card-subtitle>
+            <spice-function-list
+                    class="width-100"
+                    [sourceFunctions]="sourceFunctions"
+                    [elementHeightPx]="GetListHeight()"
+                    (onFunctionSelected)="OnFunctionSelected($event)"></spice-function-list>
+        </md-card>
+    </div>
+    <div fxFlex="70">
+        <md-card class="smallerMargin">
+            <md-card-title>Selected Function: <i>{{GetSelectedFunctionAsString()}}</i></md-card-title>
+            <md-card-subtitle *ngIf="!selectedFunction">Select a function from the list to the left.</md-card-subtitle>
+            <md-card-subtitle *ngIf="!!selectedFunction">Line {{selectedFunction.lineNumber}} of {{selectedFunction.sourcePath}}</md-card-subtitle>
+            <md-card-actions>
+                <button md-button [disabled]="!selectedFunction" (click)="SetBreakpoint()">Set Breakpoint</button>
+                <button md-button [disabled]="!setBreakpoint" (click)="RunFunction()">Run</button>
+            </md-card-actions>
+        </md-card>
 
-        </md-grid-tile>
-        <md-grid-tile [colspan]="2" [rowspan]="1" [style.background]="'lightblue'">SourceType Stuff</md-grid-tile>
-        <md-grid-tile [colspan]="2" [rowspan]="3" [style.background]="'lightgreen'">
-            Source Viewer
-            <button md-button (click)="Reload()">Reload</button>
-        </md-grid-tile>
-    </md-grid-list>
+    </div>
 </div>
