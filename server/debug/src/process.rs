@@ -130,6 +130,7 @@ impl IntoRawHandle for Child {
 }
 
 /// An enabled breakpoint in a child process
+#[derive(Clone)]
 pub struct Breakpoint {
     address: usize,
     saved: [u8; 1],

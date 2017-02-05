@@ -15,20 +15,23 @@ pub struct Thread {
     pub thread: JoinHandle<()>,
     pub tx: SyncSender<ServerMessage>,
     pub rx: Receiver<DebugMessage>,
-
+    
     pub execution: Option<i32>,
     pub id: i32,
 }
+
+
 
 /// messages the debug event loop sends to the server
 pub enum DebugMessage {
     Attached,
     Functions(Vec<Function>),
+    Execution(Exec),
     Function(Function),
     Breakpoints(Vec<usize>),
     Breakpoint,
     BreakpointRemoved,
-    Executing,
+    Executing(Exec),
     Trace(DebugTrace),
     Error(io::Error),
 }
@@ -65,6 +68,8 @@ pub enum ServerMessage {
     ClearBreakpoint { address: usize },
     Continue,
     CallFunction { address: usize, arguments: Vec<i32> },
+    ListExecutions,
+    GetExecution,
     Trace,
     Stop,
     Quit,
@@ -123,12 +128,20 @@ struct TargetState {
     symbols: debug::SymbolHandler,
     threads: HashMap<winapi::DWORD, RawHandle>,
     breakpoints: HashMap<usize, Option<debug::Breakpoint>>,
+    execution: Option<Exec>,
 }
 
 struct TraceState {
     execution: Option<Execution>,
     event: Option<debug::Event>,
     attached: bool,
+}
+
+#[derive(Clone)]
+pub struct Exec {
+    pub e_type: String,
+    pub status: String,
+    pub execution_time: i32,
 }
 
 enum Execution {
@@ -155,6 +168,7 @@ fn run(
         symbols: symbols,
         threads: HashMap::new(),
         breakpoints: HashMap::new(),
+        execution: None,
     };
 
     let event = debug::Event::wait_event()?;
@@ -212,16 +226,62 @@ fn run(
             }
 
             ServerMessage::Continue => {
-                let message = continue_process(&mut trace)
-                    .map(|()| DebugMessage::Executing)
+                let message = trace.event.take()
+                    .ok_or(io::Error::new(io::ErrorKind::AlreadyExists, "process already running"))
+                    .and_then(|event| {
+                        event.continue_event(true)?;
+                        let execution = Exec {
+                            e_type: String::from("process"),
+                            status: String::from("executing"),
+                            execution_time: 0,
+                        };
+
+                        target.execution = Some(execution.clone());
+                        trace.execution = Some(Execution::Process);
+                        Ok(execution)
+                    })
+                    .map(|execution| DebugMessage::Executing(execution))
                     .unwrap_or_else(DebugMessage::Error);
                 tx.send(message).unwrap();
             }
 
-            ServerMessage::CallFunction { address, arguments } => {
-                let message = call_function(&mut target, &mut trace, address, arguments)
-                    .map(|()| DebugMessage::Executing)
+            ServerMessage::CallFunction { address } => {
+                let message = trace.event.take()
+                    .ok_or(io::Error::new(io::ErrorKind::AlreadyExists, "function already running"))
+                    .and_then(|event| {
+                        if let Some(breakpoint) = target.breakpoints.get(&address).clone() {
+                            event.continue_event(true)?;
+                            let mut t = HashMap::new();
+                            t.insert(address, breakpoint.clone());
+                            let execution = Exec {
+                                e_type: String::from("function"),
+                                status: String::from("executing"),
+                                execution_time: 0,
+                            };
+
+                            target.execution = Some(execution.clone());
+                            trace.execution = Some(Execution::Function {
+                                trace: t, exit: (address, breakpoint.clone().unwrap())
+                            });
+                            
+                            return Ok(execution);
+                        } else {
+                            return Err(io::Error::new(io::ErrorKind::NotFound, "no breakpoint on function"));
+                        }
+                    })
+                    .map(|execution| DebugMessage::Executing(execution))
                     .unwrap_or_else(DebugMessage::Error);
+                tx.send(message).unwrap();
+            }
+
+
+            ServerMessage::ListExecutions => {
+                let message = DebugMessage::Execution(target.execution.clone().unwrap());
+                tx.send(message).unwrap();
+            }
+
+            ServerMessage::GetExecution => {
+                let message = DebugMessage::Execution(target.execution.clone().unwrap());
                 tx.send(message).unwrap();
             }
 

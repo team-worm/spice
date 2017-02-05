@@ -142,14 +142,12 @@ fn main() {
     });
 
     let child = child_thread.clone();
-    router.post(r"/api/v1/debug/([0-9]*)/functions/([0-9]*)/execute", move |mut req, res, caps| {
-        let body: Call = match serde_json::from_reader(&mut req) {
-            Ok(body) => body,
-            Err(e) => {
-                send_error(req, res, io::Error::new(io::ErrorKind::InvalidInput, e)).unwrap();
-                return
-            }
-        };
+    router.post(r"/api/v1/debug/([0-9]*)/functions/([0-9]*)/execute", move |req, res, caps| {
+        match debug_function_execute(caps, child.clone()) {
+            Ok(body) => send(req, res, &body),
+            Err(e) => send_error(req, res, e),
+        }.unwrap();
+    });
 
         match debug_function_execute(caps, body, child.clone()) {
             Ok(body) => send(req, res, &body),
@@ -157,8 +155,22 @@ fn main() {
         }.unwrap();
     });
 
-    router.get(r"/api/v1/debug/([0-9]*)/executions", debug_executions);
-    router.get(r"/api/v1/debug/([0-9]*)/executions/([0-9]*)", debug_execution);
+
+    let child = child_thread.clone();
+    router.get(r"/api/v1/debug/([0-9]*)/executions", move |req, res, caps| {
+        match debug_executions(caps, child.clone()) {
+            Ok(body) => send(req, res, &body),
+            Err(e) => send_error(req, res, e),
+        }.unwrap();
+    });
+
+    let child = child_thread.clone();
+    router.get(r"/api/v1/debug/([0-9]*)/executions/([0-9]*)", move |req, res, caps| {
+        match debug_execution(caps, child.clone()) {
+            Ok(body) => send(req, res, &body),
+            Err(e) => send_error(req, res, e),
+        }.unwrap();
+    });
 
     let child = child_thread.clone();
     router.get(r"/api/v1/debug/([0-9]*)/executions/([0-9]*)/trace", move |mut req, mut res, caps| {
@@ -510,6 +522,22 @@ fn debug_breakpoint_delete(caps: Captures, child: ChildThread) -> io::Result<Vec
     Ok(vec![])
 }
 
+impl From<child::Exec> for Execution {
+    fn from(execution: child::Exec) -> Execution {
+        let child::Exec {
+            e_type, status, execution_time
+        } = execution;
+
+        Execution {
+            id: -1,
+            e_type: e_type,
+            status: status,
+            execution_time: execution_time,
+            data: None,
+        }
+    }
+}
+
 /// POST /debug/:id/execute -- starts or continues process
 fn debug_execute(caps: Captures, _body: Launch, child: ChildThread) -> io::Result<Vec<u8>> {
     let caps = caps.unwrap();
@@ -521,20 +549,17 @@ fn debug_execute(caps: Captures, _body: Launch, child: ChildThread) -> io::Resul
         .ok_or(io::Error::from(io::ErrorKind::NotConnected))?;
 
     child.tx.send(ServerMessage::Continue).unwrap();
-    let id = match child.rx.recv().unwrap() {
-        DebugMessage::Executing => child.next_id(),
+    let execution = match child.rx.recv().unwrap() {
+        DebugMessage::Executing(execution) => execution,
         DebugMessage::Error(e) => return Err(e),
         _ => unreachable!(),
     };
-    child.execution = Some(id);
 
-    let message = Execution {
-        id: id,
-        e_type: String::from("process"),
-        status: String::from("executing"),
-        execution_time: 0,
-        data: ExecutionData { next_execution: 0 },
-    };
+    let mut message = Execution::from(execution);
+    message.id = child.next_execution();
+
+
+
     Ok(serde_json::to_vec(&message).unwrap())
 }
 
@@ -552,33 +577,70 @@ fn debug_function_execute(caps: Captures, body: Call, child: ChildThread) -> io:
         .ok_or(io::Error::from(io::ErrorKind::NotConnected))?;
 
     child.tx.send(ServerMessage::CallFunction { address, arguments }).unwrap();
-    let id = match child.rx.recv().unwrap() {
-        DebugMessage::Executing => child.next_id(),
+    let execution = match child.rx.recv().unwrap() {
+        DebugMessage::Executing(execution) => execution,
         DebugMessage::Error(e) => return Err(e),
         _ => unreachable!(),
     };
-    child.execution = Some(id);
 
-    let message = Execution {
-        id: id,
-        e_type: String::from("function"),
-        status: String::from("executing"),
-        execution_time: 0,
-        data: ExecutionData { next_execution: 0 },
-    };
+    let mut message = Execution::from(execution);
+    message.id = child.next_execution();
+
     Ok(serde_json::to_vec(&message).unwrap())
 }
 
 /// POST /debug/:id/executions
-fn debug_executions(req: Request, mut res: Response, _: Captures) {
-    *res.status_mut() = StatusCode::NotImplemented;
-    send(req, res, b"").unwrap();
+fn debug_executions(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
+    let caps = caps.unwrap();
+    let _debug_id = caps[1].parse::<u64>()
+        .map_err(|e| io::Error::new(io::ErrorKind::NotConnected, e))?;
+
+    let mut child = child.lock().unwrap();
+    let child = child.as_mut()
+        .ok_or(io::Error::from(io::ErrorKind::NotConnected))?;
+
+    child.tx.send(ServerMessage::ListExecutions).unwrap();
+    let execution = match child.rx.recv().unwrap() {
+        DebugMessage::Execution(execution) => execution,
+        DebugMessage::Error(e) => return Err(e),
+        _ => unreachable!(),
+    };
+
+    let message = Execution::from(execution);
+
+    Ok(serde_json::to_vec(&message).unwrap())
 }
 
 /// GET /debug/:id/executions/:execution -- get information about execution status
-fn debug_execution(req: Request, mut res: Response, _: Captures) {
-    *res.status_mut() = StatusCode::NotImplemented;
-    send(req, res, b"").unwrap();
+fn debug_execution(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
+    let caps = caps.unwrap();
+    let _debug_id = caps[1].parse::<u64>()
+        .map_err(|e| io::Error::new(io::ErrorKind::NotConnected, e))?;
+
+    let execution_id = caps[2].parse::<i32>()
+        .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
+
+
+    let mut child = child.lock().unwrap();
+    let child = child.as_mut()
+        .ok_or(io::Error::from(io::ErrorKind::NotConnected))?;
+
+    if execution_id != child.execution {
+        return Err(io::Error::new(io::ErrorKind::NotConnected, "not current execution"));
+    }
+
+    child.tx.send(ServerMessage::GetExecution).unwrap();
+
+    let execution = match child.rx.recv().unwrap() {
+        DebugMessage::Execution(exec) => exec,
+        DebugMessage::Error(e) => return Err(e),
+        _ => unreachable!(),
+    };
+
+    let mut message = Execution::from(execution);
+    message.id = child.execution;
+
+    Ok(serde_json::to_vec(&message).unwrap())
 }
 
 /// GET /debug/:id/executions/:execution/trace -- Get trace data for execution
