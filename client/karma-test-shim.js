@@ -53,6 +53,7 @@ System.config({
         '@angular/router/testing': 'npm:@angular/router/bundles/router-testing.umd.js',
         '@angular/forms/testing': 'npm:@angular/forms/bundles/forms-testing.umd.js',
         '@angular/material': 'npm:@angular/material/bundles/material.umd.js',
+        '@angular/flex-layout': 'npm:@angular/flex-layout/bundles/flex-layout.umd.js'
     },
 });
 

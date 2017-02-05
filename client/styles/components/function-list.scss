@@ -1,0 +1,33 @@
+.function-list {
+    .function-list-item {
+        cursor:pointer;
+        .function-icon {
+            text-align: center;
+            padding-top: 10px;
+        }
+        .function-header {
+            font-size: larger;
+        }
+        .function-subheader {
+            font-size: x-small;
+            font-style: italic;
+        }
+
+        &.selected {
+            background: rgba(0,0,0,0.5);
+        }
+        &:hover {
+            background: rgba(0,0,0,0.3);
+        }
+    }
+    .small-padding {
+        padding: 1em;
+    }
+    md-list {
+        overflow-y: scroll;
+        overflow-x: hidden;
+    }
+    md-input-container {
+        width: 100%;
+    }
+}

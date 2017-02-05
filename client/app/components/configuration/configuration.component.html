@@ -1,11 +1,9 @@
 <div id="ConfigurationContainer">
     <md-grid-list cols="3" rowHeight="{{GetRowHeight()}}">
-        <md-grid-tile [colspan]="1" [rowspan]="4" [style.background]="'lightpink'">
-            <md-card>
-                <md-card-subtitle>Functions</md-card-subtitle>
-                <md-card-content>
-                    <spice-function-list [sourceFunctions]="sourceFunctions"></spice-function-list>
-                </md-card-content>
+        <md-grid-tile [colspan]="1" [rowspan]="4" class="config-tile">
+            <md-card class="smallerMargin">
+                <md-card-title>Functions</md-card-title>
+                <spice-function-list class="width-100" [sourceFunctions]="sourceFunctions"></spice-function-list>
             </md-card>
 
         </md-grid-tile>

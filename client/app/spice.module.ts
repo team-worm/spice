@@ -7,6 +7,7 @@ import {MaterialModule, MdIconRegistry} from "@angular/material";
 import {FormsModule} from "@angular/forms";
 import {HttpModule} from "@angular/http";
 import {RouterModule} from "@angular/router";
+import {FlexLayoutModule} from "@angular/flex-layout";
 
 import {SpiceRootComponent} from "./components/spice-root.component";
 import {ToolbarComponent} from "./components/toolbar/toolbar.component";
@@ -32,7 +33,7 @@ import { SpiceMockBackend } from "./spice-mock-backend";
 import { XHRBackend } from "@angular/http";
 
 @NgModule({
-    imports: [MaterialModule.forRoot(), FormsModule, RouterModule, BrowserModule, HttpModule],
+    imports: [MaterialModule.forRoot(), FormsModule, RouterModule, BrowserModule, HttpModule, FlexLayoutModule],
     declarations: [
         AboutComponent,
         HelpComponent,
@@ -49,9 +50,9 @@ import { XHRBackend } from "@angular/http";
     ],
     providers: [
         //BEGIN MOCK PROVIDERS--Comment these out to disable backend mocking!
-		 MockBackend,
-		 BaseRequestOptions,
-		 SpiceMockBackend,
+		 // MockBackend,
+		 // BaseRequestOptions,
+		 // SpiceMockBackend,
         //END MOCK PROVIDERS
         
         FileSystemService,

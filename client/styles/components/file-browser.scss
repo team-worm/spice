@@ -1,7 +1,7 @@
 .file-browser {
     .file-system-node {
         &.selected {
-            background: #ccc;
+            background: rgba(0,0,0,0.5);;
         }
         cursor: pointer;
         .file-icon {
@@ -16,7 +16,7 @@
             font-style: italic;
         }
         &:hover {
-            background: #aaa;
+            background: rgba(0,0,0,0.3);;
         }
     }
 }
