@@ -7,6 +7,7 @@ import { Trace } from "../../models/trace/Trace";
 import { TraceOfTermination } from "../../models/trace/TraceOfTermination";
 import { Observable } from "rxjs/Observable";
 import {SourceFunction} from "../../models/SourceFunction";
+import { MatchMaxHeightDirective } from "../../directives/MatchMaxHeight.directive";
 @Component({
 	selector: 'spice-debugger',
 	templateUrl: 'app/components/debugger/debugger.component.html'
@@ -17,6 +18,9 @@ export class DebuggerComponent implements OnInit {
 	constructor(private debuggerService: DebuggerService) {
 	}
 
+	public refresh(id: string): void {
+		MatchMaxHeightDirective.update(id);
+	}
 	ngOnInit(): void {
 		//let ds:DebuggerState|null = null;
 		//if(ds = this.debuggerService.getCurrentDebuggerState()) {

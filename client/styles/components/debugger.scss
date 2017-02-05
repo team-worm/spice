@@ -4,12 +4,12 @@
 		font-family: Courier, 'NewCourier', monospace;
 		font-size: 1em;
 
-		*[matchMaxAttribute] {
+		.row {
 			padding-left: 8px;
 			padding-right: 8px;
 			pre {
 				font-family: inherit;
-				margin: 2px;
+				margin: 0px;
 			}
 		}
 		.line-number-col {

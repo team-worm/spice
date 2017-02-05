@@ -8,7 +8,7 @@
 
 	.debugger-container {
 		.debugger-display {
-			*[matchMaxAttribute]:nth-of-type(odd) {
+			.row:nth-of-type(odd) {
 				background: md-color($primary, 200);
 			}
 			.line-number-col {

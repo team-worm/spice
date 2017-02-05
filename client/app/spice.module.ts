@@ -31,7 +31,7 @@ import { MockBackend } from "@angular/http/testing";
 import { Http, BaseRequestOptions, RequestOptions, ConnectionBackend } from "@angular/http";
 import { SpiceMockBackend } from "./spice-mock-backend";
 import { XHRBackend } from "@angular/http";
-import { MatchMaxAttributeDirective } from "./directives/MatchMaxAttribute.directive";
+import { MatchMaxHeightDirective } from "./directives/MatchMaxHeight.directive";
 
 @NgModule({
     imports: [MaterialModule.forRoot(), FormsModule, RouterModule, BrowserModule, HttpModule, FlexLayoutModule],
@@ -48,7 +48,7 @@ import { MatchMaxAttributeDirective } from "./directives/MatchMaxAttribute.direc
         FunctionListComponent,
         ProcessListComponent,
         FilterByStringPipe,
-        MatchMaxAttributeDirective
+        MatchMaxHeightDirective
     ],
     providers: [
         //BEGIN MOCK PROVIDERS--Comment these out to disable backend mocking!
