@@ -73,19 +73,13 @@ fn main() {
 
                         let function = symbols.symbol_from_name(&function_name)
                             .expect("failed to get symbol");
-                        let module = symbols.module_from_address(function.address)
-                            .expect("failed to get module");
 
                         let arg_type = debug::Type::Base {
                             base: debug::Primitive::Int { signed: true }, size: 4
                         };
                         let args = vec![
-                            debug::Value {
-                                data: vec![5, 0, 0, 0], data_type: arg_type.clone(), module: module
-                            },
-                            debug::Value {
-                                data: vec![7, 0, 0, 0], data_type: arg_type.clone(), module: module
-                            },
+                            debug::Value::new(5, arg_type.clone()),
+                            debug::Value::new(7, arg_type.clone()),
                         ];
 
                         let call = debug::Call::setup(
@@ -104,8 +98,10 @@ fn main() {
 
                         let (value, restore) = call.teardown(&child, &context, &symbols)
                             .expect("failed to read return value");
-                        debug::set_thread_context(thread, &restore)
-                            .expect("failed to set context");
+                        if let Some(context) = restore {
+                            debug::set_thread_context(thread, &context)
+                                .expect("failed to set context");
+                        }
 
                         println!("returned {}", value.display(&symbols));
                         child.terminate().unwrap();

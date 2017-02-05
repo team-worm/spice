@@ -29,6 +29,7 @@ use child::{ServerMessage, DebugMessage, DebugTrace};
 use api::*;
 
 mod child;
+mod trace;
 mod api;
 
 type ChildThread = Arc<Mutex<Option<child::Thread>>>;
@@ -98,7 +99,13 @@ fn main() {
 
     // breakpoints
 
-    router.get(r"/api/v1/debug/([0-9]*)/breakpoints", debug_breakpoints);
+    let child = child_thread.clone();
+    router.get(r"/api/v1/debug/([0-9]*)/breakpoints", move |req, res, caps| {
+        match debug_breakpoints(caps, child.clone()) {
+            Ok(body) => send(req, res, &body),
+            Err(e) => send_error(req, res, e),
+        }.unwrap();
+    });
 
     let child = child_thread.clone();
     router.put(r"/api/v1/debug/([0-9]*)/breakpoints/([0-9]*)", move |req, res, caps| {
@@ -116,24 +123,46 @@ fn main() {
         }.unwrap();
     });
 
+    // executions
+
     let child = child_thread.clone();
-    router.post(r"/api/v1/debug/([0-9]*)/execute", move |req, res, caps| {
-        match debug_execute(caps, child.clone()) {
+    router.post(r"/api/v1/debug/([0-9]*)/execute", move |mut req, res, caps| {
+        let body: Launch = match serde_json::from_reader(&mut req) {
+            Ok(body) => body,
+            Err(e) => {
+                send_error(req, res, io::Error::new(io::ErrorKind::InvalidInput, e)).unwrap();
+                return
+            }
+        };
+
+        match debug_execute(caps, body, child.clone()) {
             Ok(body) => send(req, res, &body),
             Err(e) => send_error(req, res, e),
         }.unwrap();
     });
 
-    router.put(r"/api/v1/debug/([0-9]*)/functions/([0-9]*)/execute", debug_function_execute);
+    let child = child_thread.clone();
+    router.post(r"/api/v1/debug/([0-9]*)/functions/([0-9]*)/execute", move |mut req, res, caps| {
+        let body: Call = match serde_json::from_reader(&mut req) {
+            Ok(body) => body,
+            Err(e) => {
+                send_error(req, res, io::Error::new(io::ErrorKind::InvalidInput, e)).unwrap();
+                return
+            }
+        };
 
-    // executions
+        match debug_function_execute(caps, body, child.clone()) {
+            Ok(body) => send(req, res, &body),
+            Err(e) => send_error(req, res, e),
+        }.unwrap();
+    });
 
     router.get(r"/api/v1/debug/([0-9]*)/executions", debug_executions);
     router.get(r"/api/v1/debug/([0-9]*)/executions/([0-9]*)", debug_execution);
 
     let child = child_thread.clone();
     router.get(r"/api/v1/debug/([0-9]*)/executions/([0-9]*)/trace", move |mut req, mut res, caps| {
-        let execution = match debug_execution_trace(caps) {
+        let _ = match debug_execution_trace(caps, child.clone()) {
             Ok(execution) => execution,
             Err(e) => return send_error(req, res, e).unwrap(),
         };
@@ -149,11 +178,26 @@ fn main() {
         }
 
         let mut res = res.start().unwrap();
-        match trace_stream(&mut res, execution, child.clone()) {
-            Ok(()) => (),
-            Err(_) => res.write_all(b"]").unwrap(),
-        }
+        let terminated = match trace_stream(&mut res, child.clone()) {
+            Ok(terminated) => terminated,
+            Err(e) => {
+                let data = json!({ "cause": "error", "error": format!("{:?}", e) });
+                let message = Trace { index: 0, t_type: 2, line: 0, data: data };
+                serde_json::to_writer(&mut res, &message).unwrap();
+
+                res.write_all(b"\n]").unwrap();
+                false
+            }
+        };
         res.end().unwrap();
+
+        if terminated {
+            let mut child_thread = child.lock().unwrap();
+            if let Some(child) = child_thread.take() {
+                child.tx.send(ServerMessage::Quit).unwrap();
+                child.thread.join().unwrap();
+            }
+        }
     });
 
     router.post(r"/api/v1/debug/([0-9]*)/executions/([0-9]*)/stop", debug_execution_stop);
@@ -204,6 +248,7 @@ fn send_error(req: Request, mut res: Response, error: io::Error) -> io::Result<(
         io::ErrorKind::NotConnected => StatusCode::Conflict,
         io::ErrorKind::AlreadyExists => StatusCode::PreconditionFailed,
         io::ErrorKind::InvalidInput => StatusCode::BadRequest,
+        io::ErrorKind::InvalidData => StatusCode::BadRequest,
         _ => StatusCode::InternalServerError,
     };
 
@@ -330,8 +375,8 @@ fn debug(req: Request, mut res: Response, _: Captures, _child: ChildThread) {
 
 /// GET /debug/:id/functions -- return a list of debuggable functions
 fn debug_functions(_: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
-    let mut child = child.lock().unwrap();
-    let child = child.as_mut()
+    let child = child.lock().unwrap();
+    let child = child.as_ref()
         .ok_or(io::Error::from(io::ErrorKind::NotConnected))?;
 
     child.tx.send(ServerMessage::ListFunctions).unwrap();
@@ -351,8 +396,8 @@ fn debug_function(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
     let address = caps[2].parse::<usize>()
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
 
-    let mut child = child.lock().unwrap();
-    let child = child.as_mut()
+    let child = child.lock().unwrap();
+    let child = child.as_ref()
         .ok_or(io::Error::from(io::ErrorKind::NotConnected))?;
 
     child.tx.send(ServerMessage::DescribeFunction { address }).unwrap();
@@ -400,9 +445,25 @@ impl From<child::Function> for Function {
 }
 
 /// GET /debug/:id/breakpoints
-fn debug_breakpoints(req: Request, mut res: Response, _: Captures) {
-    *res.status_mut() = StatusCode::NotImplemented;
-    send(req, res, b"").unwrap();
+fn debug_breakpoints(_: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
+    let child = child.lock().unwrap();
+    let child = child.as_ref()
+        .ok_or(io::Error::from(io::ErrorKind::NotConnected))?;
+
+    child.tx.send(ServerMessage::ListBreakpoints).unwrap();
+    let breakpoints = match child.rx.recv().unwrap() {
+        DebugMessage::Breakpoints(breakpoints) => breakpoints,
+        DebugMessage::Error(e) => return Err(e),
+        _ => unreachable!(),
+    };
+
+    let message: Vec<_> = breakpoints.into_iter()
+        .map(|address| Breakpoint {
+            function: address,
+            metadata: String::new(),
+        })
+        .collect();
+    Ok(serde_json::to_vec(&message).unwrap())
 }
 
 /// PUT /debug/:id/breakpoints/:function
@@ -411,8 +472,8 @@ fn debug_breakpoint_put(caps: Captures, child: ChildThread) -> io::Result<Vec<u8
     let address = caps[2].parse::<usize>()
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
 
-    let mut child = child.lock().unwrap();
-    let child = child.as_mut()
+    let child = child.lock().unwrap();
+    let child = child.as_ref()
         .ok_or(io::Error::from(io::ErrorKind::NotConnected))?;
 
     child.tx.send(ServerMessage::SetBreakpoint { address }).unwrap();
@@ -435,16 +496,22 @@ fn debug_breakpoint_delete(caps: Captures, child: ChildThread) -> io::Result<Vec
     let address = caps[2].parse::<usize>()
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
 
-    let mut child = child.lock().unwrap();
-    let child = child.as_mut()
+    let child = child.lock().unwrap();
+    let child = child.as_ref()
         .ok_or(io::Error::from(io::ErrorKind::NotConnected))?;
 
     child.tx.send(ServerMessage::ClearBreakpoint { address }).unwrap();
+    match child.rx.recv().unwrap() {
+        DebugMessage::BreakpointRemoved => (),
+        DebugMessage::Error(e) => return Err(e),
+        _ => unreachable!(),
+    };
+
     Ok(vec![])
 }
 
 /// POST /debug/:id/execute -- starts or continues process
-fn debug_execute(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
+fn debug_execute(caps: Captures, _body: Launch, child: ChildThread) -> io::Result<Vec<u8>> {
     let caps = caps.unwrap();
     let _debug_id = caps[1].parse::<u64>()
         .map_err(|e| io::Error::new(io::ErrorKind::NotConnected, e))?;
@@ -454,14 +521,15 @@ fn debug_execute(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
         .ok_or(io::Error::from(io::ErrorKind::NotConnected))?;
 
     child.tx.send(ServerMessage::Continue).unwrap();
-    match child.rx.recv().unwrap() {
-        DebugMessage::Executing => (),
+    let id = match child.rx.recv().unwrap() {
+        DebugMessage::Executing => child.next_id(),
         DebugMessage::Error(e) => return Err(e),
         _ => unreachable!(),
     };
+    child.execution = Some(id);
 
     let message = Execution {
-        id: 0,
+        id: id,
         e_type: String::from("process"),
         status: String::from("executing"),
         execution_time: 0,
@@ -471,9 +539,34 @@ fn debug_execute(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
 }
 
 /// POST /debug/:id/functions/:function/execute
-fn debug_function_execute(req: Request, mut res: Response, _: Captures) {
-    *res.status_mut() = StatusCode::NotImplemented;
-    send(req, res, b"").unwrap();
+fn debug_function_execute(caps: Captures, body: Call, child: ChildThread) -> io::Result<Vec<u8>> {
+    let caps = caps.unwrap();
+    let _debug_id = caps[1].parse::<u64>()
+        .map_err(|e| io::Error::new(io::ErrorKind::NotConnected, e))?;
+    let address = caps[2].parse::<usize>()
+        .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
+    let arguments = body.parameters;
+
+    let mut child = child.lock().unwrap();
+    let child = child.as_mut()
+        .ok_or(io::Error::from(io::ErrorKind::NotConnected))?;
+
+    child.tx.send(ServerMessage::CallFunction { address, arguments }).unwrap();
+    let id = match child.rx.recv().unwrap() {
+        DebugMessage::Executing => child.next_id(),
+        DebugMessage::Error(e) => return Err(e),
+        _ => unreachable!(),
+    };
+    child.execution = Some(id);
+
+    let message = Execution {
+        id: id,
+        e_type: String::from("function"),
+        status: String::from("executing"),
+        execution_time: 0,
+        data: ExecutionData { next_execution: 0 },
+    };
+    Ok(serde_json::to_vec(&message).unwrap())
 }
 
 /// POST /debug/:id/executions
@@ -489,46 +582,37 @@ fn debug_execution(req: Request, mut res: Response, _: Captures) {
 }
 
 /// GET /debug/:id/executions/:execution/trace -- Get trace data for execution
-fn debug_execution_trace(caps: Captures) -> io::Result<i32> {
+fn debug_execution_trace(caps: Captures, child: ChildThread) -> io::Result<i32> {
     let caps = caps.unwrap();
     let _debug_id = caps[1].parse::<u64>()
         .map_err(|e| io::Error::new(io::ErrorKind::NotConnected, e))?;
     let execution = caps[2].parse::<u64>()
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
 
-    // TODO: look up an execution and return a 404 if there isn't one
-    Ok(execution as i32)
+    let child = child.lock().unwrap();
+    let child = child.as_ref()
+        .ok_or(io::Error::from(io::ErrorKind::NotConnected))?;
+
+    if child.execution == Some(execution as i32) {
+        Ok(execution as i32)
+    } else {
+        Err(io::Error::new(io::ErrorKind::NotFound, "no such execution"))
+    }
 }
 
-fn trace_stream(
-    res: &mut Response<Streaming>, execution: i32, child: ChildThread
-) -> io::Result<()> {
-    // TODO: this is a hack for the prototype; implement process executions
-    if execution == 0 {
-        let data = json!({ "cause": "breakpoint", "nextExecution": 1 });
-        let message = vec![
-            Trace { index: 0, t_type: 2, line: 0, data: data },
-        ];
-        serde_json::to_writer(res, &message).unwrap();
-        return Ok(());
-    }
-
+fn trace_stream(res: &mut Response<Streaming>, child: ChildThread) -> io::Result<bool> {
     let mut child = child.lock().unwrap();
     let child = child.as_mut()
         .ok_or(io::Error::from(io::ErrorKind::NotConnected))?;
 
     child.tx.send(ServerMessage::Trace).unwrap();
-    match child.rx.recv().unwrap() {
-        DebugMessage::Trace(DebugTrace::Line(..)) => (), // ignore the first line trace
-        DebugMessage::Error(e) => return Err(e),
-        _ => unreachable!(),
-    };
 
     res.write_all(b"[\n")?;
 
     let mut index = 0;
     let mut prev_locals = HashMap::new();
 
+    let mut terminated = false;
     let mut done = false;
     while !done {
         let message = match child.rx.recv().unwrap() {
@@ -549,30 +633,56 @@ fn trace_stream(
                 Trace { index: this_index, t_type: 0, line: line, data: data }
             }
 
-            DebugMessage::Trace(DebugTrace::Terminated(line)) => {
+            DebugMessage::Trace(DebugTrace::Return(line, value)) => {
                 done = true;
+                child.execution = None;
 
-                use serde_json::{Value, Map};
-
-                let mut map = Map::new();
-                map.insert(String::from("cause"), Value::String(String::from("ended")));
-                map.insert(String::from("returnValue"), Value::String(String::from("0")));
-
-                let data = Value::Object(map);
+                let data = json!({ "cause": "return", "returnValue": value });
                 Trace { index: index, t_type: 2, line: line, data: data }
             }
 
-            DebugMessage::Error(e) => return Err(e),
+            DebugMessage::Trace(DebugTrace::Breakpoint) => {
+                done = true;
+
+                let id = child.next_id();
+                child.execution = Some(id);
+
+                let data = json!({ "cause": "breakpoint", "nextExecution": id });
+                Trace { index: 0, t_type: 2, line: 0, data: data }
+            }
+
+            DebugMessage::Trace(DebugTrace::Exit(code)) => {
+                terminated = true;
+                done = true;
+                child.execution = None;
+
+                let data = json!({ "cause": "exit", "returnCode": code });
+                Trace { index: 0, t_type: 2, line: 0, data: data }
+            }
+
+            DebugMessage::Trace(DebugTrace::Crash) => {
+                terminated = true;
+                done = true;
+                child.execution = None;
+
+                let data = json!({ "cause": "crash" });
+                Trace { index: 0, t_type: 2, line: 0, data: data }
+            }
+
+            DebugMessage::Error(e) => {
+                child.execution = None;
+                return Err(e);
+            }
             _ => unreachable!(),
         };
 
         serde_json::to_writer(res, &message).unwrap();
         if !done { res.write_all(b",\n")?; }
-        let _ = res.flush();
+        res.flush()?;
     }
 
-    res.write_all(b"]")?;
-    Ok(())
+    res.write_all(b"\n]")?;
+    Ok(terminated)
 }
 
 /// POST /debug/:id/executions/:execution/stop -- Halts a running execution

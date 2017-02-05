@@ -100,22 +100,20 @@ fn main() {
 
                     let frame = symbols.walk_stack(threads[&event.thread_id])
                         .expect("failed to get thread stack")
-                        .nth(0)
+                        .next()
                         .expect("failed to get stack frame");
-                    let ref context = frame.context;
-                    let ref stack = frame.stack;
 
                     let (line, _off) = symbols.line_from_address(address)
                         .expect("failed to get line");
 
-                    let instruction = stack.AddrPC.Offset as usize;
+                    let instruction = frame.stack.AddrPC.Offset as usize;
                     let mut locals = vec![];
                     symbols.enumerate_locals(instruction, |symbol, size| {
                         if size == 0 { return true; }
 
                         let name = symbol.name.to_string_lossy();
 
-                        let value = match debug::Value::read(&child, &symbols, &context, &symbol) {
+                        let value = match debug::Value::read(&child, &context, &symbols, &symbol) {
                             Ok(value) => value,
                             Err(_) => return true,
                         };
