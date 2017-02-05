@@ -1,5 +1,19 @@
 use serde_json::Value;
 
+#[derive(Deserialize)]
+pub struct Launch {
+    /// Command line arguments
+    pub args: String,
+    /// Environment variables
+    pub env: String,
+}
+
+#[derive(Deserialize)]
+pub struct Call {
+    // TODO: convert this to typed values
+    pub parameters: Vec<i32>,
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct Error {
     /// Unique code identifying error type
