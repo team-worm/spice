@@ -1,34 +1,55 @@
 <div class="debugger-container">
-	<table>
-		<tr>
-			<td>0</td>
-			<td>hello</td>
-			<td>x=1</td>
-			<td>x=2</td>
-		</tr>
-	</table>
-	<section class="debugger-display">
-		<div class="row">
-			<div class="line-number-col">1</div>
-			<div class="source-code-col">hello I am source code</div>
-			<div class="trace-col">x=1</div>
-			<div class="trace-col">x=2</div>
+	<div class="debugger-display" fxLayout="row">
+		<div class="source-code-viewer" fxFlex="40" fxLayout="row">
+			<div class="line-number-col" fxFlex="nogrow">
+				<div matchMaxAttribute><span>1</span></div>
+				<div matchMaxAttribute><span>2</span></div>
+				<div matchMaxAttribute><span>3</span></div>
+			</div>
+			<div class="source-code-col" fxFlex>
+				<div matchMaxAttribute><pre>var a = 0;</pre></div>
+				<div matchMaxAttribute><pre>a += 1;</pre></div>
+				<div matchMaxAttribute><pre>console.log(a);</pre></div>
+			</div>
 		</div>
-		<div class="row">
-			<div class="line-number-col">2</div>
-			<div class="source-code-col">short</div>
-			<div class="trace-col">looooong=1</div>
+		<div class="trace-col" fxFlex fxLayout="row">
+			<div class="iteration-col" fxFlex>
+				<div matchMaxAttribute><span>a = 0</span></div>
+				<div matchMaxAttribute><span>a = 1</span></div>
+				<div matchMaxAttribute><span></span></div>
+			</div>
+			<div class="iteration-col" fxFlex>
+				<div matchMaxAttribute><span>1</span></div>
+				<div matchMaxAttribute><span>a = 2</span></div>
+				<div matchMaxAttribute><span></span></div>
+			</div>
 		</div>
-		<div class="row">
-			<div class="line-number-col">3</div>
-			<div class="source-code-col"><pre>also very long actually this is exttremely long wow abcslkdjglwiegjwegli
-			wg
-			Wieogjw
-			eoig
-			w</pre></div>
-			<div class="trace-col">x=1</div>
-			<div class="trace-col">x=1</div>
-			<div class="trace-col">x=1</div>
-		</div>
-	</section>
+	</div>
 </div>
+
+<!--
+		<reactive-height-grid layout="row" class="debugger">
+			<div flex class="source-code-viewer">
+				<div layout="row">
+					<div flex="none" class="line-number-column debug-column">
+						<reactive-height-cell ng-repeat="line in lines.slice(lineStart, lineEnd)" row="$index" col="0">
+							<span flex>{{$index + 1 + lineStart}}</span>
+						</reactive-height-cell>
+					</div>
+					<div flex class="code-column debug-column">
+						<reactive-height-cell ng-repeat="line in lines.slice(lineStart, lineEnd)" row="$index" col="1">
+							<pre flex>{{line.code}}</pre>
+						</reactive-height-cell>
+					</div>
+				</div>
+			</div>
+			<div flex class="state-column debug-column" layout="row">
+				<div flex class="trace-column" ng-repeat="(colIndex, i) in [].constructor(traceColCount) track by $index">
+					<reactive-height-cell ng-repeat="line in lines" row="$index" col="$parent.$index+2">
+						<trace flex trace="line.traces[colIndex]"></trace>
+					</reactive-height-cell>
+				</div>
+			</div>
+		</reactive-height-grid>
+	</div>
+	-->

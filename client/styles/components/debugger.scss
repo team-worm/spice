@@ -1,73 +1,43 @@
 .debugger-container {
-    margin: 1em;
-    .debugger-display {
-        display: table;
-        table-layout: fixed;
-        width: 100%;
-        .row {
-            display: table-row;
+	margin: 1em;
+	.debugger-display {
+		font-family: Courier, 'NewCourier', monospace;
+		font-size: 1em;
 
-            & > div {
-                display: table-cell;
-                padding: 0.5rem;
-            }
-            .line-number-col {
-                width: 20px;
-            }
-            .source-code-col {
-                width: 700px;
-            }
-            .trace-col {
-            }
-        }
-        /*
-        background: $background-color-0;
-        font-family: Courier, 'NewCourier', monospace;
-        font-size: 1em;
-
-        .reactive-height-cell {
-
-            padding-left: 8px;
-            padding-right: 8px;;
-
-            background: $background-color-0;
-
-            pre {
-                margin: 2px;
-            }
-        }
-
-        .debug-column reactive-height-cell:nth-of-type(odd) .reactive-height-cell {
-            background: $background-color-1;
-        }
-
-        .line-number-column {
-            background: $background-color-1;
-            border-left: 2px solid $background-color-2;
-            border-right: 2px solid $background-color-2;
-            text-align: right;
-        }
-
-        .code-column {
-            border-right: 4px solid $background-color-2;
-        }
-
-        .state-column {
-            .trace-column {
-                border-right: 2px solid $background-color-2;
-                .trace {
-                    .trace-state {
-                        ul {
-                            margin: 0px;
-                            padding-left: 0px;
-                        }
-                        li {
-                            list-style-type: none;
-                        }
-                    }
-                }
-            }
-        }
-         */
-    }
+		*[matchMaxAttribute] {
+			padding-left: 8px;
+			padding-right: 8px;
+			pre {
+				font-family: inherit;
+				margin: 2px;
+			}
+		}
+		.line-number-col {
+			text-align: right;
+		}
+		.source-code-col {
+		}
+		.trace-col {
+			.iteration-col {
+			}
+		}
+	}
+		/*
+		.state-column {
+			.trace-column {
+				border-right: 2px solid $background-color-2;
+				.trace {
+					.trace-state {
+						ul {
+							margin: 0px;
+							padding-left: 0px;
+						}
+						li {
+							list-style-type: none;
+						}
+					}
+				}
+			}
+		}
+		 */
 }
