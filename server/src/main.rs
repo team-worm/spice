@@ -142,19 +142,20 @@ fn main() {
     });
 
     let child = child_thread.clone();
-    router.post(r"/api/v1/debug/([0-9]*)/functions/([0-9]*)/execute", move |req, res, caps| {
-        match debug_function_execute(caps, child.clone()) {
-            Ok(body) => send(req, res, &body),
-            Err(e) => send_error(req, res, e),
-        }.unwrap();
-    });
+    router.post(r"/api/v1/debug/([0-9]*)/functions/([0-9]*)/execute", move |mut req, res, caps| {
+        let body: Call = match serde_json::from_reader(&mut req) {
+            Ok(body) => body,
+            Err(e) => {
+                send_error(req, res, io::Error::new(io::ErrorKind::InvalidInput, e)).unwrap();
+                return
+            }
+        };
 
         match debug_function_execute(caps, body, child.clone()) {
             Ok(body) => send(req, res, &body),
             Err(e) => send_error(req, res, e),
         }.unwrap();
     });
-
 
     let child = child_thread.clone();
     router.get(r"/api/v1/debug/([0-9]*)/executions", move |req, res, caps| {
@@ -556,7 +557,7 @@ fn debug_execute(caps: Captures, _body: Launch, child: ChildThread) -> io::Resul
     };
 
     let mut message = Execution::from(execution);
-    message.id = child.next_execution();
+    message.id = child.next_id();
 
 
 
@@ -584,7 +585,7 @@ fn debug_function_execute(caps: Captures, body: Call, child: ChildThread) -> io:
     };
 
     let mut message = Execution::from(execution);
-    message.id = child.next_execution();
+    message.id = child.next_id();
 
     Ok(serde_json::to_vec(&message).unwrap())
 }
@@ -625,7 +626,7 @@ fn debug_execution(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
     let child = child.as_mut()
         .ok_or(io::Error::from(io::ErrorKind::NotConnected))?;
 
-    if execution_id != child.execution {
+    if execution_id != child.id {
         return Err(io::Error::new(io::ErrorKind::NotConnected, "not current execution"));
     }
 
@@ -638,7 +639,7 @@ fn debug_execution(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
     };
 
     let mut message = Execution::from(execution);
-    message.id = child.execution;
+    message.id = child.id;
 
     Ok(serde_json::to_vec(&message).unwrap())
 }
