@@ -1,7 +1,7 @@
 <div class="trace">
 	<div *ngIf="trace.tType===0" class="trace-instruction">
 		<ul>
-			<li *ngFor="let state of trace.data.state">{{state.sVariable.name}}={{state.value}}</li>
+			<li *ngFor="let state of trace.data.state">{{state.sVariable}}={{state.value}}</li>
 		</ul>
 	</div>
 	<div *ngIf="trace.tType===1" class="trace-output">

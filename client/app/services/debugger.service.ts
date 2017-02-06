@@ -10,6 +10,8 @@ export class DebuggerService {
 	protected currentDebuggerState: DebuggerState | null;
 	protected debuggerStates: CacheMap<Observable<DebuggerState>>;
 
+
+
 	constructor(private debuggerHttp: DebuggerHttpService) {
 		this.debuggerStates = new CacheMap<Observable<DebuggerState>>();
 		this.currentDebuggerState = null;

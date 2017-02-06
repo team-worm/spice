@@ -54,9 +54,9 @@ import { TraceComponent } from "./components/debugger/trace.component";
     ],
     providers: [
         //BEGIN MOCK PROVIDERS--Comment these out to disable backend mocking!
-		  MockBackend,
-		  BaseRequestOptions,
-		  SpiceMockBackend,
+		 //  MockBackend,
+		 //  BaseRequestOptions,
+		 //  SpiceMockBackend,
         //END MOCK PROVIDERS
         
         FileSystemService,

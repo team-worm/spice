@@ -6,6 +6,9 @@ import {MdSnackBar} from "@angular/material";
 import {Breakpoint} from "../../models/Breakpoint";
 import {Execution} from "../../models/execution/Execution";
 import {Trace} from "../../models/trace/Trace";
+import {TraceOfTermination} from "../../models/trace/TraceOfTermination";
+import {ViewService} from "../../services/view.service";
+import {Observable} from "rxjs/Observable";
 
 @Component({
     selector: 'spice-configuration',
@@ -21,7 +24,8 @@ export class ConfigurationComponent implements OnInit {
     public debugState:DebuggerState | null;
 
     constructor(private debuggerService:DebuggerService,
-                private snackBar:MdSnackBar) {
+                private snackBar:MdSnackBar,
+                private viewService: ViewService) {
         this.selectedFunction = null;
         this.setBreakpoint = null;
         this.debugState = null;
@@ -55,18 +59,27 @@ export class ConfigurationComponent implements OnInit {
         }
     }
 
-    public RunFunction() {
-        if(this.setBreakpoint && this.debugState) {
-           this.debugState.executeBinary('','').subscribe({
-               next: (ex:Execution)=>{
-                   console.log(ex);
-                   if(this.debugState) {
-                       this.debugState.getTrace(ex.id).subscribe((t:Trace)=> {
-                           console.log(t);
-                       })
+    public ExecuteBinary() {
+        if(this.debugState) {
+           this.debugState.executeBinary('','')
+               .mergeMap((ex:Execution)=>{
+                   if(!this.debugState) {
+                        return Observable.throw(new Error('Null debug state'));
                    }
-
-               },
+                   return this.debugState.getTrace(ex.id);
+               }).map((t:Trace)=> {
+                    if(t.tType === 2) {
+                       let tTerm: TraceOfTermination = t as TraceOfTermination;
+                       if (tTerm.data.cause === 'breakpoint') {
+                           if (this.viewService.debuggerComponent) {
+                               this.viewService.debuggerComponent.displayTrace(tTerm.data.nextExecution, this.selectedFunction);
+                               this.viewService.activeView = "Debugger";
+                           }
+                       }
+                    }
+                    return t;
+                   }).subscribe({
+                   next: (t)=>{console.log(t)},
                complete: ()=>{},
                error: (error:any) => {
                    console.log(error);

@@ -1,4 +1,5 @@
 import {Injectable} from "@angular/core";
+import {DebuggerComponent} from "../components/debugger/debugger.component";
 
 @Injectable()
 export class ViewService {
@@ -6,6 +7,8 @@ export class ViewService {
     private views:string[];
 
     private _activeView:string;
+
+    public debuggerComponent: DebuggerComponent | null;
 
     constructor() {
         this.views = ['launcher','configuration','debugger'];

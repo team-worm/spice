@@ -1,5 +1,6 @@
 import {Injectable} from "@angular/core";
 import {SourceFile} from "../models/SourceFile";
+import {Observable} from "rxjs/Observable";
 
 @Injectable()
 export class FileSystemService {
@@ -82,5 +83,36 @@ export class FileSystemService {
         }
 
         return ret;
+    }
+
+    public getFileContents(path: string): Observable<string> {
+        return Observable.of(
+`// collatz.cpp : Defines the entry point for the console application.
+//
+
+#include "stdafx.h"
+#include <stdio.h>
+
+int collatz(int n) {
+	int t = 0;
+	while (n != 1) {
+		if (n % 2 == 0) {
+			n /= 2;
+		}
+		else {
+			n = 3*n + 1;
+		}
+		t++;
+	}
+	return t;
+}
+
+int main()
+{
+	printf("%d\n", collatz(3));
+    return 0;
+}
+
+`);
     }
 }

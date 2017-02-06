@@ -1,5 +1,6 @@
-import {Component} from '@angular/core';
+import {Component, ViewChild, OnInit} from '@angular/core';
 import {ViewService} from "../services/view.service";
+import {DebuggerComponent} from "./debugger/debugger.component";
 
 @Component({
     selector: 'spice-root',
@@ -10,8 +11,14 @@ import {ViewService} from "../services/view.service";
 <spice-debugger [hidden]="!IsInDebugger()"></spice-debugger>
 `,
 })
-export class SpiceRootComponent {
+export class SpiceRootComponent implements OnInit {
+
+    @ViewChild(DebuggerComponent) debuggerComponent: DebuggerComponent;
     constructor(private viewService:ViewService) {}
+
+    ngOnInit() {
+        this.viewService.debuggerComponent = this.debuggerComponent;
+    }
 
     public IsInLauncher():boolean {
         return this.viewService.activeView == 'launcher';

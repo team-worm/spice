@@ -16,7 +16,7 @@
             <md-card-subtitle *ngIf="!!selectedFunction">Line {{selectedFunction.lineNumber}} of {{selectedFunction.sourcePath}}</md-card-subtitle>
             <md-card-actions>
                 <button md-button [disabled]="!selectedFunction" (click)="SetBreakpoint()">Set Breakpoint</button>
-                <button md-button [disabled]="!setBreakpoint" (click)="RunFunction()">Run</button>
+                <button md-button [disabled]="!setBreakpoint" (click)="ExecuteBinary()">Run</button>
             </md-card-actions>
         </md-card>
 
