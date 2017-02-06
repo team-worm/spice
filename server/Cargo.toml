@@ -9,8 +9,8 @@ authors = ["Russell Johnston <rpjohnst@gmail.com>", "Tarik Courdy <tarik.courdy@
 hyper = "0.10"
 unicase = "1.0"
 reroute = "0.3.2"
-serde = "0.8"
-serde_derive = "0.8"
-serde_json = "0.8"
+serde = "0.9"
+serde_derive = "0.9"
+serde_json = "0.9"
 debug = { path = "debug" }
 winapi = { git = "https://github.com/team-worm/winapi-rs" }

@@ -6,26 +6,22 @@ use {Child, Context, Value, Type, Primitive, SymbolHandler, Symbol};
 
 pub struct Call {
     return_type: Type,
-    context: Context,
+    context: Option<Context>,
 }
 
 impl Call {
+    pub fn capture(symbols: &SymbolHandler, function: &Symbol) -> io::Result<Call> {
+        let (module, return_type, _) = get_function_types(symbols, function)?;
+        let return_type = symbols.type_from_index(module, return_type)?;
+
+        Ok(Call { return_type, context: None })
+    }
+
     pub fn setup(
         child: &mut Child, context: &mut Context, symbols: &SymbolHandler,
         function: &Symbol, args: Vec<Value>
     ) -> io::Result<Call> {
-        let module = symbols.module_from_address(function.address)?;
-        let function_type = symbols.type_from_index(module, function.type_index)?;
-        let (calling_convention, return_type, arg_types) = match function_type {
-            Type::Function { calling_convention, type_index, args } => {
-                (calling_convention, type_index, args)
-            }
-            _ => return Err(io::Error::new(io::ErrorKind::Other, "cannot call a non-function")),
-        };
-
-        if calling_convention != 0 { // CV_CALL_NEAR_C
-            return Err(io::Error::new(io::ErrorKind::Other, "unsupported calling convention"));
-        }
+        let (module, return_type, arg_types) = get_function_types(symbols, function)?;
 
         let mut args = Iterator::zip(args.iter(), arg_types.into_iter());
         let mut new_context = context.clone();
@@ -107,23 +103,42 @@ impl Call {
 
         Ok(Call {
             return_type: return_type,
-            context: mem::replace(context, new_context)
+            context: Some(mem::replace(context, new_context))
         })
     }
 
     pub fn teardown(
         self, child: &Child, context: &Context, symbols: &SymbolHandler
-    ) -> io::Result<(Value, Context)> {
+    ) -> io::Result<(Value, Option<Context>)> {
         let value = Value::read_return(child, context.as_raw(), symbols, self.return_type)?;
         Ok((value, self.context))
     }
+}
+
+fn get_function_types(symbols: &SymbolHandler, function: &Symbol) ->
+    io::Result<(usize, u32, Vec<u32>)>
+{
+    let module = symbols.module_from_address(function.address)?;
+    let function_type = symbols.type_from_index(module, function.type_index)?;
+    let (calling_convention, return_type, arg_types) = match function_type {
+        Type::Function { calling_convention, type_index, args } => {
+            (calling_convention, type_index, args)
+        }
+        _ => return Err(io::Error::new(io::ErrorKind::InvalidInput, "cannot call a non-function")),
+    };
+
+    if calling_convention != 0 { // CV_CALL_NEAR_C
+        return Err(io::Error::new(io::ErrorKind::InvalidData, "unsupported calling convention"));
+    }
+
+    Ok((module, return_type, arg_types))
 }
 
 fn write_value(
     arg: &Value, arg_type: &Type, child: &mut Child, context: &mut Context
 ) -> io::Result<(usize, bool)> {
     if &arg.data_type != arg_type {
-        return Err(io::Error::new(io::ErrorKind::Other, "argument types do not match"));
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "argument types do not match"));
     }
 
     let float = match *arg_type {
@@ -151,7 +166,7 @@ fn write_value(
 
         _ => {
             return Err(io::Error::new(
-                io::ErrorKind::Other, "cannot pass a dynamically sized value"
+                io::ErrorKind::InvalidInput, "cannot pass a dynamically sized value"
             ));
         }
     };

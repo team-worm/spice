@@ -55,17 +55,23 @@ impl FromWide for OsString {
     }
 }
 
-pub trait AsBytes {
-    fn as_bytes(&self) -> &[u8];
-}
-
-impl AsBytes for usize {
+pub trait AsBytes: Sized {
     fn as_bytes(&self) -> &[u8] {
-        unsafe {
-            slice::from_raw_parts(self as *const _ as *const _, mem::size_of::<Self>())
-        }
+        unsafe { slice::from_raw_parts(self as *const _ as *const _, mem::size_of::<Self>()) }
     }
 }
+
+impl AsBytes for usize {}
+impl AsBytes for u64 {}
+impl AsBytes for u32 {}
+impl AsBytes for u16 {}
+impl AsBytes for u8 {}
+
+impl AsBytes for isize {}
+impl AsBytes for i64 {}
+impl AsBytes for i32 {}
+impl AsBytes for i16 {}
+impl AsBytes for i8 {}
 
 impl<'a> AsBytes for &'a Value {
     fn as_bytes(&self) -> &[u8] {

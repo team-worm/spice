@@ -1,5 +1,5 @@
 use std::{ptr, io, fmt};
-use {Child, SymbolHandler, Symbol, Type, Primitive, Field};
+use {Child, SymbolHandler, Symbol, Context, Type, Primitive, Field, AsBytes};
 
 use winapi;
 
@@ -10,9 +10,15 @@ pub struct Value {
 }
 
 impl Value {
+    pub fn new<B: AsBytes>(data: B, data_type: Type) -> Value {
+        Value { data: data.as_bytes().into(), data_type: data_type, module: 0 }
+    }
+
     pub fn read(
-        child: &Child, context: &winapi::CONTEXT, symbols: &SymbolHandler, symbol: &Symbol
+        child: &Child, context: &Context, symbols: &SymbolHandler, symbol: &Symbol
     ) -> io::Result<Value> {
+        let context = context.as_raw();
+
         let regrel = symbol.flags & winapi::SYMFLAG_REGREL != 0;
         let parameter = symbol.flags & winapi::SYMFLAG_PARAMETER != 0;
         let _register = symbol.flags & winapi::SYMFLAG_REGISTER != 0; // TODO: read from regs?
