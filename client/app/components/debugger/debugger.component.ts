@@ -67,7 +67,7 @@ export class DebuggerComponent {
 	}
 
 	public refreshHeights(): void {
-		this.lines.forEach((l,i) => MatchMaxHeightDirective.update(i.toString()));
+		this.lines.forEach((l,i) => MatchMaxHeightDirective.update('debugger-'+i.toString()));
 	}
 
 	public addTrace(trace: Trace) {
@@ -81,6 +81,6 @@ export class DebuggerComponent {
 		this.lastTraceLine = trace.line;
 
 		//TODO: figure out how to do this without a delay
-		Observable.of(null).delay(100).subscribe(() => MatchMaxHeightDirective.update((trace.line-1).toString()));
+		Observable.of(null).delay(100).subscribe(() => MatchMaxHeightDirective.update('debugger-'+(trace.line-1).toString()));
 	}
 }

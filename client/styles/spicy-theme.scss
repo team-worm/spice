@@ -1,6 +1,7 @@
 @import '../node_modules/@angular/material/core/theming/all-theme';
 // Plus imports for other components in your app.
 @import 'components/_debugger-theme';
+@import '_spice-theme';
 
 // Include the base styles for Angular Material core. We include this here so that you only
 // have to load a single css file for Angular Material in your app.
@@ -24,3 +25,4 @@ $candy-app-theme: md-light-theme($candy-app-primary, $candy-app-accent, $candy-a
 // that you are using.
 @include angular-material-theme($candy-app-theme);
 @include debugger-theme($candy-app-theme);
+@include spice-theme($candy-app-theme);

@@ -86,8 +86,8 @@ export class FileSystemService {
     }
 
     public getFileContents(path: string): Observable<string> {
-        return Observable.of(
-`// collatz.cpp : Defines the entry point for the console application.
+        if(path.indexOf('collatz.cpp') !== -1) {
+            return Observable.of(`// collatz.cpp : Defines the entry point for the console application.
 //
 
 #include "stdafx.h"
@@ -114,5 +114,8 @@ int main()
 }
 
 `);
+        }
+        return Observable.throw(new Error('mocked file not found.'))
+
     }
 }

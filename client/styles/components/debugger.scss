@@ -1,29 +1,13 @@
 .debugger-container {
 	margin: 1em;
 	.debugger-display {
-		font-family: Courier, 'NewCourier', monospace;
-		font-size: 1em;
-
-		.row {
-			padding-left: 8px;
-			padding-right: 8px;
-			pre {
-				font-family: inherit;
-				margin: 0px;
-			}
-		}
-		.line-number-col {
-			text-align: right;
-		}
-		.source-code-col {
-		}
 		.trace-col {
 			.iteration-col {
 				.trace {
 					.trace-instruction {
 						ul {
-							margin: 0px;
-							padding-left: 0px;
+							margin: 0;
+							padding-left: 0;
 						}
 						li {
 							list-style-type: none;

@@ -9,6 +9,9 @@ import {Trace} from "../../models/trace/Trace";
 import {TraceOfTermination} from "../../models/trace/TraceOfTermination";
 import {ViewService} from "../../services/view.service";
 import {Observable} from "rxjs/Observable";
+import {ExecutionOfFunction} from "../../models/execution/ExecutionOfFunction";
+import {FileSystemService} from "../../services/file-system.service";
+import {MatchMaxHeightDirective} from "../../directives/MatchMaxHeight.directive";
 
 @Component({
     selector: 'spice-configuration',
@@ -18,17 +21,24 @@ export class ConfigurationComponent implements OnInit {
 
     private _configurationContentBody:HTMLElement | null;
 
+    public lines:string[] | null;
+    public linesLoaded:boolean = true;
+
     public selectedFunction:SourceFunction | null;
     public setBreakpoint:Breakpoint | null;
     public sourceFunctions:SourceFunction[];
     public debugState:DebuggerState | null;
 
+    public setParameters:{[id: string]: any};
+
     constructor(private debuggerService:DebuggerService,
                 private snackBar:MdSnackBar,
-                private viewService: ViewService) {
+                private viewService: ViewService,
+                private fileSystemService: FileSystemService) {
         this.selectedFunction = null;
         this.setBreakpoint = null;
         this.debugState = null;
+        this.lines = [];
     }
 
     public ngOnInit() {
@@ -54,6 +64,24 @@ export class ConfigurationComponent implements OnInit {
             });
         } else {
             this.snackBar.open('No function selected.', undefined, {
+                duration: 3000
+            });
+        }
+    }
+
+    public ExecuteFunction() {
+        if(this.debugState && this.selectedFunction) {
+            this.debugState.executeFunction(this.selectedFunction.id,this.setParameters)
+                .subscribe((ex:Execution)=>{
+                    if (this.viewService.debuggerComponent) {
+                        this.viewService.debuggerComponent.displayTrace(ex.id, this.selectedFunction);
+                        this.viewService.activeView = "Debugger";
+                    }
+                }, (e:any) => {
+                    console.error(e);
+                });
+        } else {
+            this.snackBar.open('No breakpoint set.', undefined, {
                 duration: 3000
             });
         }
@@ -119,6 +147,17 @@ export class ConfigurationComponent implements OnInit {
     }
 
     public OnFunctionSelected($event:SourceFunction) {
+        this.lines = null;
+        this.setParameters = {};
+        this.fileSystemService.getFileContents($event.sourcePath).subscribe((contents:string)=> {
+            this.lines = contents.split('\n');
+            this.linesLoaded = true;
+            //TODO: figure out how to do this without a delay
+            Observable.of(null).delay(100).subscribe(() => this.refreshHeights());
+        }, (error:Error)=> {
+            this.lines = [];
+            this.linesLoaded = false;
+        });
         this.selectedFunction = $event;
     }
 
@@ -129,6 +168,12 @@ export class ConfigurationComponent implements OnInit {
         }
         return  (window.innerHeight - this._configurationContentBody.offsetTop) - 64;
 
+    }
+
+    public refreshHeights(): void {
+        if(!!this.lines) {
+            this.lines.forEach((l,i) => MatchMaxHeightDirective.update('configuration-'+i.toString()));
+        }
     }
 
     public GetSelectedFunctionAsString():string {

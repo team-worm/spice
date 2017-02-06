@@ -62,3 +62,22 @@ pre {
     color: $text-color-error;
     font-style: italic;
 }
+
+.source-code {
+    font-family: Courier, 'NewCourier', monospace;
+    font-size: 1em;
+    .row {
+        padding-left: 8px;
+        padding-right: 8px;
+        pre {
+            font-family: inherit;
+            margin: 0;
+        }
+    }
+    .line-number-col {
+        text-align: right;
+    }
+    .source-code-col {
+        overflow-x: auto;
+    }
+}
