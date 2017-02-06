@@ -24,6 +24,7 @@ use std::error::Error;
 use hyper::status::StatusCode;
 use hyper::server::{Server, Request, Response, Streaming};
 use reroute::{RouterBuilder, Captures};
+use serde_json::value::ToJson;
 
 use child::{ServerMessage, DebugMessage, DebugTrace};
 use api::*;
@@ -528,12 +529,13 @@ fn debug_execute(caps: Captures, _body: Launch, child: ChildThread) -> io::Resul
     };
     child.execution = Some(id);
 
+    let data = ProcessExecution { next_execution: 0 };
     let message = Execution {
         id: id,
         e_type: String::from("process"),
         status: String::from("executing"),
         execution_time: 0,
-        data: ExecutionData { next_execution: 0 },
+        data: data.to_json().unwrap(),
     };
     Ok(serde_json::to_vec(&message).unwrap())
 }
@@ -559,12 +561,13 @@ fn debug_function_execute(caps: Captures, body: Call, child: ChildThread) -> io:
     };
     child.execution = Some(id);
 
+    let data = FunctionExecution { function: address };
     let message = Execution {
         id: id,
         e_type: String::from("function"),
         status: String::from("executing"),
         execution_time: 0,
-        data: ExecutionData { next_execution: 0 },
+        data: data.to_json().unwrap(),
     };
     Ok(serde_json::to_vec(&message).unwrap())
 }

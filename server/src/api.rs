@@ -58,13 +58,19 @@ pub struct Execution {
     #[serde(rename = "executionTime")]
     pub execution_time: i32,
     /// Function or next execution
-    pub data: ExecutionData,
+    pub data: Value,
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct ExecutionData {
+pub struct ProcessExecution {
     #[serde(rename = "nextExecution")]
     pub next_execution: i32,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct FunctionExecution {
+    #[serde(rename = "sFunction")]
+    pub function: usize,
 }
 
 #[derive(Serialize, Deserialize)]
