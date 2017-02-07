@@ -58,7 +58,7 @@ pub struct Execution {
     #[serde(rename = "executionTime")]
     pub execution_time: i32,
     /// Function or next execution
-    pub data: Option<ExecutionData>,
+    pub data: ExecutionData,
 }
 
 #[derive(Serialize, Deserialize)]

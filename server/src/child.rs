@@ -15,9 +15,10 @@ pub struct Thread {
     pub thread: JoinHandle<()>,
     pub tx: SyncSender<ServerMessage>,
     pub rx: Receiver<DebugMessage>,
-    
+   
     pub execution: Option<i32>,
     pub id: i32,
+    pub e_type: String,
 }
 
 
@@ -26,12 +27,11 @@ pub struct Thread {
 pub enum DebugMessage {
     Attached,
     Functions(Vec<Function>),
-    Execution(Exec),
     Function(Function),
     Breakpoints(Vec<usize>),
     Breakpoint,
     BreakpointRemoved,
-    Executing(Exec),
+    Executing,
     Trace(DebugTrace),
     Error(io::Error),
 }
@@ -68,8 +68,6 @@ pub enum ServerMessage {
     ClearBreakpoint { address: usize },
     Continue,
     CallFunction { address: usize, arguments: Vec<i32> },
-    ListExecutions,
-    GetExecution,
     Trace,
     Stop,
     Quit,
@@ -113,6 +111,7 @@ impl Thread {
             rx: debug_rx,
 
             execution: None,
+            e_type: String::from(""),
             id: -1,
         }
     }
@@ -132,16 +131,8 @@ struct TargetState {
 
 struct TraceState {
     execution: Option<Execution>,
-    exec: Option<Exec>,
     event: Option<debug::Event>,
     attached: bool,
-}
-
-#[derive(Clone)]
-pub struct Exec {
-    pub e_type: String,
-    pub status: String,
-    pub execution_time: i32,
 }
 
 enum Execution {
@@ -186,7 +177,6 @@ fn run(
         execution: None,
         event: Some(event),
         attached: false,
-        exec: None,
     };
 
     loop {
@@ -226,42 +216,16 @@ fn run(
             }
 
             ServerMessage::Continue => {
-                let exec = Exec {
-                    e_type: String::from("process"),
-                    status: String::from("executing"),
-                    execution_time: 0,
-                };
-
-                trace.exec = Some(exec.clone());
-
                 let message = continue_process(&mut trace)
-                    .map(|()| DebugMessage::Executing(exec))
+                    .map(|()| DebugMessage::Executing)
                     .unwrap_or_else(DebugMessage::Error);
                 tx.send(message).unwrap();
             }
 
             ServerMessage::CallFunction { address, arguments } => {
-                let execution = Exec {
-                    e_type: String::from("function"),
-                    status: String::from("executing"),
-                    execution_time: 0,
-                };
-
-                trace.exec = Some(execution.clone());
                 let message = call_function(&mut target, &mut trace, address, arguments)
-                    .map(|()| DebugMessage::Executing(execution))
+                    .map(|()| DebugMessage::Executing)
                     .unwrap_or_else(DebugMessage::Error);
-                tx.send(message).unwrap();
-            }
-
-
-            ServerMessage::ListExecutions => {
-                let message = DebugMessage::Execution(trace.exec.clone().unwrap());
-                tx.send(message).unwrap();
-            }
-
-            ServerMessage::GetExecution => {
-                let message = DebugMessage::Execution(trace.exec.clone().unwrap());
                 tx.send(message).unwrap();
             }
 

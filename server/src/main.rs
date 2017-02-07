@@ -523,22 +523,6 @@ fn debug_breakpoint_delete(caps: Captures, child: ChildThread) -> io::Result<Vec
     Ok(vec![])
 }
 
-impl From<child::Exec> for Execution {
-    fn from(execution: child::Exec) -> Execution {
-        let child::Exec {
-            e_type, status, execution_time
-        } = execution;
-
-        Execution {
-            id: -1,
-            e_type: e_type,
-            status: status,
-            execution_time: execution_time,
-            data: None,
-        }
-    }
-}
-
 /// POST /debug/:id/execute -- starts or continues process
 fn debug_execute(caps: Captures, _body: Launch, child: ChildThread) -> io::Result<Vec<u8>> {
     let caps = caps.unwrap();
@@ -550,14 +534,20 @@ fn debug_execute(caps: Captures, _body: Launch, child: ChildThread) -> io::Resul
         .ok_or(io::Error::from(io::ErrorKind::NotConnected))?;
 
     child.tx.send(ServerMessage::Continue).unwrap();
-    let execution = match child.rx.recv().unwrap() {
-        DebugMessage::Executing(execution) => execution,
+    match child.rx.recv().unwrap() {
+        DebugMessage::Executing => {},
         DebugMessage::Error(e) => return Err(e),
         _ => unreachable!(),
     };
 
-    let mut message = Execution::from(execution);
-    message.id = child.next_id();
+    child.e_type = String::from("process");
+    let message = Execution{
+        id: child.next_id(), 
+        e_type: child.e_type.clone(), 
+        status: String::from("executing"),
+        execution_time: -1,
+        data: ExecutionData {next_execution: -1}
+    };
 
     Ok(serde_json::to_vec(&message).unwrap())
 }
@@ -576,14 +566,20 @@ fn debug_function_execute(caps: Captures, body: Call, child: ChildThread) -> io:
         .ok_or(io::Error::from(io::ErrorKind::NotConnected))?;
 
     child.tx.send(ServerMessage::CallFunction { address, arguments }).unwrap();
-    let execution = match child.rx.recv().unwrap() {
-        DebugMessage::Executing(execution) => execution,
+    match child.rx.recv().unwrap() {
+        DebugMessage::Executing => {},
         DebugMessage::Error(e) => return Err(e),
         _ => unreachable!(),
     };
 
-    let mut message = Execution::from(execution);
-    message.id = child.next_id();
+    child.e_type = String::from("function");
+    let message = Execution{
+        id: child.next_id(), 
+        e_type: child.e_type.clone(), 
+        status: String::from("executing"),
+        execution_time: -1,
+        data: ExecutionData {next_execution: -1}
+    };
 
     Ok(serde_json::to_vec(&message).unwrap())
 }
@@ -598,15 +594,13 @@ fn debug_executions(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
     let child = child.as_mut()
         .ok_or(io::Error::from(io::ErrorKind::NotConnected))?;
 
-    child.tx.send(ServerMessage::ListExecutions).unwrap();
-    let execution = match child.rx.recv().unwrap() {
-        DebugMessage::Execution(execution) => execution,
-        DebugMessage::Error(e) => return Err(e),
-        _ => unreachable!(),
+    let message = Execution{
+        id: child.id, 
+        e_type: child.e_type.clone(), 
+        status: String::from("executing"),
+        execution_time: -1,
+        data: ExecutionData {next_execution: -1}
     };
-
-    let mut message = Execution::from(execution);
-    message.id = child.id;
 
     Ok(serde_json::to_vec(&message).unwrap())
 }
@@ -629,16 +623,13 @@ fn debug_execution(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
         return Err(io::Error::new(io::ErrorKind::NotConnected, "not current execution"));
     }
 
-    child.tx.send(ServerMessage::GetExecution).unwrap();
-
-    let execution = match child.rx.recv().unwrap() {
-        DebugMessage::Execution(exec) => exec,
-        DebugMessage::Error(e) => return Err(e),
-        _ => unreachable!(),
+    let message = Execution{
+        id: child.id, 
+        e_type: child.e_type.clone(), 
+        status: String::from("executing"),
+        execution_time: -1,
+        data: ExecutionData {next_execution: -1}
     };
-
-    let mut message = Execution::from(execution);
-    message.id = child.id;
 
     Ok(serde_json::to_vec(&message).unwrap())
 }
