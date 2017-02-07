@@ -81,7 +81,7 @@ export class ConfigurationComponent implements OnInit, AfterViewChecked {
             this.debugState.executeFunction(this.selectedFunction.id,this.setParameters)
                 .subscribe((ex:Execution)=>{
                     if (this.viewService.debuggerComponent) {
-                        this.viewService.debuggerComponent.displayTrace(ex.id, this.selectedFunction);
+                        this.viewService.debuggerComponent.displayTrace(ex.id);
                         this.viewService.activeView = "Debugger";
                     }
                 }, (e:any) => {
@@ -107,7 +107,7 @@ export class ConfigurationComponent implements OnInit, AfterViewChecked {
                        let tTerm: TraceOfTermination = t as TraceOfTermination;
                        if (tTerm.data.cause === 'breakpoint') {
                            if (this.viewService.debuggerComponent) {
-                               this.viewService.debuggerComponent.displayTrace(tTerm.data.nextExecution, this.selectedFunction);
+                               this.viewService.debuggerComponent.displayTrace(tTerm.data.nextExecution);
                                this.viewService.activeView = "Debugger";
                            }
                        }

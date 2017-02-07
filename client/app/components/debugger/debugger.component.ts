@@ -42,17 +42,11 @@ export class DebuggerComponent implements AfterViewChecked {
 	}
 
 
-	//TODO: remove sf from parameters when server is fixed
-	public displayTrace(executionId: ExecutionId, sf: SourceFunction | null) {
-		if(!sf) {
-			throw new Error('DebuggerComponent: displayTrace: sf required');
-		}
+	public displayTrace(executionId: ExecutionId) {
 		let debuggerState:DebuggerState|null = this.debuggerService.getCurrentDebuggerState();
 		if(debuggerState) {
 			let ds: DebuggerState = debuggerState;
-			//TODO: uncomment when getExecution is implemented on server
-			//ds.getExecution(executionId)
-			Observable.of(new ExecutionOfFunction(executionId, 'executing', 0, {sFunction: sf.id}))
+			ds.getExecution(executionId)
                 .mergeMap((ex: Execution) => {
 					if(ex.eType !== 'function') {
 						return Observable.throw(new Error(`DebuggerComponent: cannot display execution traces with type ${ex.eType}`));
