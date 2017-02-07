@@ -307,6 +307,9 @@ fn file(mut req: Request, mut res: Response, caps: Captures) {
 fn filesystem(caps: Captures) -> io::Result<Vec<u8>> {
     let caps = caps.unwrap();
     let path = Path::new(&caps[1]);
+    if !path.exists() {
+        return Err(io::Error::from(io::ErrorKind::NotFound));
+    }
 
     let (file_type, contents) = if path.is_dir() {
         let mut contents = vec![];
