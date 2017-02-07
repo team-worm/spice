@@ -559,8 +559,6 @@ fn debug_execute(caps: Captures, _body: Launch, child: ChildThread) -> io::Resul
     let mut message = Execution::from(execution);
     message.id = child.next_id();
 
-
-
     Ok(serde_json::to_vec(&message).unwrap())
 }
 
@@ -607,7 +605,8 @@ fn debug_executions(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
         _ => unreachable!(),
     };
 
-    let message = Execution::from(execution);
+    let mut message = Execution::from(execution);
+    message.id = child.id;
 
     Ok(serde_json::to_vec(&message).unwrap())
 }

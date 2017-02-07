@@ -231,6 +231,9 @@ fn run(
                     status: String::from("executing"),
                     execution_time: 0,
                 };
+
+                trace.exec = Some(exec.clone());
+
                 let message = continue_process(&mut trace)
                     .map(|()| DebugMessage::Executing(exec))
                     .unwrap_or_else(DebugMessage::Error);
