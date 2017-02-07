@@ -14,7 +14,7 @@ import {ToolbarComponent} from "./components/toolbar/toolbar.component";
 import {AboutComponent} from "./components/toolbar/about.component";
 import {HelpComponent} from "./components/toolbar/help.component";
 import {LauncherComponent} from "./components/launcher/launcher.component";
-import {ConfigurationComponent} from "./components/configuration/configuration.component";
+import {FunctionsComponent} from "./components/functions/functions.component";
 import {DebuggerComponent} from "./components/debugger/debugger.component";
 
 import {FileSystemService} from "./services/file-system.service";
@@ -42,7 +42,7 @@ import { TraceComponent } from "./components/debugger/trace.component";
         SpiceRootComponent,
         ToolbarComponent,
         LauncherComponent,
-        ConfigurationComponent,
+        FunctionsComponent,
         DebuggerComponent,
         TraceComponent,
         FileBrowserComponent,

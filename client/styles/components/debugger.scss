@@ -1,5 +1,10 @@
 .debugger-container {
 	margin: 1em;
+	.functions-keyword {
+		cursor: pointer;
+		text-decoration: underline;
+		font-weight: bold;
+	}
 	.debugger-display {
 		.trace-col {
 			overflow-x: auto;

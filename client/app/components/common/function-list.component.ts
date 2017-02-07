@@ -1,6 +1,8 @@
 import {Component, Input, EventEmitter, Output} from "@angular/core";
 import {SourceFunction} from "../../models/SourceFunction";
 import {SourceType} from "../../models/SourceType";
+import {DebuggerState} from "../../models/DebuggerState";
+import {SourceFunctionId} from "../../models/SourceFunctionId";
 
 @Component({
     selector: 'spice-function-list',
@@ -18,7 +20,8 @@ import {SourceType} from "../../models/SourceType";
         [ngClass]="{'selected': selectedFunction == func}"
         *ngFor="let func of SortNameAscending() | filterByString:filterString:FunctionToString" 
         (click)="FunctionClicked(func)">
-        <md-icon class="function-icon" md-list-avatar>library_books</md-icon>
+        <md-icon class="function-icon" md-list-avatar *ngIf="!FunctionHasBreakpoint(func.id)">library_books</md-icon>
+        <md-icon class="function-icon" md-list-avatar *ngIf="FunctionHasBreakpoint(func.id)">book</md-icon>
         <p class="function-header" md-line title="{{func.name}} {{func.GetParametersAsString()}}"><b>{{func.name}}</b> {{func.GetParametersAsString()}}</p>
         <p class="function-subheader" md-line title="{{func.sourcePath}}">{{func.sourcePath}}</p>
     </md-list-item>
@@ -37,6 +40,9 @@ export class FunctionListComponent{
     @Input()
     public sourceFunctions: SourceFunction[];
 
+    @Input()
+    public debuggerState: DebuggerState;
+
     @Output()
     public onFunctionSelected: EventEmitter<SourceFunction>;
 
@@ -47,6 +53,13 @@ export class FunctionListComponent{
     public FunctionClicked(func:SourceFunction) {
         this.selectedFunction = func;
         this.onFunctionSelected.emit(func);
+    }
+
+    public FunctionHasBreakpoint(id:SourceFunctionId) {
+        if(!this.debuggerState) {
+            return false;
+        }
+        return this.debuggerState.breakpoints.has(id);
     }
 
     public SortNameAscending(): SourceFunction[] {

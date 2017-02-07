@@ -27,4 +27,8 @@ export class CacheMap<T> {
 	public has(key: string): boolean {
 		return this.map.hasOwnProperty(key);
 	}
+
+	public size(): number {
+		return Object.keys(this.map).length;
+	}
 }

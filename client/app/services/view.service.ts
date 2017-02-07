@@ -1,6 +1,8 @@
 import {Injectable} from "@angular/core";
 import {DebuggerComponent} from "../components/debugger/debugger.component";
-import { ConfigurationComponent } from "../components/configuration/configuration.component";
+import { FunctionsComponent } from "../components/functions/functions.component";
+import {LauncherComponent} from "../components/launcher/launcher.component";
+import {ToolbarComponent} from "../components/toolbar/toolbar.component";
 
 @Injectable()
 export class ViewService {
@@ -9,11 +11,13 @@ export class ViewService {
 
     private _activeView:string;
 
+    public toolbarComponent: ToolbarComponent | null;
+    public launcherComponent: LauncherComponent | null;
+    public functionsComponent: FunctionsComponent | null;
     public debuggerComponent: DebuggerComponent | null;
-    public configurationComponent: ConfigurationComponent | null;
 
     constructor() {
-        this.views = ['launcher','configuration','debugger'];
+        this.views = ['launcher','functions','debugger'];
         this._activeView = this.views[0];
     }
 
@@ -28,8 +32,8 @@ export class ViewService {
             case 'launcher':
                 this._activeView = lwView;
                 break;
-            case 'configuration':
-                if(this.configurationViewAvailable) {
+            case 'functions':
+                if(this.functionsViewAvailable) {
                     this._activeView = lwView;
                     return;
                 }
@@ -45,12 +49,12 @@ export class ViewService {
         }
     }
 
-    get configurationViewAvailable() {
-        return true; //TODO: make return vary based on app state.
+    get functionsViewAvailable() {
+        return (this.launcherComponent && this.launcherComponent.debugState);
     }
 
     get debuggerViewAvailable() {
-        return true; //TODO: make return vary based on app state.
+        return (this.launcherComponent && this.launcherComponent.debugState); //TODO: make return vary based on app state.
     }
 
 

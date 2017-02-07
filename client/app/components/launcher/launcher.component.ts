@@ -36,34 +36,39 @@ export class LauncherComponent {
     public OnProcessSelected($event:Process) {
         this.selectedProcess = $event;
     }
-    public MoveToConfiguration() {
-        this.viewService.activeView = 'configuration';
-    }
 
     public LaunchBinary() {
-        if(this.selectedFile) {
+        if (this.selectedFile) {
             this.attaching = true;
 
             let self = this;
             let launchedFile = this.selectedFile;
             this.debuggerService.attachBinary(this.selectedFile.path).subscribe({
-                next: (ds:DebuggerState)=>{
+                next: (ds: DebuggerState) => {
                     self.debuggerService.setCurrentDebuggerState(ds);
                     self.debugState = ds;
                     self.debugStateFile = launchedFile;
                     self.attaching = false;
-                    if(self.viewService.configurationComponent) {
-						self.viewService.configurationComponent.loadSourceFunctions();
-					}
+                    if (self.viewService.functionsComponent) {
+                        self.viewService.functionsComponent.loadSourceFunctions();
+                    }
+                    if (self.viewService.toolbarComponent) {
+                        self.viewService.toolbarComponent.debugState = ds;
+                        self.viewService.toolbarComponent.debugStateFile = launchedFile;
+                    }
+                    if (self.viewService.debuggerComponent) {
+                        self.viewService.debuggerComponent.debugState = ds;
+                    }
+                    self.viewService.activeView = 'functions';
                 },
-                complete: ()=>{
+                complete: () => {
                 },
-                error: (error:Response)=>{
+                error: (error: Response) => {
                     self.attaching = false;
-                    self.snackBar.open('Error Launching '+launchedFile.name+' ('+error.status+'): '+error.statusText, undefined, {
+                    self.snackBar.open('Error Launching ' + launchedFile.name + ' (' + error.status + '): ' + error.statusText, undefined, {
                         duration: 3000
                     });
-                    if((<any>error).message) {
+                    if ((<any>error).message) {
                         console.error(error);
                     }
                 }
@@ -75,18 +80,10 @@ export class LauncherComponent {
         }
 
     }
+
     public AttachToProcess() {
         this.snackBar.open("Attaching to process not yet implemented.", undefined, {
             duration: 1000
         });
-    }
-
-    public KillAndDetach() {
-        if(this.debugState) {
-            //TODO: When the api for detach exists do something for this.
-            this.snackBar.open("Killing and detaching not yet implemented.", undefined, {
-                duration: 1000
-            });
-        }
     }
 }

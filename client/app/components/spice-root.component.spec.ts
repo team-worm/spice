@@ -40,7 +40,7 @@ describe('A Service', function () {
         const launcher = el.nativeElement;
         expect(launcher).toBeDefined();
     });
-    it('should have the configuration defined', () => {
+    it('should have the functions defined', () => {
         let el: DebugElement;
         el = fixture.debugElement.query(By.css('spice-configuration'));
         fixture.detectChanges();
@@ -57,21 +57,21 @@ describe('A Service', function () {
 
     it('should be in the Launcher view on start', ()=> {
         expect(fixture.componentInstance.IsInLauncher()).toBeTruthy();
-        expect(fixture.componentInstance.IsInConfiguration()).toBeFalsy();
+        expect(fixture.componentInstance.IsInFunctions()).toBeFalsy();
         expect(fixture.componentInstance.IsInDebugger()).toBeFalsy();
     });
     it('should change view methods if the view changes', inject([ViewService],(vs:ViewService) => {
         vs.activeView = 'configuration';
         expect(fixture.componentInstance.IsInLauncher()).toBeFalsy();
-        expect(fixture.componentInstance.IsInConfiguration()).toBeTruthy();
+        expect(fixture.componentInstance.IsInFunctions()).toBeTruthy();
         expect(fixture.componentInstance.IsInDebugger()).toBeFalsy();
-        vs.activeView = 'debugger';
+        vs.activeView = 'functions';
         expect(fixture.componentInstance.IsInLauncher()).toBeFalsy();
-        expect(fixture.componentInstance.IsInConfiguration()).toBeFalsy();
+        expect(fixture.componentInstance.IsInFunctions()).toBeFalsy();
         expect(fixture.componentInstance.IsInDebugger()).toBeTruthy();
         vs.activeView = 'launcher';
         expect(fixture.componentInstance.IsInLauncher()).toBeTruthy();
-        expect(fixture.componentInstance.IsInConfiguration()).toBeFalsy();
+        expect(fixture.componentInstance.IsInFunctions()).toBeFalsy();
         expect(fixture.componentInstance.IsInDebugger()).toBeFalsy();
     }));
 });
