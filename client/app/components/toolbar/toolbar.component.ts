@@ -18,6 +18,7 @@ export class ToolbarComponent {
 
     public debugState:DebuggerState | null;
     public debugStateFile: SourceFile | null;
+    public executing: boolean; //TODO: get this data from the service
 
     selectedView:string;
 
@@ -27,6 +28,7 @@ export class ToolbarComponent {
         this.debugState = null;
         this.debugStateFile = null;
         this.selectedView = 'launcher';
+        this.executing = false;
     }
 
     public GoToFunctionsView() {
@@ -40,6 +42,7 @@ export class ToolbarComponent {
                     if(!this.debugState) {
                         return Observable.throw(new Error('Null debug state'));
                     }
+					this.executing = true;
                     return this.debugState.getTrace(ex.id);
                 }).map((t:Trace)=> {
                 if(t.tType === 2) {
@@ -50,7 +53,10 @@ export class ToolbarComponent {
                             this.viewService.debuggerComponent.displayTrace(tTerm.data.nextExecution);
                             this.viewService.activeView = "Debugger";
                         }
-                    }
+                    } else if(tTerm.data.cause === 'exit') {
+                    	this.executing = false;
+                    	//TODO: auto-reattach
+					}
                 }
                 return t;
             }).subscribe({
