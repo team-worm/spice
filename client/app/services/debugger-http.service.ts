@@ -69,7 +69,8 @@ export class DebuggerHttpService {
 	}
 
 	public executeFunction(id: DebugId, sourceFunctionId: SourceFunctionId, parameters: {[id: string]: any}): Observable<Execution> {
-		return this.http.post(`http://${host}:${port}/api/v1/debug/${id}/functions/${sourceFunctionId}/execute`, parameters)
+		return this.http.post(`http://${host}:${port}/api/v1/debug/${id}/functions/${sourceFunctionId}/execute`,
+			{parameters: Object.keys(parameters).map(k => parseInt(parameters[k]))})
 			.map((res: any) => {
 				return ExecutionFactory.fromObjectStrict(res.json());
 			})
@@ -110,7 +111,7 @@ export class DebuggerHttpService {
 	 * Executions
 	 */
 	public executeBinary(id: DebugId, args: string, environmentVars: string): Observable<Execution> {
-		return this.http.post(`http://${host}:${port}/api/v1/debug/${id}/execute`, undefined)
+		return this.http.post(`http://${host}:${port}/api/v1/debug/${id}/execute`, {args: args, env: environmentVars})
 			.map((res: any) => {
 				return ExecutionFactory.fromObjectStrict(res.json());
 			})

@@ -3,7 +3,7 @@ import { SpiceValidator } from "../../util/SpiceValidator";
 import { InvalidValueError } from "../errors/Errors";
 
 export type TraceOfTerminationData = {
-	cause: 'stopped' | 'crashed' | 'ended' | 'breakpoint'; //Reason for termination. Either `stopped`, `crashed`, `ended`, or `breakpoint`.
+	cause: 'stopped' | 'crash' | 'exit' | 'breakpoint' | 'return' | 'error'; //Reason for termination. Either `stopped`, `crashed`, `ended`, or `breakpoint`.
 	stack: string; //(defined if cause=crashed): Stack trace output.
 	returnValue: string; //(defined if cause=ended): Function return value or program exit code.
 	nextExecution: string; //(defined if cause=breakpoint): Id of the following function execution
@@ -18,7 +18,7 @@ export class TraceOfTermination extends Trace {
 	}
 
 	public static assertTraceCause(cause: string) {
-		if(['stopped', 'crashed', 'ended', 'breakpoint'].indexOf(cause) === -1) {
+		if(['stopped', 'crash', 'exit', 'breakpoint', 'return', 'error'].indexOf(cause) === -1) {
 			throw new InvalidValueError(cause);
 		}
 	}
