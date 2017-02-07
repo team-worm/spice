@@ -16,6 +16,7 @@ import { Trace } from "../models/trace/Trace";
 import { TraceFactory } from "../models/trace/TraceFactory";
 import { SpiceValidator } from "../util/SpiceValidator";
 import { Subscriber } from "rxjs/Subscriber";
+import { Process } from "../models/Process";
 
 const host:string = 'localhost';
 const port:number = 3000;
@@ -47,6 +48,25 @@ export class DebuggerHttpService {
 				return DebuggerState.fromObjectStrict(res.json(), this);
 			})
 			.catch(DebuggerHttpService.handleServerDataError('DebuggerState')).share();
+	}
+
+	public attachProcess(pid: string): Observable<DebuggerState> {
+		return this.http.post(`http://${host}:${port}/api/v1/debug/attach/pid/${pid}`, undefined)
+			.map((res: any) => {
+				return DebuggerState.fromObjectStrict(res.json(), this);
+			})
+			.catch(DebuggerHttpService.handleServerDataError('DebuggerState')).share();
+	}
+
+	/**
+	 * Processes
+	 */
+	public getProcesses(): Observable<Process[]> {
+		return this.http.get(`http://${host}:${port}/api/v1/processes`)
+			.map((res: any) => {
+				return res.json().map((p: any) => Process.fromObjectStrict(p));
+			})
+			.catch(DebuggerHttpService.handleServerDataError('Process')).share();
 	}
 
 	/**
