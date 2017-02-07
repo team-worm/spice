@@ -93,7 +93,7 @@ impl<'a> fmt::Display for Type<'a> {
                 write!(fmt, "[{}; {}]", Type(element, symbols, module), count)
             }
 
-            &Function { type_index, ref args } => {
+            &Function { type_index, ref args, .. } => {
                 write!(fmt, "fn (")?;
 
                 for (i, &arg) in args.iter().enumerate() {
