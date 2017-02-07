@@ -543,7 +543,7 @@ fn debug_execute(caps: Captures, _body: Launch, child: ChildThread) -> io::Resul
     child.execution = Some((id, ExecutionType::Process));
     
     let message = Execution {
-        id: child.next_id(), 
+        id: id, 
         e_type: String::from("process"),
         status: String::from("executing"),
         execution_time: -1,
@@ -576,12 +576,8 @@ fn debug_function_execute(caps: Captures, body: Call, child: ChildThread) -> io:
     child.execution = Some((id, ExecutionType::Function(address)));
 
     let message = Execution{
-        id: child.next_id(), 
-        e_type: match child.execution {
-            Some((_, ExecutionType::Function(_))) => String::from("function"),
-            Some((_, ExecutionType::Process)) => String::from("process"),
-            _ => String::from(""),
-        },
+        id: id,
+        e_type: String::from("function"),
         status: String::from("executing"),
         execution_time: -1,
         data: ExecutionData {next_execution: -1}
@@ -604,9 +600,9 @@ fn debug_executions(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
     for &(id, ref e_type) in &child.execution {
         message.push(Execution{
             id: id, 
-            e_type: match e_type {
-                &ExecutionType::Function(_) => String::from("function"),
-                &ExecutionType::Process => String::from("process"),
+            e_type: match *e_type {
+                ExecutionType::Function(_) => String::from("function"),
+                ExecutionType::Process => String::from("process"),
             },
             status: String::from("executing"),
             execution_time: -1,
@@ -631,24 +627,25 @@ fn debug_execution(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
     let child = child.as_mut()
         .ok_or(io::Error::from(io::ErrorKind::NotConnected))?;
 
-    if execution_id != child.id {
+    let (id, e_type) = match child.execution {
+        Some((id, ref e_type)) => (id, e_type),
+        None => return Err(io::Error::new(io::ErrorKind::NotConnected, "not current execution")),
+    };
+
+    if execution_id != id {
         return Err(io::Error::new(io::ErrorKind::NotConnected, "not current execution"));
     }
 
-
-    let mut message = vec![];
-    for &(id, ref e_type) in &child.execution {
-        message.push(Execution{
-            id: id,
-            e_type: match e_type {
-                &ExecutionType::Function(_) => String::from("function"),
-                &ExecutionType::Process => String::from("process"),
-            },
-            status: String::from("executing"),
-            execution_time: -1,
-            data: ExecutionData {next_execution: -1}
-        });
-    }
+    let message = Execution{
+        id: id,
+        e_type: match *e_type {
+            ExecutionType::Function(_) => String::from("function"),
+            ExecutionType::Process => String::from("process"),
+        },
+        status: String::from("executing"),
+        execution_time: -1,
+        data: ExecutionData {next_execution: -1}
+    };
 
     Ok(serde_json::to_vec(&message).unwrap())
 }
