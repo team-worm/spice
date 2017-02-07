@@ -33,12 +33,17 @@ $text-color-error: rgb(220, 49, 32);
 @import 'components/configuration';
 @import 'components/file-browser';
 @import 'components/process-list';
+@import 'components/function-list';
 
 html, body {
     height: 100%;
     margin: 0;
     padding: 0;
 
+}
+
+pre {
+	tab-size: 4;
 }
 
 .mockup {
@@ -55,5 +60,24 @@ html, body {
 
 .error-text {
     color: $text-color-error;
-    font-style:italic;
+    font-style: italic;
+}
+
+.source-code {
+    font-family: Courier, 'NewCourier', monospace;
+    font-size: 1em;
+    .row {
+        padding-left: 8px;
+        padding-right: 8px;
+        pre {
+            font-family: inherit;
+            margin: 0;
+        }
+    }
+    .line-number-col {
+        text-align: right;
+    }
+    .source-code-col {
+        overflow-x: auto;
+    }
 }

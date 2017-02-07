@@ -7,6 +7,7 @@ import {MaterialModule, MdIconRegistry} from "@angular/material";
 import {FormsModule} from "@angular/forms";
 import {HttpModule} from "@angular/http";
 import {RouterModule} from "@angular/router";
+import {FlexLayoutModule} from "@angular/flex-layout";
 
 import {SpiceRootComponent} from "./components/spice-root.component";
 import {ToolbarComponent} from "./components/toolbar/toolbar.component";
@@ -30,9 +31,11 @@ import { MockBackend } from "@angular/http/testing";
 import { Http, BaseRequestOptions, RequestOptions, ConnectionBackend } from "@angular/http";
 import { SpiceMockBackend } from "./spice-mock-backend";
 import { XHRBackend } from "@angular/http";
+import { MatchMaxHeightDirective } from "./directives/MatchMaxHeight.directive";
+import { TraceComponent } from "./components/debugger/trace.component";
 
 @NgModule({
-    imports: [MaterialModule.forRoot(), FormsModule, RouterModule, BrowserModule, HttpModule],
+    imports: [MaterialModule.forRoot(), FormsModule, RouterModule, BrowserModule, HttpModule, FlexLayoutModule],
     declarations: [
         AboutComponent,
         HelpComponent,
@@ -41,17 +44,19 @@ import { XHRBackend } from "@angular/http";
         LauncherComponent,
         ConfigurationComponent,
         DebuggerComponent,
+        TraceComponent,
         FileBrowserComponent,
         FileBrowserNodeComponent,
         FunctionListComponent,
         ProcessListComponent,
-        FilterByStringPipe
+        FilterByStringPipe,
+        MatchMaxHeightDirective
     ],
     providers: [
         //BEGIN MOCK PROVIDERS--Comment these out to disable backend mocking!
-        // MockBackend,
-        // BaseRequestOptions,
-        // SpiceMockBackend,
+		 //  MockBackend,
+		 //  BaseRequestOptions,
+		 //  SpiceMockBackend,
         //END MOCK PROVIDERS
         
         FileSystemService,

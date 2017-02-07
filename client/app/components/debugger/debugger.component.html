@@ -1,2 +1,50 @@
-<div id="DebuggerContainer">
+<div class="debugger-container">
+	<div class="debugger-display source-code" fxLayout="row">
+		<div class="source-code-viewer" fxFlex="40" fxLayout="row">
+			<div class="line-number-col" fxFlex="nogrow">
+				<div class="row" [matchMaxHeight]="'debugger-'+i" *ngFor="let line of lines; let i=index;">
+					<span>{{i + sourceFunction.lineNumber}}</span>
+				</div>
+			</div>
+			<div class="source-code-col" fxFlex>
+				<div class="row" [matchMaxHeight]="'debugger-'+i" *ngFor="let line of lines; let i=index;">
+					<pre>{{line.sourceCode}}</pre>
+				</div>
+			</div>
+		</div>
+		<div class="trace-col" fxFlex fxLayout="row">
+			<div class="iteration-col" fxFlex *ngFor="let n of [].constructor(traceColCount); let colIndex=index;">
+				<div class="row" [matchMaxHeight]="'debugger-'+i" *ngFor="let line of lines; let i=index;">
+						<spice-trace *ngIf="line.traces[colIndex]" [trace]="line.traces[colIndex]" fxFlex></spice-trace>
+				</div>
+			</div>
+		</div>
+	</div>
 </div>
+
+<!--
+		<reactive-height-grid layout="row" class="debugger">
+			<div flex class="source-code-viewer">
+				<div layout="row">
+					<div flex="none" class="line-number-column debug-column">
+						<reactive-height-cell ng-repeat="line in lines.slice(lineStart, lineEnd)" row="$index" col="0">
+							<span flex>{{$index + 1 + lineStart}}</span>
+						</reactive-height-cell>
+					</div>
+					<div flex class="code-column debug-column">
+						<reactive-height-cell ng-repeat="line in lines.slice(lineStart, lineEnd)" row="$index" col="1">
+							<pre flex>{{line.code}}</pre>
+						</reactive-height-cell>
+					</div>
+				</div>
+			</div>
+			<div flex class="state-column debug-column" layout="row">
+				<div flex class="trace-column" ng-repeat="(colIndex, i) in [].constructor(traceColCount) track by $index">
+					<reactive-height-cell ng-repeat="line in lines" row="$index" col="$parent.$index+2">
+						<trace flex trace="line.traces[colIndex]"></trace>
+					</reactive-height-cell>
+				</div>
+			</div>
+		</reactive-height-grid>
+	</div>
+	-->

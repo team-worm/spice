@@ -24,6 +24,7 @@ use std::error::Error;
 use hyper::status::StatusCode;
 use hyper::server::{Server, Request, Response, Streaming};
 use reroute::{RouterBuilder, Captures};
+use serde_json::value::ToJson;
 
 use child::{ServerMessage, DebugMessage, DebugTrace, ExecutionType};
 use api::*;
@@ -539,17 +540,16 @@ fn debug_execute(caps: Captures, _body: Launch, child: ChildThread) -> io::Resul
         DebugMessage::Error(e) => return Err(e),
         _ => unreachable!(),
     };
-
     child.execution = Some((id, ExecutionType::Process));
-    
+
+    let data = ProcessExecution { next_execution: 0 };
     let message = Execution {
         id: id, 
         e_type: String::from("process"),
         status: String::from("executing"),
-        execution_time: -1,
-        data: ExecutionData {next_execution: -1}
+        execution_time: 0,
+        data: data.to_json().unwrap(),
     };
-
     Ok(serde_json::to_vec(&message).unwrap())
 }
 
@@ -572,17 +572,16 @@ fn debug_function_execute(caps: Captures, body: Call, child: ChildThread) -> io:
         DebugMessage::Error(e) => return Err(e),
         _ => unreachable!(),
     };
-
     child.execution = Some((id, ExecutionType::Function(address)));
 
-    let message = Execution{
+    let data = FunctionExecution { function: address };
+    let message = Execution {
         id: id,
         e_type: String::from("function"),
         status: String::from("executing"),
-        execution_time: -1,
-        data: ExecutionData {next_execution: -1}
+        execution_time: 0,
+        data: data.to_json().unwrap(),
     };
-
     Ok(serde_json::to_vec(&message).unwrap())
 }
 
@@ -598,15 +597,24 @@ fn debug_executions(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
 
     let mut message = vec![];
     for &(id, ref e_type) in &child.execution {
-        message.push(Execution{
+        let (e_type, data) = match *e_type {
+            ExecutionType::Function(address) => {
+                let data = FunctionExecution { function: address };
+                (String::from("function"), data.to_json().unwrap())
+            }
+
+            ExecutionType::Process => {
+                let data = ProcessExecution { next_execution: 0 };
+                (String::from("process"), data.to_json().unwrap())
+            }
+        };
+
+        message.push(Execution {
             id: id, 
-            e_type: match *e_type {
-                ExecutionType::Function(_) => String::from("function"),
-                ExecutionType::Process => String::from("process"),
-            },
+            e_type: e_type,
             status: String::from("executing"),
             execution_time: -1,
-            data: ExecutionData {next_execution: -1}
+            data: data,
         });
     }
 
@@ -632,17 +640,25 @@ fn debug_execution(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
         _ => return Err(io::Error::new(io::ErrorKind::NotFound, "no such execution")),
     };
 
-    let message = Execution{
-        id: id,
-        e_type: match *e_type {
-            ExecutionType::Function(_) => String::from("function"),
-            ExecutionType::Process => String::from("process"),
-        },
-        status: String::from("executing"),
-        execution_time: -1,
-        data: ExecutionData {next_execution: -1}
+    let (e_type, data) = match *e_type {
+        ExecutionType::Function(address) => {
+            let data = FunctionExecution { function: address };
+            (String::from("function"), data.to_json().unwrap())
+        }
+
+        ExecutionType::Process => {
+            let data = ProcessExecution { next_execution: 0 };
+            (String::from("process"), data.to_json().unwrap())
+        }
     };
 
+    let message = Execution {
+        id: id,
+        e_type: e_type,
+        status: String::from("executing"),
+        execution_time: -1,
+        data: data.to_json().unwrap(),
+    };
     Ok(serde_json::to_vec(&message).unwrap())
 }
 

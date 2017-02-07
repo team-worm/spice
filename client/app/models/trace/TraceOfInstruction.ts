@@ -14,9 +14,6 @@ export class TraceOfInstruction extends Trace {
 		SpiceValidator.assertTypeofStrict(obj.data, 'object');
 		SpiceValidator.assertArrayStrict(obj.data.state);
 
-		//TODO: change this when the typing protocol is updated
-		obj.data.state = obj.data.state.map((s: any) => { return { sVariable: s.variable, value: s.value}});
-
 		// let state = obj.data.state.map(function(is: any) {
 		// 	SpiceValidator.assertTypeofStrict(is, 'object');
 		// 	SpiceValidator.assertTypeofStrict(is.sVariable, 'object');

@@ -1,5 +1,6 @@
 import {Injectable} from "@angular/core";
 import {SourceFile} from "../models/SourceFile";
+import {Observable} from "rxjs/Observable";
 
 @Injectable()
 export class FileSystemService {
@@ -25,68 +26,48 @@ export class FileSystemService {
         switch(_path) {
             case '':
                 ret = {
-                    name: 'root',
-                    path: '/',
+                    name: 'Spice Directory',
+                    path: '',
                     fType: 'directory',
                     contents: [
                         {
-                            name: 'src',
-                            path: '/src/',
+                            name: 'testBin',
+                            path: 'testBin/',
                             fType: 'directory',
                             contents: undefined
                         },
                         {
-                            name: 'bin',
-                            path: '/bin/',
-                            fType: 'directory',
-                            contents: undefined
-                        },
-                        {
-                            name: 'unloadable',
-                            path: '/unloadable/',
-                            fType: 'directory',
-                            contents: undefined
-                        },
-                        {
-                            name: 'readme.txt',
-                            path: '/readme.txt',
+                            name: 'collatz.exe',
+                            path: 'collatz.exe',
                             fType: 'file',
                             contents: undefined
-                        }
+                        },
                     ]
                 };
                 break;
-            case '/src/':
+            case 'testBin/':
                 ret = {
-                    name: 'src',
-                    path: '/src/',
+                    name: 'testBin',
+                    path: 'testBin/',
                     fType: 'directory',
                     contents: [{
-                        name: 'binary-search.c',
-                        path: '/src/binary-search.c',
+                        name: 'SpiceTestApp.exe',
+                        path: 'testBin/SpiceTestApp.exe',
                         fType: 'file',
                         contents: undefined
                     },
                     {
-                        name: 'main.c',
-                        path: '/src/main.c',
+                        name: 'SpiceTestApp.ilk',
+                        path: 'testBin/SpiceTestApp.ilk',
                         fType: 'file',
                         contents: undefined
-                    }]
-                };
-                break;
-            case '/bin/':
-                ret =  {
-                    name: 'bin',
-                    path: '/bin/',
-                    fType: 'directory',
-                    contents: [{
-                        name: 'binary-search.exe',
-                        path: '/bin/binary-search.exe',
+                    },
+                    {
+                        name: 'SpiceTestApp.pdb',
+                        path: 'testBin/SpiceTestApp.pdb',
                         fType: 'file',
                         contents: undefined
-                    }]
-                };
+                    }]};
                 break;
             default:
                 ret = undefined;
@@ -102,5 +83,39 @@ export class FileSystemService {
         }
 
         return ret;
+    }
+
+    public getFileContents(path: string): Observable<string> {
+        if(path.indexOf('collatz.cpp') !== -1) {
+            return Observable.of(`// collatz.cpp : Defines the entry point for the console application.
+//
+
+#include "stdafx.h"
+#include <stdio.h>
+
+int collatz(int n) {
+	int t = 0;
+	while (n != 1) {
+		if (n % 2 == 0) {
+			n /= 2;
+		}
+		else {
+			n = 3*n + 1;
+		}
+		t++;
+	}
+	return t;
+}
+
+int main()
+{
+	printf("%d\n", collatz(3));
+    return 0;
+}
+
+`);
+        }
+        return Observable.throw(new Error('mocked file not found.'))
+
     }
 }

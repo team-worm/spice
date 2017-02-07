@@ -15,9 +15,12 @@ import { ExecutionId } from "../models/execution/ExecutionId";
 import { Trace } from "../models/trace/Trace";
 import { TraceFactory } from "../models/trace/TraceFactory";
 import { SpiceValidator } from "../util/SpiceValidator";
+import { Subscriber } from "rxjs/Subscriber";
 
 const host:string = 'localhost';
 const port:number = 3000;
+
+declare var oboe: any;
 
 @Injectable()
 export class DebuggerHttpService {
@@ -69,7 +72,8 @@ export class DebuggerHttpService {
 	}
 
 	public executeFunction(id: DebugId, sourceFunctionId: SourceFunctionId, parameters: {[id: string]: any}): Observable<Execution> {
-		return this.http.post(`http://${host}:${port}/api/v1/debug/${id}/functions/${sourceFunctionId}/execute`, parameters)
+		return this.http.post(`http://${host}:${port}/api/v1/debug/${id}/functions/${sourceFunctionId}/execute`,
+			{parameters: Object.keys(parameters).map(k => parseInt(parameters[k]))})
 			.map((res: any) => {
 				return ExecutionFactory.fromObjectStrict(res.json());
 			})
@@ -110,7 +114,7 @@ export class DebuggerHttpService {
 	 * Executions
 	 */
 	public executeBinary(id: DebugId, args: string, environmentVars: string): Observable<Execution> {
-		return this.http.post(`http://${host}:${port}/api/v1/debug/${id}/execute`, undefined)
+		return this.http.post(`http://${host}:${port}/api/v1/debug/${id}/execute`, {args: args, env: environmentVars})
 			.map((res: any) => {
 				return ExecutionFactory.fromObjectStrict(res.json());
 			})
@@ -126,14 +130,30 @@ export class DebuggerHttpService {
 	}
 
 	public getTrace(id: DebugId, executionId: ExecutionId): Observable<Trace> {
-		//TODO: make this read input as a stream
-		return this.http.get(`http://${host}:${port}/api/v1/debug/${id}/executions/${executionId}/trace`)
-			.switchMap((res: any) => {
-				let data = res.json();
-				SpiceValidator.assertArrayStrict(data);
+		return Observable.create((observer: Subscriber<Trace>) => {
+			oboe({
+					url: `http://${host}:${port}/api/v1/debug/${id}/executions/${executionId}/trace`,
+					method: 'GET'})
+				.node('{index tType line data}', (t:any) => {
+					try {
+						observer.next(TraceFactory.fromObjectStrict(t));
+						if(t.tType === 2) {
+							observer.complete();
+						}
+					}
+					catch(e) {
+						observer.error(DebuggerHttpService.handleServerDataError('Trace')(e));
+					}
+				});
+		}).share();
 
-				return Observable.from(data.map((t:any) => TraceFactory.fromObjectStrict(t)));
-			})
-			.catch(DebuggerHttpService.handleServerDataError('Trace')).share();
+		//return this.http.get(`http://${host}:${port}/api/v1/debug/${id}/executions/${executionId}/trace`)
+			//.switchMap((res: any) => {
+				//let data = res.text();
+				//SpiceValidator.assertArrayStrict(data);
+
+				//return Observable.from(data.map((t:any) => TraceFactory.fromObjectStrict(t)));
+			//})
+			//.catch(DebuggerHttpService.handleServerDataError('Trace')).share();
 	}
 }
