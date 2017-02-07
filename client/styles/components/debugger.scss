@@ -2,6 +2,7 @@
 	margin: 1em;
 	.debugger-display {
 		.trace-col {
+			overflow-x: auto;
 			.iteration-col {
 				.trace {
 					.trace-instruction {
