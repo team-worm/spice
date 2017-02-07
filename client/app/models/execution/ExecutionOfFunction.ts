@@ -5,13 +5,13 @@ import { SpiceValidator } from "../../util/SpiceValidator";
 
 export class ExecutionOfFunction extends Execution {
 	public data: {
-			sFunction: number; //Function that produced this execution.
+			sFunction: string; //Function that produced this execution.
 	};
 	constructor(
 		id: ExecutionId,
 		status: ExecutionStatus,
 		executionTime: number,
-		data: { sFunction: number }){
+		data: { sFunction: string }){
 		super(id, 'function', status, executionTime, data);
 
 	}
@@ -21,6 +21,6 @@ export class ExecutionOfFunction extends Execution {
 		SpiceValidator.assertTypeofStrict(obj.data, 'object');
 		SpiceValidator.assertTypeofStrict(obj.data.sFunction, 'number');
 
-		return new ExecutionOfFunction(obj.id.toString(), obj.status, obj.executionTime, { sFunction: obj.data.sFunction });
+		return new ExecutionOfFunction(obj.id.toString(), obj.status, obj.executionTime, { sFunction: obj.data.sFunction.toString() });
 	}
 }

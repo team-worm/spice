@@ -1,6 +1,7 @@
 import {Component, ViewChild, OnInit} from '@angular/core';
 import {ViewService} from "../services/view.service";
 import {DebuggerComponent} from "./debugger/debugger.component";
+import { ConfigurationComponent } from "./configuration/configuration.component";
 
 @Component({
     selector: 'spice-root',
@@ -14,10 +15,12 @@ import {DebuggerComponent} from "./debugger/debugger.component";
 export class SpiceRootComponent implements OnInit {
 
     @ViewChild(DebuggerComponent) debuggerComponent: DebuggerComponent;
+    @ViewChild(ConfigurationComponent) configurationComponent: ConfigurationComponent;
     constructor(private viewService:ViewService) {}
 
     ngOnInit() {
         this.viewService.debuggerComponent = this.debuggerComponent;
+        this.viewService.configurationComponent = this.configurationComponent;
     }
 
     public IsInLauncher():boolean {

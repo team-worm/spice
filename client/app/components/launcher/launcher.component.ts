@@ -52,6 +52,9 @@ export class LauncherComponent {
                     self.debugState = ds;
                     self.debugStateFile = launchedFile;
                     self.attaching = false;
+                    if(self.viewService.configurationComponent) {
+						self.viewService.configurationComponent.loadSourceFunctions();
+					}
                 },
                 complete: ()=>{
                 },

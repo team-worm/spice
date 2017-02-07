@@ -1,4 +1,4 @@
-import {Component, OnInit} from "@angular/core";
+import {Component, OnInit, AfterViewChecked} from "@angular/core";
 import {SourceFunction} from "../../models/SourceFunction";
 import {DebuggerService} from "../../services/debugger.service";
 import {DebuggerState} from "../../models/DebuggerState";
@@ -17,7 +17,7 @@ import {MatchMaxHeightDirective} from "../../directives/MatchMaxHeight.directive
     selector: 'spice-configuration',
     templateUrl: 'app/components/configuration/configuration.component.html'
 })
-export class ConfigurationComponent implements OnInit {
+export class ConfigurationComponent implements OnInit, AfterViewChecked {
 
     private _configurationContentBody:HTMLElement | null;
 
@@ -47,6 +47,13 @@ export class ConfigurationComponent implements OnInit {
             console.error('Error getting ConfigurationContainer');
         }
     }
+
+    public ngAfterViewChecked() {
+		//TODO: fix this so it doesn't just execute on any update
+		if(this.lines) {
+			this.lines.forEach((l,i) => MatchMaxHeightDirective.update('configuration-'+i.toString()));
+		}
+	}
 
     public SetBreakpoint() {
         if(this.selectedFunction && this.debugState) {
@@ -107,7 +114,7 @@ export class ConfigurationComponent implements OnInit {
                     }
                     return t;
                    }).subscribe({
-                   next: (t)=>{console.log(t)},
+                   next: (t)=>{},
                complete: ()=>{},
                error: (error:any) => {
                    console.log(error);
@@ -123,7 +130,7 @@ export class ConfigurationComponent implements OnInit {
         }
     }
 
-    public Reload() {
+    public loadSourceFunctions() {
         let ds:DebuggerState|null = null;
         if(ds = this.debuggerService.getCurrentDebuggerState()) {
             this.debugState = ds;
@@ -153,7 +160,7 @@ export class ConfigurationComponent implements OnInit {
             this.lines = contents.split('\n');
             this.linesLoaded = true;
             //TODO: figure out how to do this without a delay
-            Observable.of(null).delay(100).subscribe(() => this.refreshHeights());
+            //Observable.of(null).delay(100).subscribe(() => this.refreshHeights());
         }, (error:Error)=> {
             this.lines = [];
             this.linesLoaded = false;
