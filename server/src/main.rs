@@ -3,6 +3,7 @@
 extern crate hyper;
 extern crate unicase;
 extern crate reroute;
+extern crate mime_guess;
 
 extern crate serde;
 #[macro_use]
@@ -24,6 +25,8 @@ use std::error::Error;
 use hyper::status::StatusCode;
 use hyper::server::{Server, Request, Response, Streaming};
 use reroute::{RouterBuilder, Captures};
+use mime_guess::guess_mime_type;
+
 use serde_json::value::ToJson;
 
 use child::{ServerMessage, DebugMessage, DebugTrace, ExecutionType};
@@ -42,6 +45,8 @@ fn main() {
     let mut router = RouterBuilder::new();
 
     // host system info
+
+    router.get(r"/file/(.*)", file);
 
     router.get(r"/api/v1/filesystem/(.*)", move |req, res, caps| {
         match filesystem(caps) {
@@ -257,17 +262,45 @@ fn send(mut req: Request, mut res: Response, body: &[u8]) -> io::Result<()> {
 }
 
 fn send_error(req: Request, mut res: Response, error: io::Error) -> io::Result<()> {
-    *res.status_mut() = match error.kind() {
+    *res.status_mut() = status_from_error(error.kind());
+
+    let message = api::Error { code: 0, message: error.description().into(), data: 0 };
+    send(req, res, &serde_json::to_vec(&message).unwrap())
+}
+
+fn status_from_error(error: io::ErrorKind) -> StatusCode {
+    match error {
         io::ErrorKind::NotFound => StatusCode::NotFound,
         io::ErrorKind::NotConnected => StatusCode::Conflict,
         io::ErrorKind::AlreadyExists => StatusCode::PreconditionFailed,
         io::ErrorKind::InvalidInput => StatusCode::BadRequest,
         io::ErrorKind::InvalidData => StatusCode::BadRequest,
         _ => StatusCode::InternalServerError,
-    };
+    }
+}
 
-    let message = api::Error { code: 0, message: error.description().into(), data: 0 };
-    send(req, res, &serde_json::to_vec(&message).unwrap())
+/// GET /files/:path*
+fn file(mut req: Request, mut res: Response, caps: Captures) {
+    let caps = caps.unwrap();
+    let path = Path::new(&caps[1]);
+
+    io::copy(&mut req, &mut io::sink()).unwrap();
+
+    let mime = guess_mime_type(path);
+    match fs::File::open(path) {
+        Ok(mut file) => {
+            use hyper::header::*;
+
+            res.headers_mut().set(ContentType(mime));
+            let mut res = res.start().unwrap();
+            io::copy(&mut file, &mut res).unwrap();
+            res.end().unwrap();
+        }
+
+        Err(e) => {
+            *res.status_mut() = status_from_error(e.kind());
+        }
+    }
 }
 
 /// GET /filesystem/:path* -- gets the file(s) within the given path
