@@ -25,7 +25,7 @@ use hyper::status::StatusCode;
 use hyper::server::{Server, Request, Response, Streaming};
 use reroute::{RouterBuilder, Captures};
 
-use child::{ServerMessage, DebugMessage, DebugTrace};
+use child::{ServerMessage, DebugMessage, DebugTrace, ExecutionType};
 use api::*;
 
 mod child;
@@ -534,16 +534,17 @@ fn debug_execute(caps: Captures, _body: Launch, child: ChildThread) -> io::Resul
         .ok_or(io::Error::from(io::ErrorKind::NotConnected))?;
 
     child.tx.send(ServerMessage::Continue).unwrap();
-    match child.rx.recv().unwrap() {
-        DebugMessage::Executing => {},
+    let id = match child.rx.recv().unwrap() {
+        DebugMessage::Executing => child.next_id(),
         DebugMessage::Error(e) => return Err(e),
         _ => unreachable!(),
     };
 
-    child.e_type = String::from("process");
-    let message = Execution{
+    child.execution = Some((id, ExecutionType::Process));
+    
+    let message = Execution {
         id: child.next_id(), 
-        e_type: child.e_type.clone(), 
+        e_type: String::from("process"),
         status: String::from("executing"),
         execution_time: -1,
         data: ExecutionData {next_execution: -1}
@@ -566,16 +567,21 @@ fn debug_function_execute(caps: Captures, body: Call, child: ChildThread) -> io:
         .ok_or(io::Error::from(io::ErrorKind::NotConnected))?;
 
     child.tx.send(ServerMessage::CallFunction { address, arguments }).unwrap();
-    match child.rx.recv().unwrap() {
-        DebugMessage::Executing => {},
+    let id = match child.rx.recv().unwrap() {
+        DebugMessage::Executing => child.next_id(),
         DebugMessage::Error(e) => return Err(e),
         _ => unreachable!(),
     };
 
-    child.e_type = String::from("function");
+    child.execution = Some((id, ExecutionType::Function(address)));
+
     let message = Execution{
         id: child.next_id(), 
-        e_type: child.e_type.clone(), 
+        e_type: match child.execution {
+            Some((_, ExecutionType::Function(_))) => String::from("function"),
+            Some((_, ExecutionType::Process)) => String::from("process"),
+            _ => String::from(""),
+        },
         status: String::from("executing"),
         execution_time: -1,
         data: ExecutionData {next_execution: -1}
@@ -594,13 +600,19 @@ fn debug_executions(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
     let child = child.as_mut()
         .ok_or(io::Error::from(io::ErrorKind::NotConnected))?;
 
-    let message = Execution{
-        id: child.id, 
-        e_type: child.e_type.clone(), 
-        status: String::from("executing"),
-        execution_time: -1,
-        data: ExecutionData {next_execution: -1}
-    };
+    let mut message = vec![];
+    for &(id, ref e_type) in &child.execution {
+        message.push(Execution{
+            id: id, 
+            e_type: match e_type {
+                &ExecutionType::Function(_) => String::from("function"),
+                &ExecutionType::Process => String::from("process"),
+            },
+            status: String::from("executing"),
+            execution_time: -1,
+            data: ExecutionData {next_execution: -1}
+        });
+    }
 
     Ok(serde_json::to_vec(&message).unwrap())
 }
@@ -623,13 +635,20 @@ fn debug_execution(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
         return Err(io::Error::new(io::ErrorKind::NotConnected, "not current execution"));
     }
 
-    let message = Execution{
-        id: child.id, 
-        e_type: child.e_type.clone(), 
-        status: String::from("executing"),
-        execution_time: -1,
-        data: ExecutionData {next_execution: -1}
-    };
+
+    let mut message = vec![];
+    for &(id, ref e_type) in &child.execution {
+        message.push(Execution{
+            id: id,
+            e_type: match e_type {
+                &ExecutionType::Function(_) => String::from("function"),
+                &ExecutionType::Process => String::from("process"),
+            },
+            status: String::from("executing"),
+            execution_time: -1,
+            data: ExecutionData {next_execution: -1}
+        });
+    }
 
     Ok(serde_json::to_vec(&message).unwrap())
 }
@@ -639,17 +658,16 @@ fn debug_execution_trace(caps: Captures, child: ChildThread) -> io::Result<i32> 
     let caps = caps.unwrap();
     let _debug_id = caps[1].parse::<u64>()
         .map_err(|e| io::Error::new(io::ErrorKind::NotConnected, e))?;
-    let execution = caps[2].parse::<u64>()
+    let execution = caps[2].parse::<i32>()
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
 
     let child = child.lock().unwrap();
     let child = child.as_ref()
         .ok_or(io::Error::from(io::ErrorKind::NotConnected))?;
 
-    if child.execution == Some(execution as i32) {
-        Ok(execution as i32)
-    } else {
-        Err(io::Error::new(io::ErrorKind::NotFound, "no such execution"))
+    match child.execution {
+        Some((id, _)) if id == execution => Ok(id),
+        _ => Err(io::Error::new(io::ErrorKind::NotFound, "no such execution")),
     }
 }
 
@@ -694,11 +712,11 @@ fn trace_stream(res: &mut Response<Streaming>, child: ChildThread) -> io::Result
                 Trace { index: index, t_type: 2, line: line, data: data }
             }
 
-            DebugMessage::Trace(DebugTrace::Breakpoint) => {
+            DebugMessage::Trace(DebugTrace::Breakpoint(address)) => {
                 done = true;
 
                 let id = child.next_id();
-                child.execution = Some(id);
+                child.execution = Some((id, ExecutionType::Function(address)));
 
                 let data = json!({ "cause": "breakpoint", "nextExecution": id });
                 Trace { index: 0, t_type: 2, line: 0, data: data }

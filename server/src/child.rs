@@ -16,12 +16,14 @@ pub struct Thread {
     pub tx: SyncSender<ServerMessage>,
     pub rx: Receiver<DebugMessage>,
    
-    pub execution: Option<i32>,
+    pub execution: Option<(i32, ExecutionType)>,
     pub id: i32,
-    pub e_type: String,
 }
 
-
+pub enum ExecutionType {
+    Function(usize),
+    Process,
+}
 
 /// messages the debug event loop sends to the server
 pub enum DebugMessage {
@@ -52,7 +54,7 @@ pub enum DebugTrace {
     Line(u32, Vec<(String, String)>),
     Return(u32, String),
 
-    Breakpoint,
+    Breakpoint(usize),
     Exit(u32),
     Crash,
 }
@@ -111,7 +113,6 @@ impl Thread {
             rx: debug_rx,
 
             execution: None,
-            e_type: String::from(""),
             id: -1,
         }
     }
@@ -130,12 +131,12 @@ struct TargetState {
 }
 
 struct TraceState {
-    execution: Option<Execution>,
+    execution: Option<ExecutionState>,
     event: Option<debug::Event>,
     attached: bool,
 }
 
-enum Execution {
+enum ExecutionState {
     Process,
 
     Function {
@@ -233,11 +234,11 @@ fn run(
                 assert!(trace.event.is_none());
 
                 let result = match trace.execution.take() {
-                    Some(ex @ Execution::Process) => {
+                    Some(ex @ ExecutionState::Process) => {
                         trace_process(&mut target, &mut trace, &tx, ex)
                     }
 
-                    Some(ex @ Execution::Function { .. }) => {
+                    Some(ex @ ExecutionState::Function { .. }) => {
                         trace_function(&mut target, &mut trace, &tx, ex)
                     }
 
@@ -365,7 +366,7 @@ fn continue_process(trace: &mut TraceState) -> io::Result<()> {
     let event = trace.event.take()
         .ok_or(io::Error::new(io::ErrorKind::AlreadyExists, "process already running"))?;
 
-    trace.execution = Some(Execution::Process);
+    trace.execution = Some(ExecutionState::Process);
 
     event.continue_event(true)?;
     Ok(())
@@ -373,10 +374,10 @@ fn continue_process(trace: &mut TraceState) -> io::Result<()> {
 
 fn trace_process(
     target: &mut TargetState, trace: &mut TraceState, tx: &SyncSender<DebugMessage>,
-    execution: Execution
+    execution: ExecutionState
 ) -> io::Result<()> {
     let _ = match execution {
-        Execution::Process => (),
+        ExecutionState::Process => (),
         _ => unreachable!(),
     };
 
@@ -451,8 +452,8 @@ fn trace_process(
                 // move to a new execution
                 debug::set_thread_context(thread, &context)?;
                 let trace = trace.commit();
-                *execution = Some(Execution::Function { trace, line, exit, call });
-                tx.send(DebugMessage::Trace(DebugTrace::Breakpoint)).unwrap();
+                *execution = Some(ExecutionState::Function { trace, line, exit, call });
+                tx.send(DebugMessage::Trace(DebugTrace::Breakpoint(address))).unwrap();
 
                 event = trace_event.take().unwrap();
                 event.continue_event(true)?;
@@ -506,7 +507,7 @@ fn call_function(
     // move to a new execution
     debug::set_thread_context(thread, &context)?;
     let trace = trace.commit();
-    *execution = Some(Execution::Function { trace, line, exit, call });
+    *execution = Some(ExecutionState::Function { trace, line, exit, call });
 
     event = trace_event.take().unwrap();
     event.continue_event(true)?;
@@ -515,10 +516,10 @@ fn call_function(
 
 fn trace_function(
     target: &mut TargetState, trace: &mut TraceState, tx: &SyncSender<DebugMessage>,
-    execution: Execution
+    execution: ExecutionState
 ) -> io::Result<()> {
     let (breakpoints, line, exit, call) = match execution {
-        Execution::Function { trace, line, exit, call } => (trace, line, exit, call),
+        ExecutionState::Function { trace, line, exit, call } => (trace, line, exit, call),
         _ => unreachable!(),
     };
     let mut breakpoints = Trace::resume(&mut target.child, breakpoints);
