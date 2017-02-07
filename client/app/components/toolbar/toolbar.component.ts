@@ -17,7 +17,7 @@ import {TraceOfTermination} from "../../models/trace/TraceOfTermination";
 export class ToolbarComponent {
 
     public debugState:DebuggerState | null;
-    public debugStateFile: SourceFile | null;
+    public debugProcessName: string;
     public executing: boolean; //TODO: get this data from the service
 
     selectedView:string;
@@ -26,7 +26,7 @@ export class ToolbarComponent {
                 public viewService:ViewService,
                 private snackBar: MdSnackBar) {
         this.debugState = null;
-        this.debugStateFile = null;
+        this.debugProcessName = '';
         this.selectedView = 'launcher';
         this.executing = false;
     }

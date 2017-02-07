@@ -29,7 +29,7 @@
     <md-toolbar-row class="debug-state-row">
         <span class="target-text">Target:</span>
         <span *ngIf="!debugState"  class="no-target">Not Attached</span>
-        <span *ngIf="!!debugState" class="target-name">{{debugStateFile.name}}</span>
+        <span *ngIf="!!debugState" class="target-name">{{debugProcessName}}</span>
         <span class="flex-pusher"></span>
         <button md-button [disabled]="!debugState" (click)="GoToFunctionsView()">Breakpoints Set [{{!!debugState ? debugState.breakpoints.size() : 0}}]</button>
         <button md-button *ngIf="!executing" [disabled]="!debugState" (click)="ExecuteBinary()"><md-icon class="md-accent">play_arrow</md-icon> Execute Binary</button>

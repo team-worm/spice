@@ -1,5 +1,6 @@
-import {Component, Input, EventEmitter, Output} from "@angular/core";
+import {Component, Input, EventEmitter, Output, OnInit} from "@angular/core";
 import {Process} from "../../models/Process";
+import { DebuggerService } from "../../services/debugger.service";
 
 @Component({
     selector: 'spice-process-list',
@@ -11,6 +12,7 @@ import {Process} from "../../models/Process";
 <md-menu #sortMenu="mdMenu">
     <button *ngFor="let sortOption of sortingOptions" md-menu-item (click)="selectedSort=sortOption">{{sortOption.name}}<md-icon>{{sortOption.icon}}</md-icon></button>
 </md-menu>
+<button md-raised-button (click)="refreshProcessList()"><md-icon>refresh</md-icon></button>
 <md-list dense class="process-list">
     <md-list-item *ngFor="let process of selectedSort.sortFunc() | filterByString:filterString:ProcessToString" class="process-list-item" (click)="ProcessClicked(process)">
         <md-icon md-list-avatar class="process-icon">settings_application</md-icon>
@@ -21,7 +23,7 @@ import {Process} from "../../models/Process";
 </div>
 `
 })
-export class ProcessListComponent{
+export class ProcessListComponent implements OnInit {
 
     public filterString:string;
 
@@ -41,7 +43,7 @@ export class ProcessListComponent{
     @Output()
     public onProcessSelected: EventEmitter<Process>;
 
-    constructor() {
+    constructor(private debuggerService: DebuggerService) {
         let self = this;
         this.onProcessSelected = new EventEmitter<Process>();
         this.sortingOptions = [{
@@ -63,40 +65,20 @@ export class ProcessListComponent{
         }
         ];
         this.selectedSort = this.sortingOptions[0];
-        this.processes = [
-            {
-                name: "Chrome",
-                id: 12345
-            },
-            {
-                name: "Steam",
-                id: 3001
-            },
-            {
-                name: "Explorer",
-                id: 4
-            },
-            {
-                name: "VLC Media Player",
-                id: 1035
-            },
-            {
-                name: "Binary-Search",
-                id: 44032
-            },
-            {
-                name: "Excel",
-                id: 3392
-            },
-            {
-                name: "Visual Studio",
-                id: 3290
-            },
-            {
-                name: "Task Manager",
-                id: 5
-            }];
+        this.processes = [];
     }
+
+	public ngOnInit() {
+		this.refreshProcessList();
+	}
+
+	public refreshProcessList() {
+		this.debuggerService.getProcesses()
+			.subscribe(
+				ps => { this.processes = ps; },
+				err => { console.error(err); }
+			);
+	}
 
     public ProcessClicked(process:Process) {
         this.onProcessSelected.emit(process);
