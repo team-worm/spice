@@ -628,13 +628,9 @@ fn debug_execution(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
         .ok_or(io::Error::from(io::ErrorKind::NotConnected))?;
 
     let (id, e_type) = match child.execution {
-        Some((id, ref e_type)) => (id, e_type),
-        None => return Err(io::Error::new(io::ErrorKind::NotConnected, "not current execution")),
+        Some((id, ref e_type)) if id == execution_id => (id, e_type),
+        _ => return Err(io::Error::new(io::ErrorKind::NotFound, "no such execution")),
     };
-
-    if execution_id != id {
-        return Err(io::Error::new(io::ErrorKind::NotConnected, "not current execution"));
-    }
 
     let message = Execution{
         id: id,
