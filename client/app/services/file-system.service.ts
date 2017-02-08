@@ -45,7 +45,7 @@ export class FileSystemService {
     public getFileContents(path: string): Observable<string> {
         return this.http.get(`http://${host}:${port}/file/${path}`)
             .map((res: any) => {
-                return res.toString();
+                return res.text();
             })
             .catch(FileSystemService.handleServerDataError('File Contents')).share();
     }
