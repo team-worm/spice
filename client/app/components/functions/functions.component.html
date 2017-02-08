@@ -1,9 +1,4 @@
 <div id="ConfigurationContainer">
-    <md-card class="smallerMargin">
-        <md-card-content>
-            <button md-button [style.background]="'white'" (click)="ExecuteBinary()"><md-icon class="md-accent">play_arrow</md-icon> Run Binary</button>
-        </md-card-content>
-    </md-card>
     <div fxLayout="row">
         <div fxFlex="30" >
         <md-card class="smallerMargin" [style.height.px]="GetFullCardHeight()">
@@ -11,40 +6,41 @@
             <spice-function-list
                     class="width-100"
                     [sourceFunctions]="sourceFunctions"
+                    [debuggerState]="debugState"
                     [elementHeightPx]="GetListHeight()"
                     (onFunctionSelected)="OnFunctionSelected($event)"></spice-function-list>
         </md-card>
-    </div>
+        </div>
         <div fxFlex="70">
             <md-card class="smallerMargin">
                 <md-card-title>Selected Function: <i>{{GetSelectedFunctionAsString()}}</i></md-card-title>
                 <md-card-subtitle *ngIf="!selectedFunction">Select a function from the list to the left.</md-card-subtitle>
                 <md-card-subtitle *ngIf="!!selectedFunction">Line {{selectedFunction.lineNumber}} of {{selectedFunction.sourcePath}}</md-card-subtitle>
-                <md-card-content *ngIf="!!selectedFunction">
-                    <table class="width-100" cellspacing="0">
-                        <tr>
-                            <td *ngFor="let par of selectedFunction.parameters">
-                                <md-input-container class="width-100">
-                                    <input md-input [(ngModel)]="setParameters[par.id]" placeholder="{{par.sType}} {{par.name}}">
-                                </md-input-container>
-                            </td>
-                        </tr></table>
-                </md-card-content>
                 <md-card-actions>
-                    <button md-button [disabled]="!selectedFunction" (click)="SetBreakpoint()">Set Breakpoint</button>
-                    <button md-button [disabled]="!selectedFunction" (click)="ExecuteFunction()">Run Function with Parameters</button>
+                    <button md-button [disabled]="!selectedFunction" *ngIf="!selectedFunction || !debugState.breakpoints.has(selectedFunction.id)" (click)="ToggleBreakpoint()">
+                        <md-icon>bookmark_border</md-icon>Set Breakpoint
+                    </button>
+                    <button md-button [disabled]="!selectedFunction" *ngIf="!!selectedFunction && debugState.breakpoints.has(selectedFunction.id)" (click)="ToggleBreakpoint()">
+                        <md-icon>bookmark</md-icon>Remove Breakpoint
+                    </button>
+                    <button md-button [disabled]="!debugState || debugState.breakpoints.size() === 0" (click)="ExecuteBinary()"><md-icon class="md-accent">play_arrow</md-icon> Execute Binary</button>
+                    <i>or</i>
+                    <button md-button [disabled]="!selectedFunction" (click)="ExecuteFunctionWithCustomParams()"><md-icon class="md-accent">play_circle_outline</md-icon>Run with Custom Parameters</button>
                 </md-card-actions>
             </md-card>
-            <md-card class="smallMargin">
+            <md-card class="smallerMargin">
+                <md-card-content *ngIf="!lines && linesLoaded">
+                    Select a function from the list.
+                </md-card-content>
                 <md-card-content class="source-code" *ngIf="!!lines && linesLoaded">
                     <div class="source-code-viewer" fxFlex fxLayout="row">
                         <div class="line-number-col" fxFlex="nogrow">
-                            <div class="row" [matchMaxHeight]="'configuration-'+i" *ngFor="let line of lines; let i=index;">
+                            <div class="row" [matchMaxHeight]="'functions-'+i" *ngFor="let line of lines; let i=index;">
                                 <span>{{i + 1}}</span>
                             </div>
                         </div>
                         <div class="source-code-col" fxFlex>
-                            <div class="row" [matchMaxHeight]="'configuration-'+i" *ngFor="let line of lines; let i=index;">
+                            <div class="row" [matchMaxHeight]="'functions-'+i" *ngFor="let line of lines; let i=index;">
                                 <pre>{{line}}</pre>
                             </div>
                         </div>
@@ -53,7 +49,7 @@
                 <md-card-content *ngIf="!!lines && !linesLoaded">
                     <i>Unable to load file contents.</i>
                 </md-card-content>
-                <md-card-content *ngIf="!lines">
+                <md-card-content *ngIf="!lines && !linesLoaded">
                     <md-progress-spinner mode="indeterminate"></md-progress-spinner>
                 </md-card-content>
             </md-card>

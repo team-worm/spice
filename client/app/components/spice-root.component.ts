@@ -1,37 +1,46 @@
 import {Component, ViewChild, OnInit} from '@angular/core';
 import {ViewService} from "../services/view.service";
 import {DebuggerComponent} from "./debugger/debugger.component";
-import { ConfigurationComponent } from "./configuration/configuration.component";
+import {FunctionsComponent} from "./functions/functions.component";
+import {ToolbarComponent} from "./toolbar/toolbar.component";
+import {LauncherComponent} from "./launcher/launcher.component";
 
 @Component({
     selector: 'spice-root',
     template: `
 <spice-toolbar></spice-toolbar>
 <spice-launcher [hidden]="!IsInLauncher()"></spice-launcher>
-<spice-configuration [hidden]="!IsInConfiguration()"></spice-configuration>
+<spice-configuration [hidden]="!IsInFunctions()"></spice-configuration>
 <spice-debugger [hidden]="!IsInDebugger()"></spice-debugger>
 `,
 })
 export class SpiceRootComponent implements OnInit {
 
-    @ViewChild(DebuggerComponent) debuggerComponent: DebuggerComponent;
-    @ViewChild(ConfigurationComponent) configurationComponent: ConfigurationComponent;
-    constructor(private viewService:ViewService) {}
 
-    ngOnInit() {
-        this.viewService.debuggerComponent = this.debuggerComponent;
-        this.viewService.configurationComponent = this.configurationComponent;
+    @ViewChild(ToolbarComponent) toolbarComponent: ToolbarComponent;
+    @ViewChild(LauncherComponent) launcherComponent: LauncherComponent;
+    @ViewChild(FunctionsComponent) functionsComponent: FunctionsComponent;
+    @ViewChild(DebuggerComponent) debuggerComponent: DebuggerComponent;
+
+    constructor(private viewService: ViewService) {
     }
 
-    public IsInLauncher():boolean {
+    ngOnInit() {
+        this.viewService.toolbarComponent = this.toolbarComponent;
+        this.viewService.launcherComponent = this.launcherComponent;
+        this.viewService.functionsComponent = this.functionsComponent;
+        this.viewService.debuggerComponent = this.debuggerComponent;
+    }
+
+    public IsInLauncher(): boolean {
         return this.viewService.activeView == 'launcher';
     }
 
-    public IsInConfiguration():boolean {
-        return this.viewService.activeView == 'configuration';
+    public IsInFunctions(): boolean {
+        return this.viewService.activeView == 'functions';
     }
 
-    public IsInDebugger():boolean {
+    public IsInDebugger(): boolean {
         return this.viewService.activeView == 'debugger';
     }
 }

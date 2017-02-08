@@ -1,121 +1,62 @@
 import {Injectable} from "@angular/core";
 import {SourceFile} from "../models/SourceFile";
 import {Observable} from "rxjs/Observable";
+import {Http} from "@angular/http";
+import {InvalidServerDataError, InvalidTypeError} from "../models/errors/Errors";
+
+const host:string = 'localhost';
+const port:number = 3000;
 
 @Injectable()
 export class FileSystemService {
     //TODO: Fully implement, currently filled with Mock Data.
 
-    private _filesystem:SourceFile | undefined;
+    private _filesystem:SourceFile | null;
 
-    constructor() {
-        this._filesystem = undefined;
+    constructor(private http: Http) {
+        this._filesystem = null;
     }
 
-    get filesystem(): SourceFile | undefined {
+    get filesystem(): SourceFile | null {
         return this._filesystem;
     }
 
-    public GetFile(file?: SourceFile) : SourceFile | undefined {
-        let _path:string = '';
-        if(file) {
-            _path = file.path;
+    public getFullFile(file:SourceFile) : Observable<SourceFile> {
+        if(!this._filesystem) {
+           this._filesystem = file;
         }
-        let ret: SourceFile | undefined;
-        /* Load up a bunch of mock data. */
-        switch(_path) {
-            case '':
-                ret = {
-                    name: 'Spice Directory',
-                    path: '',
-                    fType: 'directory',
-                    contents: [
-                        {
-                            name: 'testBin',
-                            path: 'testBin/',
-                            fType: 'directory',
-                            contents: undefined
-                        },
-                        {
-                            name: 'collatz.exe',
-                            path: 'collatz.exe',
-                            fType: 'file',
-                            contents: undefined
-                        },
-                    ]
-                };
-                break;
-            case 'testBin/':
-                ret = {
-                    name: 'testBin',
-                    path: 'testBin/',
-                    fType: 'directory',
-                    contents: [{
-                        name: 'SpiceTestApp.exe',
-                        path: 'testBin/SpiceTestApp.exe',
-                        fType: 'file',
-                        contents: undefined
-                    },
-                    {
-                        name: 'SpiceTestApp.ilk',
-                        path: 'testBin/SpiceTestApp.ilk',
-                        fType: 'file',
-                        contents: undefined
-                    },
-                    {
-                        name: 'SpiceTestApp.pdb',
-                        path: 'testBin/SpiceTestApp.pdb',
-                        fType: 'file',
-                        contents: undefined
-                    }]};
-                break;
-            default:
-                ret = undefined;
-        }
-
-        if(file) {
-            if(ret)
-                file.contents = ret.contents;
-            else
-                file.contents = undefined;
-        } else if(ret) {
-            this._filesystem = ret;
-        }
-
-        return ret;
+        let path = file.path;
+        return this.http.get(`http://${host}:${port}/api/v1/filesystem/${path}`)
+            .map((res: any) => {
+                let retSf = SourceFile.fromObjectStrict(res.json());
+                if(retSf.fType === 'dir' && !!retSf.contents) { //TODO: fix the API russell
+                    file.contents = retSf.contents.map((sf:SourceFile)=> {
+                        if(sf.fType === 'dir') {
+                            sf.contents = undefined;
+                        }
+                        return sf;
+                    });
+                }
+                return retSf;
+            })
+            .catch(FileSystemService.handleServerDataError('SourceFile')).share();
     }
 
     public getFileContents(path: string): Observable<string> {
-        if(path.indexOf('collatz.cpp') !== -1) {
-            return Observable.of(`// collatz.cpp : Defines the entry point for the console application.
-//
+        return this.http.get(`http://${host}:${port}/file/${path}`)
+            .map((res: any) => {
+                return res.text();
+            })
+            .catch(FileSystemService.handleServerDataError('File Contents')).share();
+    }
 
-#include "stdafx.h"
-#include <stdio.h>
+    private static handleServerDataError(typeName: string) {
+        return (err: any) => {
+            if(err instanceof InvalidTypeError) {
+                return Observable.throw(new InvalidServerDataError(typeName, err));
+            }
 
-int collatz(int n) {
-	int t = 0;
-	while (n != 1) {
-		if (n % 2 == 0) {
-			n /= 2;
-		}
-		else {
-			n = 3*n + 1;
-		}
-		t++;
-	}
-	return t;
-}
-
-int main()
-{
-	printf("%d\n", collatz(3));
-    return 0;
-}
-
-`);
+            return Observable.throw(err);
         }
-        return Observable.throw(new Error('mocked file not found.'))
-
     }
 }

@@ -17,4 +17,18 @@
     .right-align-text {
         text-align: right;
     }
+
+    .debug-state-row {
+        border-top: solid 1px rgba(0, 0, 0, 0.2);
+        .target-text {
+        }
+        .no-target {
+            padding-left: 0.6em;
+            font-style: italic;
+            font-size: medium;
+        }
+        .target-name {
+            padding-left: 0.6em;
+        }
+    }
 }

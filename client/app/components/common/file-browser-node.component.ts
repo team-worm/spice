@@ -8,7 +8,6 @@ import {FileSystemService} from "../../services/file-system.service";
     <md-icon md-list-avatar class="file-icon" *ngIf="!!file" >{{IconName()}}</md-icon>
     <md-progress-spinner md-list-avatar *ngIf="!file" mode="indeterminate"></md-progress-spinner>
     <p md-line class="file-header">{{FileHead()}}</p>
-    <p md-line class="file-subheader">{{FileSub()}}</p>
 </md-list-item>
 <span *ngIf="IsFolder() && expanded">
     <md-divider></md-divider>
@@ -45,11 +44,11 @@ export class FileBrowserNodeComponent implements OnInit{
     }
 
     public IsFolder():boolean {
-        return !!this.file && this.file.fType == 'directory';
+        return !!this.file && this.file.fType == 'dir';
     }
     public IconName():string {
         if(!!this.file) {
-            if(this.file.fType == 'directory') {
+            if(this.file.fType == 'dir') {
                 if(this.expanded) {
                     return 'folder_open';
                 } else {
@@ -70,18 +69,13 @@ export class FileBrowserNodeComponent implements OnInit{
             return 'Loading...'
         }
     }
-    public FileSub():string {
-        if(!!this.file) {
-            return this.file.path;
-        } else {
-            return '';
-        }
-    }
     public Clicked() {
         if(!!this.file){
-            if(this.file.fType == 'directory') {
+            if(this.file.fType == 'dir') {
                 if(this.file.contents == undefined) {
-                    this.fSS.GetFile(this.file);
+                    this.fSS.getFullFile(this.file).subscribe((sf:SourceFile)=>{}, (e:any)=> {
+                        console.error('error getting file'); //TODO professionalize
+                    });
                 }
                 this.expanded = !this.expanded;
             } else if(this.file.fType == 'file') {

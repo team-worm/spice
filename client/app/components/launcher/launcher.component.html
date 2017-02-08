@@ -1,23 +1,5 @@
 <div class="launcher">
     <md-card class="smallMargin">
-        <md-card-title>
-            Debug Target: <i *ngIf="!debugState">none</i><i *ngIf="!!debugState">{{debugStateFile.name}}</i>
-        </md-card-title>
-        <md-card-subtitle>
-            <md-icon *ngIf="!debugState" class="bottomAlign md-warn" >warning</md-icon>
-            <md-icon *ngIf="!!debugState" class="bottomAlign md-accent">check_circle</md-icon>
-            <span class="spanSpacerSmall" *ngIf="!debugState">Not Attached</span>
-            <span class="spanSpacerSmall" *ngIf="!!debugState">Attached</span>
-        </md-card-subtitle>
-        <md-card-content *ngIf="!debugState">Select a binary or process to attach to from the selector below.</md-card-content>
-        <md-card-content *ngIf="!!debugState">The attached process can configured and executed from the <i>Configuration</i> page.</md-card-content>
-        <md-card-actions>
-            <button md-button [disabled]="!debugState" (click)="MoveToConfiguration()">Move to Configuration</button>
-            <button md-button [disabled]="!debugState" (click)="KillAndDetach()">Kill and Detach</button>
-        </md-card-actions>
-
-    </md-card>
-    <md-card class="smallMargin">
         <md-card-title>Filesystem and Existing Processes</md-card-title>
         <md-card-content>
             <md-tab-group>

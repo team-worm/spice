@@ -30,7 +30,7 @@ $text-color-error: rgb(220, 49, 32);
 @import 'components/toolbar';
 @import 'components/launcher';
 @import 'components/debugger';
-@import 'components/configuration';
+@import 'components/functions';
 @import 'components/file-browser';
 @import 'components/process-list';
 @import 'components/function-list';
@@ -45,6 +45,9 @@ html, body {
 pre {
 	tab-size: 4;
 }
+.width-100 {  width:100%  }
+.smallMargin {  margin: 1em;  }
+.smallerMargin {  margin: .5em;  }
 
 .mockup {
     color: gray;
@@ -54,9 +57,7 @@ pre {
     font-size: larger;
 }
 
-.about-view {
-    text-align: center;
-}
+.about-view {  text-align: center;  }
 
 .error-text {
     color: $text-color-error;

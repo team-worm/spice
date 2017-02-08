@@ -138,6 +138,7 @@ export class DebuggerState {
 	public removeBreakpoint(id: SourceFunctionId): Observable<null> {
 		return this.debuggerHttp.removeBreakpoint(this.id, id)
 			.map(() => {
+				this.breakpoints.delete(id);
 				return null;
 			});
 	}

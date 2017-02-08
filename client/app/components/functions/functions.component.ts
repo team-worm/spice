@@ -12,12 +12,13 @@ import {Observable} from "rxjs/Observable";
 import {ExecutionOfFunction} from "../../models/execution/ExecutionOfFunction";
 import {FileSystemService} from "../../services/file-system.service";
 import {MatchMaxHeightDirective} from "../../directives/MatchMaxHeight.directive";
+import {SourceFunctionId} from "../../models/SourceFunctionId";
 
 @Component({
     selector: 'spice-configuration',
-    templateUrl: 'app/components/configuration/configuration.component.html'
+    templateUrl: 'app/components/functions/functions.component.html'
 })
-export class ConfigurationComponent implements OnInit, AfterViewChecked {
+export class FunctionsComponent implements OnInit, AfterViewChecked {
 
     private _configurationContentBody:HTMLElement | null;
 
@@ -25,20 +26,16 @@ export class ConfigurationComponent implements OnInit, AfterViewChecked {
     public linesLoaded:boolean = true;
 
     public selectedFunction:SourceFunction | null;
-    public setBreakpoint:Breakpoint | null;
     public sourceFunctions:SourceFunction[];
     public debugState:DebuggerState | null;
-
-    public setParameters:{[id: string]: any};
 
     constructor(private debuggerService:DebuggerService,
                 private snackBar:MdSnackBar,
                 private viewService: ViewService,
                 private fileSystemService: FileSystemService) {
         this.selectedFunction = null;
-        this.setBreakpoint = null;
         this.debugState = null;
-        this.lines = [];
+        this.lines = null;
     }
 
     public ngOnInit() {
@@ -51,24 +48,17 @@ export class ConfigurationComponent implements OnInit, AfterViewChecked {
     public ngAfterViewChecked() {
 		//TODO: fix this so it doesn't just execute on any update
 		if(this.lines) {
-			this.lines.forEach((l,i) => MatchMaxHeightDirective.update('configuration-'+i.toString()));
+			this.lines.forEach((l,i) => MatchMaxHeightDirective.update('functions-'+i.toString()));
 		}
 	}
 
-    public SetBreakpoint() {
+    public ToggleBreakpoint() {
         if(this.selectedFunction && this.debugState) {
-            this.debugState.setBreakpoint(this.selectedFunction.id).subscribe({
-                next: (bp:Breakpoint)=>{
-                    this.setBreakpoint = bp;
-                },
-                complete: ()=>{},
-                error: (error:any) => {
-                    console.log(error);
-                    this.snackBar.open('Error getting Source Functions', undefined, {
-                        duration: 3000
-                    });
-                }
-            });
+            if (this.debugState.breakpoints.has(this.selectedFunction.id)) {
+                this.removeBreakpoint(this.debugState, this.selectedFunction.id);
+            } else {
+                this.addBreakpoint(this.debugState, this.selectedFunction.id);
+            }
         } else {
             this.snackBar.open('No function selected.', undefined, {
                 duration: 3000
@@ -76,57 +66,9 @@ export class ConfigurationComponent implements OnInit, AfterViewChecked {
         }
     }
 
-    public ExecuteFunction() {
-        if(this.debugState && this.selectedFunction) {
-            this.debugState.executeFunction(this.selectedFunction.id,this.setParameters)
-                .subscribe((ex:Execution)=>{
-                    if (this.viewService.debuggerComponent) {
-                        this.viewService.debuggerComponent.displayTrace(ex.id);
-                        this.viewService.activeView = "Debugger";
-                    }
-                }, (e:any) => {
-                    console.error(e);
-                });
-        } else {
-            this.snackBar.open('No breakpoint set.', undefined, {
-                duration: 3000
-            });
-        }
-    }
-
     public ExecuteBinary() {
-        if(this.debugState) {
-           this.debugState.executeBinary('','')
-               .mergeMap((ex:Execution)=>{
-                   if(!this.debugState) {
-                        return Observable.throw(new Error('Null debug state'));
-                   }
-                   return this.debugState.getTrace(ex.id);
-               }).map((t:Trace)=> {
-                    if(t.tType === 2) {
-                       let tTerm: TraceOfTermination = t as TraceOfTermination;
-                       if (tTerm.data.cause === 'breakpoint') {
-                           if (this.viewService.debuggerComponent) {
-                               this.viewService.debuggerComponent.displayTrace(tTerm.data.nextExecution);
-                               this.viewService.activeView = "Debugger";
-                           }
-                       }
-                    }
-                    return t;
-                   }).subscribe({
-                   next: (t)=>{},
-               complete: ()=>{},
-               error: (error:any) => {
-                   console.log(error);
-                   this.snackBar.open('Error getting Source Functions', undefined, {
-                       duration: 3000
-                   });
-               }
-           });
-        } else {
-            this.snackBar.open('No breakpoint set.', undefined, {
-                duration: 3000
-            });
+        if(this.viewService.toolbarComponent) {
+            this.viewService.toolbarComponent.ExecuteBinary();
         }
     }
 
@@ -155,7 +97,7 @@ export class ConfigurationComponent implements OnInit, AfterViewChecked {
 
     public OnFunctionSelected($event:SourceFunction) {
         this.lines = null;
-        this.setParameters = {};
+        this.linesLoaded = false;
         this.fileSystemService.getFileContents($event.sourcePath).subscribe((contents:string)=> {
             this.lines = contents.split('\n');
             this.linesLoaded = true;
@@ -179,7 +121,7 @@ export class ConfigurationComponent implements OnInit, AfterViewChecked {
 
     public refreshHeights(): void {
         if(!!this.lines) {
-            this.lines.forEach((l,i) => MatchMaxHeightDirective.update('configuration-'+i.toString()));
+            this.lines.forEach((l,i) => MatchMaxHeightDirective.update('functions-'+i.toString()));
         }
     }
 
@@ -192,5 +134,40 @@ export class ConfigurationComponent implements OnInit, AfterViewChecked {
     }
     public GetListHeight():number {
         return this.GetFullCardHeight() - 32;
+    }
+
+    public ExecuteFunctionWithCustomParams() {
+        if(this.viewService.debuggerComponent) {
+            this.viewService.debuggerComponent.setParameters = {};
+            this.viewService.debuggerComponent.sourceFunction = this.selectedFunction;
+            this.viewService.activeView = 'debugger';
+        }
+    }
+
+    private addBreakpoint(ds:DebuggerState, id:SourceFunctionId) {
+        ds.setBreakpoint(id).subscribe({
+            next: (bp:Breakpoint)=>{},
+            complete: ()=>{},
+            error: (error:any) => {
+                console.log(error);
+                this.snackBar.open('Error getting Source Functions', undefined, {
+                    duration: 3000
+                });
+            }
+        });
+    }
+    private removeBreakpoint(ds:DebuggerState, id:SourceFunctionId) {
+        ds.removeBreakpoint(id).subscribe({
+            next: ()=>{
+                //Removed Breakpoints
+            },
+            complete: ()=>{},
+            error: (error:any) => {
+                console.log(error);
+                this.snackBar.open('Error getting Source Functions', undefined, {
+                    duration: 3000
+                });
+            }
+        });
     }
 }

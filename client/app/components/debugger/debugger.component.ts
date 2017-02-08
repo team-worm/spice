@@ -11,6 +11,7 @@ import {ViewService} from "../../services/view.service";
 import {ExecutionId} from "../../models/execution/ExecutionId";
 import {ExecutionOfFunction} from "../../models/execution/ExecutionOfFunction";
 import {FileSystemService} from "../../services/file-system.service";
+import {MdSnackBar} from "@angular/material";
 @Component({
 	selector: 'spice-debugger',
 	templateUrl: 'app/components/debugger/debugger.component.html'
@@ -19,16 +20,26 @@ import {FileSystemService} from "../../services/file-system.service";
 export class DebuggerComponent implements AfterViewChecked {
 
 	protected lines: { sourceCode: string, traces: Trace[]}[];
-	protected sourceFunction: SourceFunction | null;
 	protected lastTraceLine: number;
 	protected traceColCount: number;
 	protected heightsDirty: number[]; //line indexes that are dirty
-	constructor(private debuggerService: DebuggerService, private fileSystemService: FileSystemService, private viewService: ViewService) {
+
+	public sourceFunction: SourceFunction | null;
+	public debugState: DebuggerState | null;
+	public setParameters:{[id: string]: any};
+
+	constructor(private debuggerService: DebuggerService,
+				private fileSystemService: FileSystemService,
+				private viewService: ViewService,
+				private snackBar: MdSnackBar) {
+
+		this.viewService.debuggerComponent = this;
 		this.lastTraceLine = Number.POSITIVE_INFINITY;
 		this.traceColCount = 0;
 		this.heightsDirty = [];
 		this.lines = [];
 		this.sourceFunction = null;
+		this.setParameters = {};
 	}
 
 	ngAfterViewChecked() {
@@ -43,9 +54,8 @@ export class DebuggerComponent implements AfterViewChecked {
 
 
 	public displayTrace(executionId: ExecutionId) {
-		let debuggerState:DebuggerState|null = this.debuggerService.getCurrentDebuggerState();
-		if(debuggerState) {
-			let ds: DebuggerState = debuggerState;
+		if(this.debugState) {
+			let ds: DebuggerState = this.debugState;
 			ds.getExecution(executionId)
                 .mergeMap((ex: Execution) => {
 					if(ex.eType !== 'function') {
@@ -94,5 +104,32 @@ export class DebuggerComponent implements AfterViewChecked {
 
 			this.heightsDirty.push(trace.line-this.sourceFunction.lineNumber);
 		}
+	}
+
+	public ExecuteFunction() {
+		if(this.debugState && this.sourceFunction) {
+			this.debugState.executeFunction(this.sourceFunction.id,this.setParameters)
+                .subscribe((ex:Execution)=>{
+					this.displayTrace(ex.id);
+				}, (e:any) => {
+					console.error(e);
+				});
+		} else {
+			this.snackBar.open('No breakpoint set.', undefined, {
+				duration: 3000
+			});
+		}
+	}
+
+	public GetFunctionAsString():string {
+		if(!this.sourceFunction) {
+			return 'No Function Selected';
+		} else {
+			return this.sourceFunction.name + ' ' + this.sourceFunction.GetParametersAsString();
+		}
+	}
+
+	public GoToFunctionsView() {
+		this.viewService.activeView = 'functions';
 	}
 }

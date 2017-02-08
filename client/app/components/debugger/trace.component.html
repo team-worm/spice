@@ -8,7 +8,7 @@
 		output: {{trace.data.output}}
 	</div>
 	<div *ngIf="trace.tType===2" class="trace-termination">
-		<!-- terminated: {{trace.data.cause}} -->
-		returned {{trace.data.returnValue}}
+		<span *ngIf="trace.data.cause === 'return'">returned {{trace.data.returnValue}}</span>
+		<span *ngIf="trace.data.cause !== 'return'">terminated: {{trace.data.cause}}</span>
 	</div>
 </div>

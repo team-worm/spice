@@ -28,7 +28,14 @@ export class FileBrowserComponent implements OnInit {
 
     ngOnInit() {
         if(this.FSS.filesystem == undefined) {
-            this.FSS.GetFile();
+            this.FSS.getFullFile({
+                name: 'c:/',
+                path: 'c:/',
+                fType: 'dir',
+                contents: undefined
+            }).subscribe((sf:SourceFile)=>{}, (e:any)=> {
+                console.error('error getting file'); //TODO professionalize
+            });
         }
     }
 

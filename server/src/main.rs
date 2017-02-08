@@ -3,6 +3,7 @@
 extern crate hyper;
 extern crate unicase;
 extern crate reroute;
+extern crate url;
 extern crate mime_guess;
 
 extern crate serde;
@@ -17,7 +18,7 @@ extern crate winapi;
 use std::{io, fs};
 use std::sync::{Mutex, Arc};
 use std::io::{Write};
-use std::path::{PathBuf, Path};
+use std::path::Path;
 use std::ffi::OsStr;
 use std::collections::HashMap;
 use std::error::Error;
@@ -279,19 +280,27 @@ fn status_from_error(error: io::ErrorKind) -> StatusCode {
     }
 }
 
-/// GET /files/:path*
+/// GET /file/:path*
 fn file(mut req: Request, mut res: Response, caps: Captures) {
     let caps = caps.unwrap();
-    let path = Path::new(&caps[1]);
+    let path = url::percent_encoding::percent_decode(caps[1].as_bytes());
+    let path = path.decode_utf8_lossy().into_owned();
+    let path = Path::new(&path);
 
     io::copy(&mut req, &mut io::sink()).unwrap();
 
     let mime = guess_mime_type(path);
     match fs::File::open(path) {
         Ok(mut file) => {
-            use hyper::header::*;
+            {
+                use hyper::header::*;
 
-            res.headers_mut().set(ContentType(mime));
+                let headers = res.headers_mut();
+                headers.set(ContentType(mime));
+                headers.set(AccessControlAllowOrigin::Any);
+                headers.set(ContentType("application/json".parse().unwrap()));
+            }
+
             let mut res = res.start().unwrap();
             io::copy(&mut file, &mut res).unwrap();
             res.end().unwrap();
@@ -306,7 +315,12 @@ fn file(mut req: Request, mut res: Response, caps: Captures) {
 /// GET /filesystem/:path* -- gets the file(s) within the given path
 fn filesystem(caps: Captures) -> io::Result<Vec<u8>> {
     let caps = caps.unwrap();
-    let path = Path::new(&caps[1]);
+    let path = url::percent_encoding::percent_decode(caps[1].as_bytes());
+    let path = path.decode_utf8_lossy().into_owned();
+    let path = Path::new(&path);
+    if !path.exists() {
+        return Err(io::Error::from(io::ErrorKind::NotFound));
+    }
 
     let (file_type, contents) = if path.is_dir() {
         let mut contents = vec![];
@@ -387,7 +401,9 @@ fn debug_attach_pid(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
 /// POST /debug/attach/bin/:path -- attach to a binary
 fn debug_attach_bin(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
     let caps = caps.unwrap();
-    let path = PathBuf::from(&caps[1]);
+    let path = url::percent_encoding::percent_decode(caps[1].as_bytes());
+    let path = path.decode_utf8_lossy().into_owned();
+    let path = Path::new(&path);
 
     let mut child_thread = child.lock().unwrap();
     if let Some(child) = child_thread.take() {
@@ -395,7 +411,7 @@ fn debug_attach_bin(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
         child.thread.join().unwrap();
     }
 
-    let child = child::Thread::launch(path.clone());
+    let child = child::Thread::launch(path.into());
     match child.rx.recv().unwrap() {
         DebugMessage::Attached => *child_thread = Some(child),
         DebugMessage::Error(e) => return Err(e),
