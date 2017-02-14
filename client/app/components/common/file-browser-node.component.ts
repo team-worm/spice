@@ -11,10 +11,10 @@ import {FileSystemService} from "../../services/file-system.service";
 </md-list-item>
 <span *ngIf="IsFolder() && expanded">
     <md-divider></md-divider>
-    <span *ngIf="file.contents != undefined">
-        <spice-file-browser-node *ngFor="let f of file.contents" 
+    <span *ngIf="file.data.contents != undefined">
+        <spice-file-browser-node *ngFor="let f of file.data.contents" 
          [file]="f" [fileDepth]="fileDepth + 1" [selectedFileRef]="selectedFileRef" [onSelected]="onSelected"></spice-file-browser-node></span>
-    <span *ngIf="file.contents == undefined"><spice-file-browser-node *ngIf="file.contents == undefined" [fileDepth]="fileDepth + 1"></spice-file-browser-node></span>
+    <span *ngIf="file.data.contents == undefined"><spice-file-browser-node *ngIf="file.data.contents == undefined" [fileDepth]="fileDepth + 1"></spice-file-browser-node></span>
     <md-divider></md-divider>
 </span>
 `
@@ -44,19 +44,22 @@ export class FileBrowserNodeComponent implements OnInit{
     }
 
     public IsFolder():boolean {
-        return !!this.file && this.file.fType == 'dir';
+        return !!this.file && this.file.data.fType == 'directory';
     }
     public IconName():string {
         if(!!this.file) {
-            if(this.file.fType == 'dir') {
+            switch (this.file.data.fType) {
+            case 'directory':
                 if(this.expanded) {
                     return 'folder_open';
                 } else {
                     return 'folder';
                 }
-            } else if(this.file.fType == 'file') {
+
+            case 'file':
                 return 'insert_drive_file';
-            } else {
+
+            default:
                 return 'error_outline';
             }
         }
@@ -71,15 +74,19 @@ export class FileBrowserNodeComponent implements OnInit{
     }
     public Clicked() {
         if(!!this.file){
-            if(this.file.fType == 'dir') {
-                if(this.file.contents == undefined) {
+            switch (this.file.data.fType) {
+            case 'directory':
+                if(this.file.data.contents == null) {
                     this.fSS.getFullFile(this.file).subscribe((sf:SourceFile)=>{}, (e:any)=> {
                         console.error('error getting file'); //TODO professionalize
                     });
                 }
                 this.expanded = !this.expanded;
-            } else if(this.file.fType == 'file') {
+                break;
+
+            case 'file':
                 this.onSelected(this.file);
+                break;
             }
         }
     }

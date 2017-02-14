@@ -5,10 +5,9 @@ import {HelpComponent} from "./help.component";
 import {ViewService} from "../../services/view.service";
 import {DebuggerState} from "../../models/DebuggerState";
 import {SourceFile} from "../../models/SourceFile";
-import {Execution} from "../../models/execution/Execution";
+import {Execution} from "../../models/Execution";
 import {Observable} from "rxjs/Observable";
-import {Trace} from "../../models/trace/Trace";
-import {TraceOfTermination} from "../../models/trace/TraceOfTermination";
+import {Trace} from "../../models/Trace";
 
 @Component({
     selector: 'spice-toolbar',
@@ -45,20 +44,21 @@ export class ToolbarComponent {
 					this.executing = true;
                     return this.debugState.getTrace(ex.id);
                 }).map((t:Trace)=> {
-                if(t.tType === 2) {
-                    let tTerm: TraceOfTermination = t as TraceOfTermination;
-                    if (tTerm.data.cause === 'breakpoint') {
+                    switch (t.data.tType) {
+                    case "break":
                         if (this.viewService.debuggerComponent) {
                             this.viewService.debuggerComponent.setParameters = {};
-                            this.viewService.debuggerComponent.displayTrace(tTerm.data.nextExecution);
+                            this.viewService.debuggerComponent.displayTrace(t.data.nextExecution);
                             this.viewService.activeView = "Debugger";
                         }
-                    } else if(tTerm.data.cause === 'exit') {
+                        break;
+
+                    case "exit":
                     	this.executing = false;
                     	//TODO: auto-reattach
+                        break;
 					}
-                }
-                return t;
+                    return t;
             }).subscribe({
                 next: (t)=>{},
                 complete: ()=>{},

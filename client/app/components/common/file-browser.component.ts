@@ -31,8 +31,10 @@ export class FileBrowserComponent implements OnInit {
             this.FSS.getFullFile({
                 name: 'c:/',
                 path: 'c:/',
-                fType: 'dir',
-                contents: undefined
+                data: {
+                    fType: 'directory',
+                    contents: null
+                },
             }).subscribe((sf:SourceFile)=>{}, (e:any)=> {
                 console.error('error getting file'); //TODO professionalize
             });

@@ -1,20 +1,15 @@
 import {Injectable} from "@angular/core";
-import { DebugId } from "../models/DebugId";
-import { SourceFunctionId } from "../models/SourceFunctionId";
-import { SourceFunction } from "../models/SourceFunction";
-import { SpiceError } from "../models/errors/SpiceError";
+import { DebugId } from "../models/DebugInfo";
+import { SourceFunction, SourceFunctionId } from "../models/SourceFunction";
+import { SpiceError } from "../models/SpiceError";
 import { Http } from "@angular/http";
 import { SourceVariable } from "../models/SourceVariable";
-import { InvalidServerDataError, InvalidTypeError } from "../models/errors/Errors";
+import { InvalidServerDataError, InvalidTypeError } from "../models/Errors";
 import { Observable } from "rxjs/Observable";
 import { DebuggerState } from "../models/DebuggerState";
-import { Execution } from "../models/execution/Execution";
-import { ExecutionFactory } from "../models/execution/ExecutionFactory";
+import { Execution, ExecutionId } from "../models/Execution";
 import { Breakpoint } from "../models/Breakpoint";
-import { ExecutionId } from "../models/execution/ExecutionId";
-import { Trace } from "../models/trace/Trace";
-import { TraceFactory } from "../models/trace/TraceFactory";
-import { SpiceValidator } from "../util/SpiceValidator";
+import { Trace } from "../models/Trace";
 import { Subscriber } from "rxjs/Subscriber";
 import { Process } from "../models/Process";
 
@@ -50,7 +45,7 @@ export class DebuggerHttpService {
 			.catch(DebuggerHttpService.handleServerDataError('DebuggerState')).share();
 	}
 
-	public attachProcess(pid: string): Observable<DebuggerState> {
+	public attachProcess(pid: number): Observable<DebuggerState> {
 		return this.http.post(`http://${host}:${port}/api/v1/debug/attach/pid/${pid}`, undefined)
 			.map((res: any) => {
 				return DebuggerState.fromObjectStrict(res.json(), this);
@@ -64,7 +59,7 @@ export class DebuggerHttpService {
 	public getProcesses(): Observable<Process[]> {
 		return this.http.get(`http://${host}:${port}/api/v1/processes`)
 			.map((res: any) => {
-				return res.json().map((p: any) => Process.fromObjectStrict(p));
+				return res.json().map((p: any) => p as Process);
 			})
 			.catch(DebuggerHttpService.handleServerDataError('Process')).share();
 	}
@@ -76,9 +71,7 @@ export class DebuggerHttpService {
 		return this.http.get(`http://${host}:${port}/api/v1/debug/${id}/functions`)
 			.map((res: any) => {
 				let data = res.json();
-				SpiceValidator.assertArrayStrict(data);
-
-				return (<any[]>data).map(sf => SourceFunction.fromObjectStrict(sf));
+				return data.map((sf: any) => sf as SourceFunction);
 			})
 			.catch(DebuggerHttpService.handleServerDataError('SourceFunction')).share();
 	}
@@ -86,7 +79,7 @@ export class DebuggerHttpService {
 	public getSourceFunction(id: DebugId, sourceFunctionId: SourceFunctionId): Observable<SourceFunction> {
 		return this.http.get(`http://${host}:${port}/api/v1/debug/${id}/functions/${sourceFunctionId}`)
 			.map((res: any) => {
-				return SourceFunction.fromObjectStrict(res.json());
+				return res.json() as SourceFunction;
 			})
 			.catch(DebuggerHttpService.handleServerDataError('SourceFunction')).share();
 	}
@@ -95,7 +88,7 @@ export class DebuggerHttpService {
 		return this.http.post(`http://${host}:${port}/api/v1/debug/${id}/functions/${sourceFunctionId}/execute`,
 			{parameters: Object.keys(parameters).map(k => parseInt(parameters[k]))})
 			.map((res: any) => {
-				return ExecutionFactory.fromObjectStrict(res.json());
+				return res.json() as Execution;
 			})
 			.catch(DebuggerHttpService.handleServerDataError('Execution')).share();
 	}
@@ -107,9 +100,7 @@ export class DebuggerHttpService {
 		return this.http.get(`http://${host}:${port}/api/v1/debug/${id}/breakpoints`)
 			.map((res: any) => {
 				let data = res.json();
-				SpiceValidator.assertArrayStrict(data);
-
-				return (<any[]>data).map(b => Breakpoint.fromObjectStrict(b));
+				return data.map((b: any) => b as Breakpoint);
 			})
 			.catch(DebuggerHttpService.handleServerDataError('Breakpoint')).share();
 	}
@@ -117,7 +108,7 @@ export class DebuggerHttpService {
 	public setBreakpoint(id: DebugId, sourceFunctionId: SourceFunctionId): Observable<Breakpoint> {
 		return this.http.put(`http://${host}:${port}/api/v1/debug/${id}/breakpoints/${sourceFunctionId}`, undefined)
 			.map((res: any) => {
-				return Breakpoint.fromObjectStrict(res.json());
+				return res.json() as Breakpoint;
 			})
 			.catch(DebuggerHttpService.handleServerDataError('Breakpoint')).share();
 	}
@@ -136,7 +127,7 @@ export class DebuggerHttpService {
 	public executeBinary(id: DebugId, args: string, environmentVars: string): Observable<Execution> {
 		return this.http.post(`http://${host}:${port}/api/v1/debug/${id}/execute`, {args: args, env: environmentVars})
 			.map((res: any) => {
-				return ExecutionFactory.fromObjectStrict(res.json());
+				return res.json() as Execution;
 			})
 			.catch(DebuggerHttpService.handleServerDataError('Execution')).share();
 	}
@@ -144,7 +135,7 @@ export class DebuggerHttpService {
 	public getExecution(id: DebugId, executionId: ExecutionId): Observable<Execution> {
 		return this.http.get(`http://${host}:${port}/api/v1/debug/${id}/executions/${executionId}`)
 			.map((res: any) => {
-				return ExecutionFactory.fromObjectStrict(res.json());
+				return res.json() as Execution;
 			})
 			.catch(DebuggerHttpService.handleServerDataError('Execution')).share();
 	}
@@ -154,10 +145,10 @@ export class DebuggerHttpService {
 			oboe({
 					url: `http://${host}:${port}/api/v1/debug/${id}/executions/${executionId}/trace`,
 					method: 'GET'})
-				.node('{index tType line data}', (t:any) => {
+				.node('{index line data}', (t:any) => {
 					try {
-						observer.next(TraceFactory.fromObjectStrict(t));
-						if(t.tType === 2) {
+						observer.next(t as Trace);
+						if(['return', 'break', 'exit', 'crash', 'error'].indexOf(t.data.tType) > -1) {
 							observer.complete();
 						}
 					}

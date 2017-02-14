@@ -3,18 +3,18 @@ import { DebuggerState } from "../models/DebuggerState";
 import { Observable } from "rxjs/Observable";
 import { DebuggerHttpService } from "./debugger-http.service";
 import { CacheMap } from "../util/CacheMap";
-import { DebugId } from "../models/DebugId";
+import { DebugId } from "../models/DebugInfo";
 import { Process } from "../models/Process";
 
 @Injectable()
 export class DebuggerService {
 	protected currentDebuggerState: DebuggerState | null;
-	protected debuggerStates: CacheMap<Observable<DebuggerState>>;
+	protected debuggerStates: CacheMap<DebugId, Observable<DebuggerState>>;
 
 
 
 	constructor(private debuggerHttp: DebuggerHttpService) {
-		this.debuggerStates = new CacheMap<Observable<DebuggerState>>();
+		this.debuggerStates = new CacheMap<DebugId, Observable<DebuggerState>>();
 		this.currentDebuggerState = null;
 	}
 
@@ -46,7 +46,7 @@ export class DebuggerService {
 		return dsObservable;
 	}
 
-	public attachProcess(pid: string): Observable<DebuggerState> {
+	public attachProcess(pid: number): Observable<DebuggerState> {
 		let dsObservable = this.debuggerHttp.attachProcess(pid)
 			.switchMap(ds => {
 				this.debuggerStates.set(ds.id, dsObservable);
