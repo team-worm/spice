@@ -34,6 +34,7 @@ pub enum DebugMessage {
     Breakpoint,
     BreakpointRemoved,
     Executing,
+    Stopped,
     Trace(DebugTrace),
     Error(io::Error),
 }
@@ -57,6 +58,8 @@ pub enum DebugTrace {
     Breakpoint(usize),
     Exit(u32),
     Crash,
+    StopRequest,
+    Running,
 }
 
 /// messages the server sends to the debug event loop to request info
@@ -235,11 +238,11 @@ fn run(
 
                 let result = match trace.execution.take() {
                     Some(ex @ ExecutionState::Process) => {
-                        trace_process(&mut target, &mut trace, &tx, ex)
+                        trace_process(&mut target, &mut trace, &tx, &rx, ex) 
                     }
 
                     Some(ex @ ExecutionState::Function { .. }) => {
-                        trace_function(&mut target, &mut trace, &tx, ex)
+                        trace_function(&mut target, &mut trace, &tx, &rx, ex)
                     }
 
                     None => Err(io::Error::from(io::ErrorKind::NotFound)),
@@ -250,10 +253,14 @@ fn run(
                 }
             }
 
-            ServerMessage::Stop => {}
+            ServerMessage::Stop => {} // how to stop a long running trace
 
             ServerMessage::Quit => {
-                let _ = target.child.terminate();
+                let message = target.child.terminate()
+                    .map(|()| DebugMessage::Stopped)
+                    .unwrap_or_else(DebugMessage::Error);
+                
+                tx.send(message).unwrap();
                 break;
             }
         }
@@ -374,7 +381,7 @@ fn continue_process(trace: &mut TraceState) -> io::Result<()> {
 
 fn trace_process(
     target: &mut TargetState, trace: &mut TraceState, tx: &SyncSender<DebugMessage>,
-    execution: ExecutionState
+    rx: &Receiver<ServerMessage>, execution: ExecutionState
 ) -> io::Result<()> {
     let _ = match execution {
         ExecutionState::Process => (),
@@ -516,7 +523,7 @@ fn call_function(
 
 fn trace_function(
     target: &mut TargetState, trace: &mut TraceState, tx: &SyncSender<DebugMessage>,
-    execution: ExecutionState
+    rx: &Receiver<ServerMessage>, execution: ExecutionState
 ) -> io::Result<()> {
     let (breakpoints, line, exit, call) = match execution {
         ExecutionState::Function { trace, line, exit, call } => (trace, line, exit, call),
@@ -528,6 +535,33 @@ fn trace_function(
     let mut last_breakpoint = None;
     loop {
         let mut event = debug::Event::wait_event()?;
+        match rx.recv().unwrap() {
+            ServerMessage::Stop => { // assuming this code restores us back to where we were before calling the function
+                let TargetState { ref symbols, ref threads, .. } = *target;
+                let thread = threads[&event.thread_id];
+
+                let TraceState { event: ref mut trace_event, .. } = *trace;
+                *trace_event = Some(event);
+
+                let context = debug::get_thread_context(thread, winapi::CONTEXT_FULL)?;
+
+                // restart the instruction
+                //context.set_instruction_pointer(address);
+
+                // collect the return value
+                let (_, restore) = call.teardown(breakpoints.child(), &context, &symbols)?;
+                tx.send(DebugMessage::Trace(DebugTrace::StopRequest)).unwrap();
+
+                if let Some(context) = restore {
+                    debug::set_thread_context(thread, &context)?;
+                } else {
+                    debug::set_thread_context(thread, &context)?;
+                }
+                return Ok(());
+
+            }, 
+            _ => {},
+        };
 
         use debug::EventInfo::*;
         match event.info {
@@ -638,6 +672,8 @@ fn trace_function(
 
             _ => if trace_event(&mut target.symbols, &mut target.threads, trace, tx, &event) {
                 return Ok(());
+            } else {
+                tx.send(DebugMessage::Trace(DebugTrace::Running)).unwrap();
             }
         }
 

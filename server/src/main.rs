@@ -17,6 +17,7 @@ extern crate winapi;
 
 use std::{io, fs};
 use std::sync::{Mutex, Arc};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::io::{Write};
 use std::path::Path;
 use std::ffi::OsStr;
@@ -42,6 +43,8 @@ type ChildThread = Arc<Mutex<Option<child::Thread>>>;
 fn main() {
     // current child thread (only one at a time)
     let child_thread = Arc::new(Mutex::new(None));
+
+    let kill_flag = Arc::new(AtomicBool::new(false));
 
     let mut router = RouterBuilder::new();
 
@@ -181,6 +184,7 @@ fn main() {
     });
 
     let child = child_thread.clone();
+    let kill = kill_flag.clone();
     router.get(r"/api/v1/debug/([0-9]*)/executions/([0-9]*)/trace", move |mut req, mut res, caps| {
         let _ = match debug_execution_trace(caps, child.clone()) {
             Ok(execution) => execution,
@@ -198,7 +202,7 @@ fn main() {
         }
 
         let mut res = res.start().unwrap();
-        let terminated = match trace_stream(&mut res, child.clone()) {
+        let terminated = match trace_stream(&mut res, child.clone(), kill.clone()) {
             Ok(terminated) => terminated,
             Err(e) => {
                 let data = json!({ "cause": "error", "error": format!("{:?}", e) });
@@ -220,7 +224,30 @@ fn main() {
         }
     });
 
-    router.post(r"/api/v1/debug/([0-9]*)/executions/([0-9]*)/stop", debug_execution_stop);
+    let child = child_thread.clone();
+    router.post(r"/api/v1/debug/([0-9]*)/executions/([0-9]*)/stop", move |req, res, caps| {
+        match debug_execution_stop(caps, child.clone()) {
+            Ok(body) => {
+                let mut child_thread = child.lock().unwrap();
+                if let Some(child) = child_thread.take() {
+                    child.thread.join().unwrap();
+                }
+                send(req, res, &body)
+            },
+            Err(e) => send_error(req, res, e),
+        }.unwrap();
+    });
+
+    let child = child_thread.clone();
+    let kill = kill_flag.clone();
+    router.post(r"/api/v1/debug/([0-9]*)/executions/([0-9]*)/trace/stop", move |req, res, caps| {
+        match debug_trace_stop(caps, child.clone(), kill.clone()) {
+            Ok(body) => send(req, res, &body),
+            Err(e) => send_error(req, res, e),
+        }.unwrap();
+    });
+
+
 
     router.options(r".*", move |_, mut res, _| {
         {
@@ -245,6 +272,7 @@ fn main() {
     let router = router.finalize().unwrap();
 
     let server = Server::http("127.0.0.1:3000").unwrap();
+    println!("Server running on 127.0.0.1:3000");
     server.handle(router).unwrap();
 }
 
@@ -729,7 +757,54 @@ fn debug_execution_trace(caps: Captures, child: ChildThread) -> io::Result<i32> 
     }
 }
 
-fn trace_stream(res: &mut Response<Streaming>, child: ChildThread) -> io::Result<bool> {
+/// POST /debug/:id/executions/:execution/trace/stop
+fn debug_trace_stop(caps: Captures, child: ChildThread, kill: Arc<AtomicBool>) -> io::Result<Vec<u8>> {
+    let caps = caps.unwrap();
+    let _debug_id = caps[1].parse::<u64>()
+        .map_err(|e| io::Error::new(io::ErrorKind::NotConnected, e))?;
+    let execution_id = caps[2].parse::<i32>()
+        .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
+
+
+    kill.store(true, Ordering::Relaxed);
+
+    // let child = child.lock().unwrap();
+    // let child = child.as_ref()
+    //     .ok_or(io::Error::from(io::ErrorKind::NotConnected))?;
+
+    // let (id, e_type) = match child.execution {
+    //     Some((id, ref e_type)) if id == execution_id => (id, e_type),
+    //     _ => return Err(io::Error::new(io::ErrorKind::NotFound, "no such execution")),
+    // };
+
+    // let (e_type, data) = match *e_type {
+    //     ExecutionType::Function(address) => {
+    //         let data = FunctionExecution { function: address };
+    //         (String::from("function"), data.to_json().unwrap())
+    //     }
+
+    //     ExecutionType::Process => {
+    //         let data = ProcessExecution { next_execution: 0 };
+    //         (String::from("process"), data.to_json().unwrap())
+    //     }
+    // };
+
+    let data = ProcessExecution { next_execution: 0 };
+    let message = Execution {
+        id: 1,
+        e_type: String::from("function"),
+        status: String::from("executing"),
+        execution_time: -1,
+        data: data.to_json().unwrap(),
+    };
+    
+    Ok(serde_json::to_vec(&message).unwrap())
+    // perhaps it would be better to have a struct that keeps track if we are tracing
+    // if not we can send a message that there is no trace currently
+
+}
+
+fn trace_stream(res: &mut Response<Streaming>, child: ChildThread, kill: Arc<AtomicBool>) -> io::Result<bool> {
     let mut child = child.lock().unwrap();
     let child = child.as_mut()
         .ok_or(io::Error::from(io::ErrorKind::NotConnected))?;
@@ -744,6 +819,10 @@ fn trace_stream(res: &mut Response<Streaming>, child: ChildThread) -> io::Result
     let mut terminated = false;
     let mut done = false;
     while !done {
+        match kill.load(Ordering::Relaxed) {
+            true => child.tx.send(ServerMessage::Stop).unwrap(),
+            false => child.tx.send(ServerMessage::Continue).unwrap(),
+        };
         let message = match child.rx.recv().unwrap() {
             DebugMessage::Trace(DebugTrace::Line(line, locals)) => {
                 let this_index = index;
@@ -798,6 +877,18 @@ fn trace_stream(res: &mut Response<Streaming>, child: ChildThread) -> io::Result
                 Trace { index: 0, t_type: 2, line: 0, data: data }
             }
 
+            DebugMessage::Trace(DebugTrace::StopRequest) => {
+                terminated = true;
+                done = true;
+                child.execution = None;
+                kill.store(false, Ordering::Relaxed);
+
+                let data = json!({ "cause": "stop request" });
+                Trace { index: 0, t_type: 2, line: 0, data: data }
+            }
+
+            DebugMessage::Trace(DebugTrace::Running) => {continue;}
+
             DebugMessage::Error(e) => {
                 child.execution = None;
                 return Err(e);
@@ -813,9 +904,51 @@ fn trace_stream(res: &mut Response<Streaming>, child: ChildThread) -> io::Result
     res.write_all(b"\n]")?;
     Ok(terminated)
 }
-
+    
+// Stops the execution and terminates the process.  User has to start over
 /// POST /debug/:id/executions/:execution/stop -- Halts a running execution
-fn debug_execution_stop(req: Request, mut res: Response, _: Captures) {
-    *res.status_mut() = StatusCode::NotImplemented;
-    send(req, res, b"").unwrap();
+fn debug_execution_stop(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
+    let caps = caps.unwrap();
+    let _debug_id = caps[1].parse::<u64>()
+        .map_err(|e| io::Error::new(io::ErrorKind::NotConnected, e))?;
+    let execution_id = caps[2].parse::<i32>()
+        .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
+
+    let child = child.lock().unwrap();
+    let child = child.as_ref()
+        .ok_or(io::Error::from(io::ErrorKind::NotConnected))?;
+
+    let (id, e_type) = match child.execution {
+        Some((id, ref e_type)) if id == execution_id => (id, e_type),
+        _ => return Err(io::Error::new(io::ErrorKind::NotFound, "no such execution")),
+    };
+
+    child.tx.send(ServerMessage::Quit).unwrap();
+
+    match child.rx.recv().unwrap() {
+        DebugMessage::Error(e) => return Err(e),
+        _ => {},
+    };
+
+    let (e_type, data) = match *e_type {
+        ExecutionType::Function(address) => {
+            let data = FunctionExecution { function: address };
+            (String::from("function"), data.to_json().unwrap())
+        }
+
+        ExecutionType::Process => {
+            let data = ProcessExecution { next_execution: 0 };
+            (String::from("process"), data.to_json().unwrap())
+        }
+    };
+
+    let message = Execution {
+        id: id,
+        e_type: e_type,
+        status: String::from("stopped"),
+        execution_time: -1,
+        data: data.to_json().unwrap(),
+    };
+
+    Ok(serde_json::to_vec(&message).unwrap())
 }
