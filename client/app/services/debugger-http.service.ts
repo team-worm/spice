@@ -166,14 +166,13 @@ export class DebuggerHttpService {
 					}
 				});
 		}).share();
+	}
 
-		//return this.http.get(`http://${host}:${port}/api/v1/debug/${id}/executions/${executionId}/trace`)
-			//.switchMap((res: any) => {
-				//let data = res.text();
-				//SpiceValidator.assertArrayStrict(data);
-
-				//return Observable.from(data.map((t:any) => TraceFactory.fromObjectStrict(t)));
-			//})
-			//.catch(DebuggerHttpService.handleServerDataError('Trace')).share();
+	public stopExecution(id: DebugId, executionId: ExecutionId): Observable<Execution> {
+		return this.http.post(`http://${host}:${port}/api/v1/debug/${id}/executions/${executionId}/stop`, undefined)
+			.map((res: any) => {
+				return ExecutionFactory.fromObjectStrict(res.json());
+			})
+			.catch(DebuggerHttpService.handleServerDataError('Execution')).share();
 	}
 }
