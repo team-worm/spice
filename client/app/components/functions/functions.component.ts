@@ -1,4 +1,4 @@
-import {Component, OnInit, AfterViewChecked} from "@angular/core";
+import {Component, OnInit} from "@angular/core";
 import {SourceFunction} from "../../models/SourceFunction";
 import {DebuggerService} from "../../services/debugger.service";
 import {DebuggerState} from "../../models/DebuggerState";
@@ -18,7 +18,7 @@ import {SourceFunctionId} from "../../models/SourceFunctionId";
     selector: 'spice-configuration',
     templateUrl: 'app/components/functions/functions.component.html'
 })
-export class FunctionsComponent implements OnInit, AfterViewChecked {
+export class FunctionsComponent implements OnInit {
 
     private _configurationContentBody:HTMLElement | null;
 
@@ -35,7 +35,7 @@ export class FunctionsComponent implements OnInit, AfterViewChecked {
                 private fileSystemService: FileSystemService) {
         this.selectedFunction = null;
         this.debugState = null;
-        this.lines = null;
+        this.lines = [];
     }
 
     public ngOnInit() {
@@ -44,13 +44,6 @@ export class FunctionsComponent implements OnInit, AfterViewChecked {
             console.error('Error getting ConfigurationContainer');
         }
     }
-
-    public ngAfterViewChecked() {
-		//TODO: fix this so it doesn't just execute on any update
-		if(this.lines) {
-			this.lines.forEach((l,i) => MatchMaxHeightDirective.update('functions-'+i.toString()));
-		}
-	}
 
     public ToggleBreakpoint() {
         if(this.selectedFunction && this.debugState) {
@@ -101,8 +94,7 @@ export class FunctionsComponent implements OnInit, AfterViewChecked {
         this.fileSystemService.getFileContents($event.sourcePath).subscribe((contents:string)=> {
             this.lines = contents.split('\n');
             this.linesLoaded = true;
-            //TODO: figure out how to do this without a delay
-            //Observable.of(null).delay(100).subscribe(() => this.refreshHeights());
+            this.refreshHeights();
         }, (error:Error)=> {
             this.lines = [];
             this.linesLoaded = false;
@@ -121,7 +113,7 @@ export class FunctionsComponent implements OnInit, AfterViewChecked {
 
     public refreshHeights(): void {
         if(!!this.lines) {
-            this.lines.forEach((l,i) => MatchMaxHeightDirective.update('functions-'+i.toString()));
+            this.lines.forEach((l,i) => MatchMaxHeightDirective.markDirty('functions-'+i.toString()));
         }
     }
 

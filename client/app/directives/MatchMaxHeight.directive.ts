@@ -1,12 +1,17 @@
 import { Directive, ElementRef, Input, OnInit, OnDestroy } from '@angular/core';
+import { Observable } from "rxjs/Observable";
+
+const dirtyDuration = 150; //Leave ids marked dirty for this many ms to ensure that they get updated after render
+const dirtyUpdateInterval = 50; //only actually update dirty rows every interval
 
 @Directive({ selector: '[matchMaxHeight]' })
-
 export class MatchMaxHeightDirective implements OnInit, OnDestroy {
 	@Input('matchMaxHeight') matchId: string;
 	protected actualHeight: string; //actual css "height" attribute value
 
 	private static idMap: {[id: string]: {maxHeight: number, directives: MatchMaxHeightDirective[]}} = {};
+	private static dirtyMap = new Map<string,number>(); //id: refresh time remaining
+	private static dirtyWait = false;
 
 	constructor(protected el: ElementRef) {
 		this.actualHeight = "";
@@ -17,19 +22,45 @@ export class MatchMaxHeightDirective implements OnInit, OnDestroy {
 			MatchMaxHeightDirective.idMap[this.matchId] = {maxHeight: 0, directives: []};
 		}
 		MatchMaxHeightDirective.idMap[this.matchId].directives.push(this);
+		MatchMaxHeightDirective.markDirty(this.matchId);
 	}
 
 	ngOnDestroy() {
 		MatchMaxHeightDirective.idMap[this.matchId].directives.filter(v => v !== this);
 		if(MatchMaxHeightDirective.idMap[this.matchId].directives.length === 0) {
 			delete MatchMaxHeightDirective.idMap[this.matchId];
+			MatchMaxHeightDirective.dirtyMap.delete(this.matchId);
 		}
+	}
+
+	public static markDirty(id: string): void {
+		if(MatchMaxHeightDirective.dirtyMap.size === 0) {
+			let dirtyUpdateSubscription = Observable.interval(dirtyUpdateInterval).subscribe(() => {
+				if(MatchMaxHeightDirective.dirtyMap.size === 0) {
+					dirtyUpdateSubscription.unsubscribe();
+					return;
+				}
+
+				MatchMaxHeightDirective.dirtyMap.forEach((time, id) => {
+					MatchMaxHeightDirective.update(id);
+					let newTime = time - dirtyUpdateInterval;
+					if(newTime <= 0) {
+						MatchMaxHeightDirective.dirtyMap.delete(id);
+					} else {
+						MatchMaxHeightDirective.dirtyMap.set(id, newTime);
+					}
+				});
+			});
+		}
+
+		MatchMaxHeightDirective.dirtyMap.set(id, dirtyDuration);
 	}
 
 	public static update(id: string): void {
 		let selection = MatchMaxHeightDirective.idMap[id];
 		if(!selection) {
-			throw new Error(`MatchMaxHeightDirective: invalid id '${id}'`);
+			return;
+			//throw new Error(`MatchMaxHeightDirective: invalid id '${id}'`);
 		}
 		//restore old heights
 		selection.directives.forEach(v => {
