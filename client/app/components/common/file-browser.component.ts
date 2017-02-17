@@ -1,13 +1,13 @@
-import {Component, OnInit, Output, EventEmitter, Input} from "@angular/core";
+import {Component, Output, EventEmitter, Input, ElementRef} from "@angular/core";
 import {FileSystemService} from "../../services/file-system.service";
 import {SourceFile} from "../../models/SourceFile";
 
 @Component({
     selector: 'spice-file-browser',
     template: `
-<div class="file-browser" [style.height.px]="elementHeightPx">
+<div class="file-browser-component" [style.height.px]="elementHeightPx">
     <div class="small-padding width-100" fxLayout="row">
-        <md-icon md-prefix>search</md-icon>
+        <md-icon class="input-icon">find_in_page</md-icon>
         <md-input-container fxFlex> 
             <input md-input placeholder="Custom Path" (change)="CustomPathChanged($event)"/>
         </md-input-container>
@@ -40,16 +40,14 @@ export class FileBrowserComponent {
 
     public customPath:string;
 
-    constructor(public FSS:FileSystemService) {
+    constructor(public FSS:FileSystemService,
+                public element: ElementRef) {
         this.selectedFileRef = {
             file: undefined
         };
         this.customPath = '';
         this.elementHeightPx = 0;
         this.onFileSelected = new EventEmitter<SourceFile>();
-    }
-    public LoadEnteredPath() {
-
     }
     public CustomPathChanged($event:Event) {
         this.loadFilterPath((<HTMLInputElement> $event.target).value);
@@ -66,12 +64,8 @@ export class FileBrowserComponent {
     private loadFilterPath(path:string) {
         this.customPath = path;
 
-        console.log('LoadFilterPath', path);
-
-        this.FSS.getUpToPath(this.customPath).subscribe((sf:SourceFile)=> {
-            console.log('OBSERVABLE', sf);
-        }, (err:any) => {
-            console.error('ERR', err);
+        this.FSS.getUpToPath(this.customPath).subscribe((sf:SourceFile)=> {}, (err:any) => {
+            console.error('Error loading Custom Path.', err);
         });
     }
 

@@ -25,12 +25,12 @@ import {FileSystemService} from "../../services/file-system.service";
 })
 export class FileBrowserNodeComponent implements OnInit{
     @Input()
-    public file:SourceFile | undefined;
+    public file:SourceFile | null;
     @Input()
     public fileDepth:number;
     @Input()
     public selectedFileRef: {
-        file:SourceFile | undefined
+        file:SourceFile | null
     };
     @Input()
     public onSelected: (file:SourceFile) => void;

@@ -1,15 +1,26 @@
-.file-browser {
+.file-browser-component {
+    padding-top:1em;
+
+    .input-icon {
+        line-height: 2;
+    }
+
     .file-system-node {
+        cursor: pointer;
+        &.selected {
+            background: rgba(0,0,0,0.5) !important;
+        }
+        &:hover {
+            background: rgba(0,0,0,0.3);
+        }
+
         .md-list-item {
             height: 26px !important;
         }
         md-progress-spinner {
             height: 20px !important;
         }
-        &.selected {
-            background: rgba(0,0,0,0.5);;
-        }
-        cursor: pointer;
+
         .file-icon {
             text-align: center;
             padding-top: 10px;
@@ -21,11 +32,9 @@
             font-size: small;
             font-style: italic;
         }
-        &:hover {
-            background: rgba(0,0,0,0.3);;
-        }
     }
     .file-list {
+        border: solid 1px #ccc;
         overflow-y: auto;
         overflow-x: auto;
     }

@@ -8,4 +8,20 @@
     md-tab-body {
         overflow-y: hidden !important;
     }
+    .launcherList {
+        padding-top: 1em;
+    }
+    .selected-info {
+        padding-left: 1em;
+        padding-top: 4px;
+
+        .selected-title {
+            font-size:medium;
+            font-weight: bold;
+        }
+        .selected-subtitle {
+            font-size:smaller;
+            font-style: italic;
+        }
+    }
 }

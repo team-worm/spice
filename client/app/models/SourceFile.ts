@@ -15,7 +15,7 @@ export class SourceFile {
         this.contents = _contents
     }
 
-    static fromObjectStrict(obj: any): SourceFile {
+    public static fromObjectStrict(obj: any): SourceFile {
         SpiceValidator.assertTypeofStrict(obj, 'object');
         SpiceValidator.assertTypeofStrict(obj.name, 'string');
         SpiceValidator.assertTypeofStrict(obj.path, 'string');
