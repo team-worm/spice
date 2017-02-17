@@ -41,7 +41,7 @@
     "zone.js": "^0.7.6"
   },
   "devDependencies": {
-    "@types/jasmine": "^2.5.36",
+    "@types/jasmine": "2.5.41",
     "@types/node": "^6.0.46",
     "canonical-path": "0.0.2",
     "concurrently": "^3.1.0",

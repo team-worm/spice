@@ -1,4 +1,4 @@
-import { Component, AfterViewChecked } from "@angular/core";
+import { Component } from "@angular/core";
 import { DebuggerService } from "../../services/debugger.service";
 import { DebuggerState } from "../../models/DebuggerState";
 import { Execution, ExecutionId } from "../../models/Execution";
@@ -15,12 +15,11 @@ import { MdSnackBar } from "@angular/material";
 	selector: 'spice-debugger',
 	templateUrl: 'app/components/debugger/debugger.component.html'
 })
-export class DebuggerComponent implements AfterViewChecked {
+export class DebuggerComponent {
 
 	protected lines: { sourceCode: string, traces: Trace[]}[];
 	protected lastTraceLine: number;
 	protected traceColCount: number;
-	protected heightsDirty: number[]; //line indexes that are dirty
 
 	public sourceFunction: SourceFunction | null;
 	public debugState: DebuggerState | null;
@@ -34,22 +33,10 @@ export class DebuggerComponent implements AfterViewChecked {
 		this.viewService.debuggerComponent = this;
 		this.lastTraceLine = Number.POSITIVE_INFINITY;
 		this.traceColCount = 0;
-		this.heightsDirty = [];
 		this.lines = [];
 		this.sourceFunction = null;
 		this.setParameters = {};
 	}
-
-	ngAfterViewChecked() {
-		//console.log('a');
-		//console.log(this.heightsDirty);
-		//this.heightsDirty.forEach(line => MatchMaxHeightDirective.update(`debugger-${line}`));
-		//console.log(this.lines);
-		//TODO: fix this so it doesn't just execute on any update
-		this.lines.forEach((l,i) => MatchMaxHeightDirective.update('debugger-'+i.toString()));
-		this.heightsDirty = [];
-	}
-
 
 	public displayTrace(executionId: ExecutionId) {
 		if(this.debugState) {
@@ -71,7 +58,9 @@ export class DebuggerComponent implements AfterViewChecked {
 						.map(l => {return { sourceCode: l, traces: []}});
 					this.lastTraceLine = Number.POSITIVE_INFINITY;
 					this.traceColCount = 0;
-					this.heightsDirty = Array.apply(null, [].constructor(this.lines.length)).map((_: number,i: number) => i);
+					this.lines.forEach((_, i) => {
+						MatchMaxHeightDirective.markDirty(`debugger-${i}`);
+					});
 					return ds.getTrace(executionId)
 				})
                 .subscribe({
@@ -100,7 +89,7 @@ export class DebuggerComponent implements AfterViewChecked {
 
 			this.lastTraceLine = trace.line;
 
-			this.heightsDirty.push(trace.line-this.sourceFunction.lineStart);
+			MatchMaxHeightDirective.markDirty(`debugger-${trace.line-this.sourceFunction.lineNumber}`);
 		}
 	}
 
