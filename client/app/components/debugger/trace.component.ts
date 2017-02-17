@@ -1,5 +1,5 @@
 import { Component, Input } from "@angular/core";
-import { Trace } from "../../models/trace/Trace";
+import { Trace } from "../../models/Trace";
 
 @Component({
 	selector: 'spice-trace',

@@ -9,7 +9,6 @@ extern crate mime_guess;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
-#[macro_use]
 extern crate serde_json;
 
 extern crate debug;
@@ -28,10 +27,7 @@ use hyper::server::{Server, Request, Response, Streaming};
 use reroute::{RouterBuilder, Captures};
 use mime_guess::guess_mime_type;
 
-use serde_json::value::ToJson;
-
-use child::{ServerMessage, DebugMessage, DebugTrace, ExecutionType};
-use api::*;
+use child::{ServerMessage, DebugMessage, DebugTrace};
 
 mod child;
 mod trace;
@@ -45,9 +41,14 @@ fn main() {
 
     let mut router = RouterBuilder::new();
 
-    // host system info
+    // host system
 
-    router.get(r"/file/(.*)", file);
+    router.get(r"/api/v1/processes", move |req, res, caps| {
+        match processes(caps) {
+            Ok(body) => send(req, res, &body),
+            Err(e) => send_error(req, res, e),
+        }.unwrap();
+    });
 
     router.get(r"/api/v1/filesystem/(.*)", move |req, res, caps| {
         match filesystem(caps) {
@@ -56,12 +57,7 @@ fn main() {
         }.unwrap();
     });
 
-    router.get(r"/api/v1/processes", move |req, res, caps| {
-        match processes(caps) {
-            Ok(body) => send(req, res, &body),
-            Err(e) => send_error(req, res, e),
-        }.unwrap();
-    });
+    router.get(r"/file/(.*)", file);
 
     // attaching
 
@@ -134,7 +130,7 @@ fn main() {
 
     let child = child_thread.clone();
     router.post(r"/api/v1/debug/([0-9]*)/execute", move |mut req, res, caps| {
-        let body: Launch = match serde_json::from_reader(&mut req) {
+        let body: api::Launch = match serde_json::from_reader(&mut req) {
             Ok(body) => body,
             Err(e) => {
                 send_error(req, res, io::Error::new(io::ErrorKind::InvalidInput, e)).unwrap();
@@ -150,7 +146,7 @@ fn main() {
 
     let child = child_thread.clone();
     router.post(r"/api/v1/debug/([0-9]*)/functions/([0-9]*)/execute", move |mut req, res, caps| {
-        let body: Call = match serde_json::from_reader(&mut req) {
+        let body: api::Call = match serde_json::from_reader(&mut req) {
             Ok(body) => body,
             Err(e) => {
                 send_error(req, res, io::Error::new(io::ErrorKind::InvalidInput, e)).unwrap();
@@ -182,7 +178,13 @@ fn main() {
 
     let child = child_thread.clone();
     router.get(r"/api/v1/debug/([0-9]*)/executions/([0-9]*)/trace", move |mut req, mut res, caps| {
-        let _ = match debug_execution_trace(caps, child.clone()) {
+        let mut child = child.lock().unwrap();
+        if child.is_none() {
+            let e = io::Error::from(io::ErrorKind::NotConnected);
+            return send_error(req, res, e).unwrap();
+        }
+
+        let _ = match debug_execution_trace(caps, child.as_ref().unwrap()) {
             Ok(execution) => execution,
             Err(e) => return send_error(req, res, e).unwrap(),
         };
@@ -198,11 +200,12 @@ fn main() {
         }
 
         let mut res = res.start().unwrap();
-        let terminated = match trace_stream(&mut res, child.clone()) {
+        let terminated = match trace_stream(&mut res, child.as_mut().unwrap()) {
             Ok(terminated) => terminated,
             Err(e) => {
-                let data = json!({ "cause": "error", "error": format!("{:?}", e) });
-                let message = Trace { index: 0, t_type: 2, line: 0, data: data };
+                let error = api::Error { message: format!("{:?}", e) };
+                let data = api::TraceData::Error { error: error };
+                let message = api::Trace { index: 0, line: 0, data: data };
                 serde_json::to_writer(&mut res, &message).unwrap();
 
                 res.write_all(b"\n]").unwrap();
@@ -212,8 +215,7 @@ fn main() {
         res.end().unwrap();
 
         if terminated {
-            let mut child_thread = child.lock().unwrap();
-            if let Some(child) = child_thread.take() {
+            if let Some(child) = child.take() {
                 child.tx.send(ServerMessage::Quit).unwrap();
                 child.thread.join().unwrap();
             }
@@ -265,7 +267,7 @@ fn send(mut req: Request, mut res: Response, body: &[u8]) -> io::Result<()> {
 fn send_error(req: Request, mut res: Response, error: io::Error) -> io::Result<()> {
     *res.status_mut() = status_from_error(error.kind());
 
-    let message = api::Error { code: 0, message: error.description().into(), data: 0 };
+    let message = api::Error { message: error.description().into() };
     send(req, res, &serde_json::to_vec(&message).unwrap())
 }
 
@@ -280,36 +282,16 @@ fn status_from_error(error: io::ErrorKind) -> StatusCode {
     }
 }
 
-/// GET /file/:path*
-fn file(mut req: Request, mut res: Response, caps: Captures) {
-    let caps = caps.unwrap();
-    let path = url::percent_encoding::percent_decode(caps[1].as_bytes());
-    let path = path.decode_utf8_lossy().into_owned();
-    let path = Path::new(&path);
+/// GET /processes -- gets the list of processes running on the host machine
+fn processes(_: Captures) -> io::Result<Vec<u8>> {
+    let procs: Vec<_> = debug::Process::running()?
+        .map(|debug::Process { id, name }| api::Process {
+            id: id,
+            name: name.to_string_lossy().into()
+        })
+        .collect();
 
-    io::copy(&mut req, &mut io::sink()).unwrap();
-
-    let mime = guess_mime_type(path);
-    match fs::File::open(path) {
-        Ok(mut file) => {
-            {
-                use hyper::header::*;
-
-                let headers = res.headers_mut();
-                headers.set(ContentType(mime));
-                headers.set(AccessControlAllowOrigin::Any);
-                headers.set(ContentType("application/json".parse().unwrap()));
-            }
-
-            let mut res = res.start().unwrap();
-            io::copy(&mut file, &mut res).unwrap();
-            res.end().unwrap();
-        }
-
-        Err(e) => {
-            *res.status_mut() = status_from_error(e.kind());
-        }
-    }
+    Ok(serde_json::to_vec(&procs).unwrap())
 }
 
 /// GET /filesystem/:path* -- gets the file(s) within the given path
@@ -322,50 +304,73 @@ fn filesystem(caps: Captures) -> io::Result<Vec<u8>> {
         return Err(io::Error::from(io::ErrorKind::NotFound));
     }
 
-    let (file_type, contents) = if path.is_dir() {
+    let name = path.file_name().unwrap_or(OsStr::new(""));
+
+    let data = if path.is_dir() {
         let mut contents = vec![];
         for entry in fs::read_dir(path)? {
             let entry = entry?;
+
             let path = entry.path();
-
             let name = path.file_name().unwrap_or(OsStr::new(""));
-            let file_type = if path.is_dir() { "dir" } else { "file" };
+            let data = if path.is_dir() {
+                api::FileData::Directory { contents: None }
+            } else {
+                api::FileData::File
+            };
 
-            contents.push(File {
+            contents.push(api::File {
                 name: name.to_string_lossy().into(),
                 path: path.to_string_lossy().into(),
-                f_type: file_type.into(),
-                contents: vec![],
+                data: data,
             });
         }
 
-        ("dir", contents)
+        api::FileData::Directory { contents: Some(contents) }
     } else {
-        ("file", vec![])
+        api::FileData::File
     };
 
-    let name = path.file_name().unwrap_or(OsStr::new(""));
-
-    let message = File {
+    let message = api::File {
         name: name.to_string_lossy().into(),
         path: path.to_string_lossy().into(),
-        f_type: file_type.into(),
-        contents
+        data: data,
     };
-
     Ok(serde_json::to_vec(&message).unwrap())
 }
 
-/// GET /processes -- gets the list of processes running on the host machine
-fn processes(_: Captures) -> io::Result<Vec<u8>> {
-    let procs: Vec<_> = debug::Process::running()?
-        .map(|debug::Process { id, name }| Process {
-            id: id,
-            name: name.to_string_lossy().into()
-        })
-        .collect();
+/// GET /file/:path*
+fn file(mut req: Request, mut res: Response, caps: Captures) {
+    let caps = caps.unwrap();
+    let path = url::percent_encoding::percent_decode(caps[1].as_bytes());
+    let path = path.decode_utf8_lossy().into_owned();
+    let path = Path::new(&path);
 
-    Ok(serde_json::to_vec(&procs).unwrap())
+    io::copy(&mut req, &mut io::sink()).unwrap();
+
+    {
+        use hyper::header::*;
+
+        let headers = res.headers_mut();
+        headers.set(AccessControlAllowOrigin::Any);
+        headers.set(ContentType("application/json".parse().unwrap()));
+    }
+
+    let mime = guess_mime_type(path);
+    match fs::File::open(path) {
+        Ok(mut file) => {
+            use hyper::header::*;
+            res.headers_mut().set(ContentType(mime));
+
+            let mut res = res.start().unwrap();
+            io::copy(&mut file, &mut res).unwrap();
+            res.end().unwrap();
+        }
+
+        Err(e) => {
+            *res.status_mut() = status_from_error(e.kind());
+        }
+    }
 }
 
 /// POST /debug/attach/pid/:pid -- attach to a running process
@@ -387,13 +392,13 @@ fn debug_attach_pid(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
         _ => unreachable!(),
     };
 
-    let message = DebugInfo {
+    // TODO: get process name
+    let message = api::DebugInfo {
         id: 0,
-        attached_process: Process {
+        attached_process: api::Process {
             id: pid,
             name: String::new(),
         },
-        source_path: String::new(),
     };
     Ok(serde_json::to_vec(&message).unwrap())
 }
@@ -419,13 +424,12 @@ fn debug_attach_bin(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
     };
 
     let name = path.file_name().unwrap_or(OsStr::new(""));
-    let message = DebugInfo {
+    let message = api::DebugInfo {
         id: 0,
-        attached_process: Process {
+        attached_process: api::Process {
             id: 0,
             name: name.to_string_lossy().into(),
         },
-        source_path: path.to_string_lossy().into(),
     };
     Ok(serde_json::to_vec(&message).unwrap())
 }
@@ -449,7 +453,7 @@ fn debug_functions(_: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
         _ => unreachable!(),
     };
 
-    let message: Vec<_> = functions.into_iter().map(Function::from).collect();
+    let message: Vec<_> = functions.into_iter().map(api::Function::from).collect();
     Ok(serde_json::to_vec(&message).unwrap())
 }
 
@@ -470,39 +474,35 @@ fn debug_function(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
         _ => unreachable!()
     };
 
-    let message = Function::from(function);
+    let message = api::Function::from(function);
     Ok(serde_json::to_vec(&message).unwrap())
 }
 
-impl From<child::Function> for Function {
-    fn from(function: child::Function) -> Function {
+impl From<child::Function> for api::Function {
+    fn from(function: child::Function) -> api::Function {
         let child::Function {
-            address, name, source_path, line_number, line_count,
-            parameters, local_variables
+            address, name, source_path, line_start, line_count,
+            parameters, locals
         } = function;
 
-        let parameters = parameters.into_iter().map(|(id, name, address)| Variable {
-            id: id,
+        let parameters = parameters.into_iter().map(|(name, _address)| api::Variable {
             name: name.to_string_lossy().into(),
-            address: address,
-            s_type: String::from("int"),
+            source_type: String::from("int"),
         }).collect();
 
-        let local_variables = local_variables.into_iter().map(|(id, name, address)| Variable {
-            id: id,
+        let locals = locals.into_iter().map(|(name, _address)| api::Variable {
             name: name.to_string_lossy().into(),
-            address: address,
-            s_type: String::from("int"),
+            source_type: String::from("int"),
         }).collect();
 
-        Function {
+        api::Function {
             address,
             name: name.to_string_lossy().into(),
             source_path: source_path.to_string_lossy().into(),
-            line_number: line_number as i32,
-            line_count: line_count as i32,
+            line_start: line_start,
+            line_count: line_count,
             parameters,
-            local_variables,
+            locals,
         }
     }
 }
@@ -521,10 +521,7 @@ fn debug_breakpoints(_: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
     };
 
     let message: Vec<_> = breakpoints.into_iter()
-        .map(|address| Breakpoint {
-            function: address,
-            metadata: String::new(),
-        })
+        .map(|address| api::Breakpoint { function: address })
         .collect();
     Ok(serde_json::to_vec(&message).unwrap())
 }
@@ -546,10 +543,7 @@ fn debug_breakpoint_put(caps: Captures, child: ChildThread) -> io::Result<Vec<u8
         _ => unreachable!()
     };
 
-    let message = Breakpoint {
-        function: address,
-        metadata: String::new(),
-    };
+    let message = api::Breakpoint { function: address };
     Ok(serde_json::to_vec(&message).unwrap())
 }
 
@@ -573,8 +567,8 @@ fn debug_breakpoint_delete(caps: Captures, child: ChildThread) -> io::Result<Vec
     Ok(vec![])
 }
 
-/// POST /debug/:id/execute -- starts or continues process
-fn debug_execute(caps: Captures, _body: Launch, child: ChildThread) -> io::Result<Vec<u8>> {
+/// POST /debug/:id/execute
+fn debug_execute(caps: Captures, _body: api::Launch, child: ChildThread) -> io::Result<Vec<u8>> {
     let caps = caps.unwrap();
     let _debug_id = caps[1].parse::<u64>()
         .map_err(|e| io::Error::new(io::ErrorKind::NotConnected, e))?;
@@ -589,21 +583,14 @@ fn debug_execute(caps: Captures, _body: Launch, child: ChildThread) -> io::Resul
         DebugMessage::Error(e) => return Err(e),
         _ => unreachable!(),
     };
-    child.execution = Some((id, ExecutionType::Process));
+    child.execution = Some((id, child::Execution::Process));
 
-    let data = ProcessExecution { next_execution: 0 };
-    let message = Execution {
-        id: id, 
-        e_type: String::from("process"),
-        status: String::from("executing"),
-        execution_time: 0,
-        data: data.to_json().unwrap(),
-    };
+    let message = api::Execution { id: id, data: api::ExecutionData::Process };
     Ok(serde_json::to_vec(&message).unwrap())
 }
 
 /// POST /debug/:id/functions/:function/execute
-fn debug_function_execute(caps: Captures, body: Call, child: ChildThread) -> io::Result<Vec<u8>> {
+fn debug_function_execute(caps: Captures, body: api::Call, child: ChildThread) -> io::Result<Vec<u8>> {
     let caps = caps.unwrap();
     let _debug_id = caps[1].parse::<u64>()
         .map_err(|e| io::Error::new(io::ErrorKind::NotConnected, e))?;
@@ -621,16 +608,10 @@ fn debug_function_execute(caps: Captures, body: Call, child: ChildThread) -> io:
         DebugMessage::Error(e) => return Err(e),
         _ => unreachable!(),
     };
-    child.execution = Some((id, ExecutionType::Function(address)));
+    child.execution = Some((id, child::Execution::Function(address)));
 
-    let data = FunctionExecution { function: address };
-    let message = Execution {
-        id: id,
-        e_type: String::from("function"),
-        status: String::from("executing"),
-        execution_time: 0,
-        data: data.to_json().unwrap(),
-    };
+    let data = api::ExecutionData::Function { function: address };
+    let message = api::Execution { id: id, data: data };
     Ok(serde_json::to_vec(&message).unwrap())
 }
 
@@ -644,84 +625,54 @@ fn debug_executions(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
     let child = child.as_mut()
         .ok_or(io::Error::from(io::ErrorKind::NotConnected))?;
 
-    let mut message = vec![];
-    for &(id, ref e_type) in &child.execution {
-        let (e_type, data) = match *e_type {
-            ExecutionType::Function(address) => {
-                let data = FunctionExecution { function: address };
-                (String::from("function"), data.to_json().unwrap())
-            }
-
-            ExecutionType::Process => {
-                let data = ProcessExecution { next_execution: 0 };
-                (String::from("process"), data.to_json().unwrap())
-            }
-        };
-
-        message.push(Execution {
-            id: id, 
-            e_type: e_type,
-            status: String::from("executing"),
-            execution_time: -1,
-            data: data,
-        });
-    }
-
+    let message: Vec<_> = child.execution.iter()
+        .map(|&(id, execution)| {
+            let data = api::ExecutionData::from(execution);
+            api::Execution { id: id, data: data }
+        })
+        .collect();
     Ok(serde_json::to_vec(&message).unwrap())
 }
 
-/// GET /debug/:id/executions/:execution -- get information about execution status
+/// GET /debug/:id/executions/:execution
 fn debug_execution(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
     let caps = caps.unwrap();
     let _debug_id = caps[1].parse::<u64>()
         .map_err(|e| io::Error::new(io::ErrorKind::NotConnected, e))?;
-
     let execution_id = caps[2].parse::<i32>()
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
-
 
     let mut child = child.lock().unwrap();
     let child = child.as_mut()
         .ok_or(io::Error::from(io::ErrorKind::NotConnected))?;
 
-    let (id, e_type) = match child.execution {
-        Some((id, ref e_type)) if id == execution_id => (id, e_type),
+    let (id, execution) = match child.execution {
+        Some((id, execution)) if id == execution_id => (id, execution),
         _ => return Err(io::Error::new(io::ErrorKind::NotFound, "no such execution")),
     };
 
-    let (e_type, data) = match *e_type {
-        ExecutionType::Function(address) => {
-            let data = FunctionExecution { function: address };
-            (String::from("function"), data.to_json().unwrap())
-        }
-
-        ExecutionType::Process => {
-            let data = ProcessExecution { next_execution: 0 };
-            (String::from("process"), data.to_json().unwrap())
-        }
-    };
-
-    let message = Execution {
-        id: id,
-        e_type: e_type,
-        status: String::from("executing"),
-        execution_time: -1,
-        data: data.to_json().unwrap(),
-    };
+    let data = api::ExecutionData::from(execution);
+    let message = api::Execution { id: id, data: data };
     Ok(serde_json::to_vec(&message).unwrap())
 }
 
-/// GET /debug/:id/executions/:execution/trace -- Get trace data for execution
-fn debug_execution_trace(caps: Captures, child: ChildThread) -> io::Result<i32> {
+impl From<child::Execution> for api::ExecutionData {
+    fn from(execution: child::Execution) -> api::ExecutionData {
+        match execution {
+            child::Execution::Process => api::ExecutionData::Process,
+            child::Execution::Function(address) =>
+                api::ExecutionData::Function { function: address },
+        }
+    }
+}
+
+/// GET /debug/:id/executions/:execution/trace
+fn debug_execution_trace(caps: Captures, child: &child::Thread) -> io::Result<i32> {
     let caps = caps.unwrap();
     let _debug_id = caps[1].parse::<u64>()
         .map_err(|e| io::Error::new(io::ErrorKind::NotConnected, e))?;
     let execution = caps[2].parse::<i32>()
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
-
-    let child = child.lock().unwrap();
-    let child = child.as_ref()
-        .ok_or(io::Error::from(io::ErrorKind::NotConnected))?;
 
     match child.execution {
         Some((id, _)) if id == execution => Ok(id),
@@ -729,11 +680,7 @@ fn debug_execution_trace(caps: Captures, child: ChildThread) -> io::Result<i32> 
     }
 }
 
-fn trace_stream(res: &mut Response<Streaming>, child: ChildThread) -> io::Result<bool> {
-    let mut child = child.lock().unwrap();
-    let child = child.as_mut()
-        .ok_or(io::Error::from(io::ErrorKind::NotConnected))?;
-
+fn trace_stream(res: &mut Response<Streaming>, child: &mut child::Thread) -> io::Result<bool> {
     child.tx.send(ServerMessage::Trace).unwrap();
 
     res.write_all(b"[\n")?;
@@ -753,31 +700,34 @@ fn trace_stream(res: &mut Response<Streaming>, child: ChildThread) -> io::Result
                 for &(ref name, ref value) in locals.iter() {
                     let prev_value = prev_locals.get(name);
                     if prev_value.map(|prev_value| value != prev_value).unwrap_or(true) {
-                        state.push(TraceState { variable: name.clone(), value: value.clone() });
+                        state.push(api::TraceState {
+                            variable: name.clone(),
+                            value: value.clone()
+                        });
                     }
                 }
                 prev_locals.extend(locals.into_iter());
 
-                let data = json!(TraceData { state: state });
-                Trace { index: this_index, t_type: 0, line: line, data: data }
+                let data = api::TraceData::Line { state: state };
+                api::Trace { index: this_index, line: line, data: data }
             }
 
             DebugMessage::Trace(DebugTrace::Return(line, value)) => {
                 done = true;
                 child.execution = None;
 
-                let data = json!({ "cause": "return", "returnValue": value });
-                Trace { index: index, t_type: 2, line: line, data: data }
+                let data = api::TraceData::Return { value: value };
+                api::Trace { index: index, line: line, data: data }
             }
 
             DebugMessage::Trace(DebugTrace::Breakpoint(address)) => {
                 done = true;
 
                 let id = child.next_id();
-                child.execution = Some((id, ExecutionType::Function(address)));
+                child.execution = Some((id, child::Execution::Function(address)));
 
-                let data = json!({ "cause": "breakpoint", "nextExecution": id });
-                Trace { index: 0, t_type: 2, line: 0, data: data }
+                let data = api::TraceData::Break { next_execution: id };
+                api::Trace { index: 0, line: 0, data: data }
             }
 
             DebugMessage::Trace(DebugTrace::Exit(code)) => {
@@ -785,17 +735,18 @@ fn trace_stream(res: &mut Response<Streaming>, child: ChildThread) -> io::Result
                 done = true;
                 child.execution = None;
 
-                let data = json!({ "cause": "exit", "returnCode": code });
-                Trace { index: 0, t_type: 2, line: 0, data: data }
+                let data = api::TraceData::Exit { code: code };
+                api::Trace { index: 0, line: 0, data: data }
             }
 
+            // TODO: collect stack trace in child thread
             DebugMessage::Trace(DebugTrace::Crash) => {
                 terminated = true;
                 done = true;
                 child.execution = None;
 
-                let data = json!({ "cause": "crash" });
-                Trace { index: 0, t_type: 2, line: 0, data: data }
+                let data = api::TraceData::Crash { stack: String::new() };
+                api::Trace { index: 0, line: 0, data: data }
             }
 
             DebugMessage::Error(e) => {

@@ -1,22 +1,20 @@
-import {Component} from "@angular/core";
+import { Component } from "@angular/core";
 import { DebuggerService } from "../../services/debugger.service";
 import { DebuggerState } from "../../models/DebuggerState";
-import { Execution } from "../../models/execution/Execution";
-import { Trace } from "../../models/trace/Trace";
+import { Execution, ExecutionId } from "../../models/Execution";
+import { Trace } from "../../models/Trace";
 import { Observable } from "rxjs/Observable";
-import {SourceFunction} from "../../models/SourceFunction";
+import { SourceFunction } from "../../models/SourceFunction";
 import { MatchMaxHeightDirective } from "../../directives/MatchMaxHeight.directive";
 import { Response } from "@angular/http";
-import {ViewService} from "../../services/view.service";
-import {ExecutionId} from "../../models/execution/ExecutionId";
-import {ExecutionOfFunction} from "../../models/execution/ExecutionOfFunction";
-import {FileSystemService} from "../../services/file-system.service";
-import {MdSnackBar} from "@angular/material";
+import { ViewService } from "../../services/view.service";
+import { FileSystemService } from "../../services/file-system.service";
+import { MdSnackBar } from "@angular/material";
+
 @Component({
 	selector: 'spice-debugger',
 	templateUrl: 'app/components/debugger/debugger.component.html'
 })
-
 export class DebuggerComponent {
 
 	protected lines: { sourceCode: string, traces: Trace[]}[];
@@ -45,18 +43,18 @@ export class DebuggerComponent {
 			let ds: DebuggerState = this.debugState;
 			ds.getExecution(executionId)
                 .mergeMap((ex: Execution) => {
-					if(ex.eType !== 'function') {
-						return Observable.throw(new Error(`DebuggerComponent: cannot display execution traces with type ${ex.eType}`));
+					if(ex.data.eType !== 'function') {
+						return Observable.throw(new Error(`DebuggerComponent: cannot display execution traces with type ${ex.data.eType}`));
 					}
 					return Observable.forkJoin(
-						ds.getSourceFunction((ex as ExecutionOfFunction).data.sFunction)
+						ds.getSourceFunction(ex.data.sFunction)
 						.mergeMap((sf:SourceFunction) => {
 							this.sourceFunction = sf; return this.fileSystemService.getFileContents(sf.sourcePath)}),
 						Observable.of(ds.getTrace(executionId)));
 				})
 				.mergeMap(([fileContents, traces]) => {
 					this.lines = fileContents.split('\n')
-						.filter((l,i) => this.sourceFunction && i>=(this.sourceFunction.lineNumber-1) && i<(this.sourceFunction.lineNumber-1 + this.sourceFunction.lineCount))
+						.filter((l,i) => this.sourceFunction && i>=(this.sourceFunction.lineStart-1) && i<(this.sourceFunction.lineStart-1 + this.sourceFunction.lineCount))
 						.map(l => {return { sourceCode: l, traces: []}});
 					this.lastTraceLine = Number.POSITIVE_INFINITY;
 					this.traceColCount = 0;
@@ -82,7 +80,7 @@ export class DebuggerComponent {
 
 	public addTrace(trace: Trace) {
 		if(this.sourceFunction) {
-			let line = this.lines[trace.line - this.sourceFunction.lineNumber];
+			let line = this.lines[trace.line - this.sourceFunction.lineStart];
 			if(this.lastTraceLine >= trace.line) {
 				this.traceColCount++;
 			}
@@ -97,7 +95,7 @@ export class DebuggerComponent {
 
 	public ExecuteFunction() {
 		if(this.debugState && this.sourceFunction) {
-			this.debugState.executeFunction(this.sourceFunction.id,this.setParameters)
+			this.debugState.executeFunction(this.sourceFunction.address,this.setParameters)
                 .subscribe((ex:Execution)=>{
 					this.displayTrace(ex.id);
 				}, (e:any) => {
@@ -114,7 +112,7 @@ export class DebuggerComponent {
 		if(!this.sourceFunction) {
 			return 'No Function Selected';
 		} else {
-			return this.sourceFunction.name + ' ' + this.sourceFunction.GetParametersAsString();
+			return this.sourceFunction.name + ' ' + this.sourceFunction.getParametersAsString();
 		}
 	}
 
