@@ -72,7 +72,7 @@ describe('DebuggerHttpService', function () {
 			this.debuggerHttpService.attachBinary('foo').subscribe(
 				(ds: DebuggerState) => {
 					expect(ds).toBeDefined();
-					expect(ds.id).toEqual('0');
+					expect(ds.info.id).toEqual('0');
 					done();
 				}, (err: any) => fail(err));
 			this.lastConnection.mockRespond(new Response(new ResponseOptions({body: this.debuggerStates['0']})));

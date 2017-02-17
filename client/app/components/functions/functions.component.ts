@@ -1,5 +1,5 @@
 import {Component, OnInit, AfterViewChecked} from "@angular/core";
-import { SourceFunction, SourceFunctionId, getParametersAsString } from "../../models/SourceFunction";
+import { SourceFunction, SourceFunctionId } from "../../models/SourceFunction";
 import {DebuggerService} from "../../services/debugger.service";
 import {DebuggerState} from "../../models/DebuggerState";
 import {MdSnackBar} from "@angular/material";
@@ -126,7 +126,7 @@ export class FunctionsComponent implements OnInit, AfterViewChecked {
         if(!this.selectedFunction) {
             return 'none';
         } else {
-            return this.selectedFunction.name + ' ' + getParametersAsString(this.selectedFunction);
+            return this.selectedFunction.name + ' ' + this.selectedFunction.getParametersAsString();
         }
     }
     public GetListHeight():number {

@@ -1,9 +1,15 @@
+import { Deserialize } from "../util/SpiceValidator";
 import { ExecutionId } from "./Execution";
 import { SpiceError } from "./SpiceError";
 
-export interface Trace {
+export class Trace {
+    @Deserialize()
     index: number;
+
+    @Deserialize()
     line: number;
+
+    @Deserialize()
     data: LineData | ReturnData | BreakData | ExitData | CrashData | ErrorData;
 }
 

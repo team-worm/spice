@@ -4,7 +4,7 @@ import { DebuggerState } from "../../models/DebuggerState";
 import { Execution, ExecutionId } from "../../models/Execution";
 import { Trace } from "../../models/Trace";
 import { Observable } from "rxjs/Observable";
-import { SourceFunction, getParametersAsString } from "../../models/SourceFunction";
+import { SourceFunction } from "../../models/SourceFunction";
 import { MatchMaxHeightDirective } from "../../directives/MatchMaxHeight.directive";
 import { Response } from "@angular/http";
 import { ViewService } from "../../services/view.service";
@@ -123,7 +123,7 @@ export class DebuggerComponent implements AfterViewChecked {
 		if(!this.sourceFunction) {
 			return 'No Function Selected';
 		} else {
-			return this.sourceFunction.name + ' ' + getParametersAsString(this.sourceFunction);
+			return this.sourceFunction.name + ' ' + this.sourceFunction.getParametersAsString();
 		}
 	}
 

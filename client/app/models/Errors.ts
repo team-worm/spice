@@ -1,5 +1,5 @@
 export class InvalidTypeError extends Error {
-	constructor(typeName: string) {
+	constructor(typeName: string, public data?: any) {
 		super(`Expected to get type ${typeName} in this context`);
 	}
 }
@@ -11,7 +11,7 @@ export class InvalidValueError extends Error {
 }
 
 export class InvalidServerDataError extends Error {
-	constructor(typeName: string, data: any, message = "Server returned invalid data") {
+	constructor(typeName: string, public data: any, message = "Server returned invalid data") {
 		super(`Failed to construct ${typeName}: ${message}.`);
 	}
 }

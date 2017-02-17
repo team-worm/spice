@@ -1,4 +1,4 @@
-import { DebugId } from "./DebugInfo";
+import { DebugInfo, DebugId } from "./DebugInfo";
 import { Execution, ExecutionId } from "./Execution";
 import { Breakpoint } from "./Breakpoint";
 import { SourceFunction, SourceFunctionId } from "./SourceFunction";
@@ -17,18 +17,18 @@ export class DebuggerState {
 	public sourceVariables: CacheMap<string, Observable<SourceVariable>>;
 	public traces: CacheMap<ExecutionId, Observable<Trace>>;
 
-	constructor(public id: DebugId, protected debuggerHttp: DebuggerHttpService) {
-		this.executions = new CacheMap<ExecutionId, Observable<Execution>>(k => debuggerHttp.getExecution(this.id, k));
+	constructor(public info: DebugInfo, protected debuggerHttp: DebuggerHttpService) {
+		this.executions = new CacheMap<ExecutionId, Observable<Execution>>(k => debuggerHttp.getExecution(this.info.id, k));
 		this.breakpoints = new CacheMap<SourceFunctionId, Observable<Breakpoint>>();
-		this.sourceFunctions = new CacheMap<SourceFunctionId, Observable<SourceFunction>>(k => debuggerHttp.getSourceFunction(this.id, k));
+		this.sourceFunctions = new CacheMap<SourceFunctionId, Observable<SourceFunction>>(k => debuggerHttp.getSourceFunction(this.info.id, k));
 		this.sourceVariables = new CacheMap<string, Observable<SourceVariable>>();
-		this.traces = new CacheMap<ExecutionId, Observable<Trace>>(k => debuggerHttp.getTrace(this.id, k));
+		this.traces = new CacheMap<ExecutionId, Observable<Trace>>(k => debuggerHttp.getTrace(this.info.id, k));
 	}
 
 	public initialize(): Observable<null> {
 		return Observable.forkJoin(
 			//initialize functions
-			this.debuggerHttp.getSourceFunctions(this.id)
+			this.debuggerHttp.getSourceFunctions(this.info.id)
 				.map((sfs) => {
 					sfs.forEach(sf => this.sourceFunctions.set(sf.address, Observable.of(sf)));
 					//mock stuff--initialize source variables
@@ -40,7 +40,7 @@ export class DebuggerState {
 					//[this.sourceVariables['1']])
 				}))
 			//initialize breakpoints
-			// this.debuggerHttp.getBreakpoints(this.id)
+			// this.debuggerHttp.getBreakpoints(this.info.id)
 			// 	.map((bs) => {
 			// 		bs.forEach(b => this.breakpoints.set(b.sFunction.id, Observable.of(b)));
 			// 	}))
@@ -90,7 +90,7 @@ export class DebuggerState {
 	}
 
 	public executeBinary(args: string, env: string): Observable<Execution> {
-		return this.debuggerHttp.executeBinary(this.id, args, env)
+		return this.debuggerHttp.executeBinary(this.info.id, args, env)
 			.map(e => {
 				this.executions.set(e.id, Observable.of(e));
 				return e;
@@ -98,7 +98,7 @@ export class DebuggerState {
 	}
 
 	public executeFunction(id: SourceFunctionId, parameters: {[id: string]: any}): Observable<Execution> {
-		return this.debuggerHttp.executeFunction(this.id, id, parameters)
+		return this.debuggerHttp.executeFunction(this.info.id, id, parameters)
 			.map(e => {
 				this.executions.set(e.id, Observable.of(e));
 				return e;
@@ -126,7 +126,7 @@ export class DebuggerState {
 	}
 
 	public setBreakpoint(id: SourceFunctionId): Observable<Breakpoint> {
-		return this.debuggerHttp.setBreakpoint(this.id, id)
+		return this.debuggerHttp.setBreakpoint(this.info.id, id)
 			.map(b => {
 				this.breakpoints.set(id, Observable.of(b));
 				return b;
@@ -134,18 +134,11 @@ export class DebuggerState {
 	}
 
 	public removeBreakpoint(id: SourceFunctionId): Observable<null> {
-		return this.debuggerHttp.removeBreakpoint(this.id, id)
+		return this.debuggerHttp.removeBreakpoint(this.info.id, id)
 			.map(() => {
 				this.breakpoints.delete(id);
 				return null;
 			});
-	}
-
-	public static fromObjectStrict(obj: any, debuggerHttp: DebuggerHttpService): DebuggerState {
-		SpiceValidator.assertTypeofStrict(obj, 'object');
-		SpiceValidator.assertTypeofStrict(obj.id, 'number');
-
-		return new DebuggerState(obj.id.toString(), debuggerHttp);
 	}
 
 }

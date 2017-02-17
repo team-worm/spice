@@ -1,9 +1,13 @@
+import { Deserialize } from "../util/SpiceValidator";
 import { SourceFunctionId } from "./SourceFunction";
 
 export type ExecutionId = number;
 
-export interface Execution {
+export class Execution {
+    @Deserialize()
     id: ExecutionId;
+
+    @Deserialize()
     data: ProcessData | FunctionData;
 }
 
