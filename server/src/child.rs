@@ -166,6 +166,7 @@ fn run(
     };
 
     let event = debug::Event::wait_event()?;
+
     if let debug::EventInfo::CreateProcess { ref file, main_thread, base, .. } = event.info {
         let _ = file.as_ref()
             .ok_or(io::Error::new(io::ErrorKind::Other, "no file handle for CreateProcess"))
@@ -390,6 +391,7 @@ fn trace_process(
 
     let mut last_breakpoint = None;
     loop {
+        
         let mut event = debug::Event::wait_event()?;
 
         use debug::EventInfo::*;
@@ -533,10 +535,25 @@ fn trace_function(
 
     let mut last_line = line;
     let mut last_breakpoint = None;
+    let mut last_event: Option<debug::Event> = None;
     loop {
-        let mut event = debug::Event::wait_event()?;
+        println!("waiting for debug event");
+        let mut event = match debug::Event::wait_event() {
+            Ok(e) => e,
+            Err(e) => {
+                match rx.recv().unwrap() {
+                    ServerMessage::Stop => {
+                        tx.send(DebugMessage::Trace(DebugTrace::StopRequest)).unwrap();
+                        return Ok(());
+                    }
+                    _ => continue,
+                };
+            },
+        };
+
         match rx.recv().unwrap() {
             ServerMessage::Stop => { // assuming this code restores us back to where we were before calling the function
+                println!("Received stop message");
                 let TargetState { ref symbols, ref threads, .. } = *target;
                 let thread = threads[&event.thread_id];
 
@@ -550,6 +567,8 @@ fn trace_function(
 
                 // collect the return value
                 let (_, restore) = call.teardown(breakpoints.child(), &context, &symbols)?;
+
+                println!("Sending stop request response from debug thread");
                 tx.send(DebugMessage::Trace(DebugTrace::StopRequest)).unwrap();
 
                 if let Some(context) = restore {
@@ -560,7 +579,7 @@ fn trace_function(
                 return Ok(());
 
             }, 
-            _ => {},
+            _ => {println!("received continue message")},
         };
 
         use debug::EventInfo::*;

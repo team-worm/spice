@@ -238,10 +238,10 @@ fn main() {
         }.unwrap();
     });
 
-    let child = child_thread.clone();
+    //let child = child_thread.clone();
     let kill = kill_flag.clone();
     router.post(r"/api/v1/debug/([0-9]*)/executions/([0-9]*)/trace/stop", move |req, res, caps| {
-        match debug_trace_stop(caps, child.clone(), kill.clone()) {
+        match debug_trace_stop(caps, kill.clone()) {
             Ok(body) => send(req, res, &body),
             Err(e) => send_error(req, res, e),
         }.unwrap();
@@ -758,13 +758,12 @@ fn debug_execution_trace(caps: Captures, child: ChildThread) -> io::Result<i32> 
 }
 
 /// POST /debug/:id/executions/:execution/trace/stop
-fn debug_trace_stop(caps: Captures, child: ChildThread, kill: Arc<AtomicBool>) -> io::Result<Vec<u8>> {
+fn debug_trace_stop(caps: Captures, kill: Arc<AtomicBool>) -> io::Result<Vec<u8>> {
     let caps = caps.unwrap();
     let _debug_id = caps[1].parse::<u64>()
         .map_err(|e| io::Error::new(io::ErrorKind::NotConnected, e))?;
     let execution_id = caps[2].parse::<i32>()
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
-
 
     kill.store(true, Ordering::Relaxed);
 
@@ -793,7 +792,7 @@ fn debug_trace_stop(caps: Captures, child: ChildThread, kill: Arc<AtomicBool>) -
     let message = Execution {
         id: 1,
         e_type: String::from("function"),
-        status: String::from("executing"),
+        status: String::from("stopped"),
         execution_time: -1,
         data: data.to_json().unwrap(),
     };
@@ -820,11 +819,19 @@ fn trace_stream(res: &mut Response<Streaming>, child: ChildThread, kill: Arc<Ato
     let mut done = false;
     while !done {
         match kill.load(Ordering::Relaxed) {
-            true => child.tx.send(ServerMessage::Stop).unwrap(),
-            false => child.tx.send(ServerMessage::Continue).unwrap(),
+            true => {
+                println!("kill value is true");
+                println!("Sending stop message to debug loop");
+                child.tx.send(ServerMessage::Stop).unwrap();   
+            },
+            false => {
+                println!("kill value is false");
+                child.tx.send(ServerMessage::Continue).unwrap();   
+            }
         };
         let message = match child.rx.recv().unwrap() {
             DebugMessage::Trace(DebugTrace::Line(line, locals)) => {
+                println!("debug trace line");
                 let this_index = index;
                 index += 1;
 
@@ -842,6 +849,7 @@ fn trace_stream(res: &mut Response<Streaming>, child: ChildThread, kill: Arc<Ato
             }
 
             DebugMessage::Trace(DebugTrace::Return(line, value)) => {
+                println!("debug trace stop return");
                 done = true;
                 child.execution = None;
 
@@ -851,7 +859,7 @@ fn trace_stream(res: &mut Response<Streaming>, child: ChildThread, kill: Arc<Ato
 
             DebugMessage::Trace(DebugTrace::Breakpoint(address)) => {
                 done = true;
-
+                println!("debug trace breakpoint");
                 let id = child.next_id();
                 child.execution = Some((id, ExecutionType::Function(address)));
 
@@ -860,6 +868,7 @@ fn trace_stream(res: &mut Response<Streaming>, child: ChildThread, kill: Arc<Ato
             }
 
             DebugMessage::Trace(DebugTrace::Exit(code)) => {
+                println!("debug trace exit");
                 terminated = true;
                 done = true;
                 child.execution = None;
@@ -869,6 +878,7 @@ fn trace_stream(res: &mut Response<Streaming>, child: ChildThread, kill: Arc<Ato
             }
 
             DebugMessage::Trace(DebugTrace::Crash) => {
+                println!("debug trace crash");
                 terminated = true;
                 done = true;
                 child.execution = None;
@@ -878,6 +888,7 @@ fn trace_stream(res: &mut Response<Streaming>, child: ChildThread, kill: Arc<Ato
             }
 
             DebugMessage::Trace(DebugTrace::StopRequest) => {
+                println!("debug trace stop request");
                 terminated = true;
                 done = true;
                 child.execution = None;
@@ -887,7 +898,7 @@ fn trace_stream(res: &mut Response<Streaming>, child: ChildThread, kill: Arc<Ato
                 Trace { index: 0, t_type: 2, line: 0, data: data }
             }
 
-            DebugMessage::Trace(DebugTrace::Running) => {continue;}
+            DebugMessage::Trace(DebugTrace::Running) => {println!("debug trace running");continue;}
 
             DebugMessage::Error(e) => {
                 child.execution = None;
@@ -902,6 +913,7 @@ fn trace_stream(res: &mut Response<Streaming>, child: ChildThread, kill: Arc<Ato
     }
 
     res.write_all(b"\n]")?;
+    println!("leaving trace stream");
     Ok(terminated)
 }
     
