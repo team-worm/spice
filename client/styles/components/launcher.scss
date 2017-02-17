@@ -1,8 +1,11 @@
-.launcher {
+#LauncherContainer {
     .spanSpacerSmall {
         margin-left: 1em;
     }
     .bottomAlign {
         vertical-align: bottom;
+    }
+    md-tab-body {
+        overflow-y: hidden !important;
     }
 }

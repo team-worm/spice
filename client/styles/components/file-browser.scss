@@ -1,5 +1,11 @@
 .file-browser {
     .file-system-node {
+        .md-list-item {
+            height: 26px !important;
+        }
+        md-progress-spinner {
+            height: 20px !important;
+        }
         &.selected {
             background: rgba(0,0,0,0.5);;
         }
@@ -19,4 +25,9 @@
             background: rgba(0,0,0,0.3);;
         }
     }
+    .file-list {
+        overflow-y: auto;
+        overflow-x: auto;
+    }
+
 }

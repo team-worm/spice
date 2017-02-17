@@ -1,5 +1,8 @@
 .process-list {
     .process-list-item {
+        .md-list-item {
+            height: 42px !important;
+        }
         &.selected {
             background: rgba(0,0,0,0.5);
         }

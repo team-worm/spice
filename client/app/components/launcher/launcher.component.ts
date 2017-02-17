@@ -1,4 +1,4 @@
-import {Component} from "@angular/core";
+import {Component, OnInit} from "@angular/core";
 import {SourceFile} from "../../models/SourceFile";
 import {Process} from "../../models/Process";
 import {DebuggerService} from "../../services/debugger.service";
@@ -11,7 +11,9 @@ import {ViewService} from "../../services/view.service";
     selector: 'spice-launcher',
     templateUrl: 'app/components/launcher/launcher.component.html'
 })
-export class LauncherComponent {
+export class LauncherComponent implements OnInit {
+
+    private _launcherContentBody: HTMLElement | null;
 
     public selectedFile: SourceFile | null;
     public selectedProcess: Process | null;
@@ -28,6 +30,24 @@ export class LauncherComponent {
         this.debugState = null;
         this.debugProcessName = '';
         this.attaching = false;
+    }
+
+    public ngOnInit() {
+        this._launcherContentBody = document.getElementById('LauncherContainer');
+        if (!this._launcherContentBody) {
+            console.error('Error getting LauncherContainer');
+        }
+    }
+
+    public GetFullCardHeight():number {
+        if(!this._launcherContentBody) {
+            return 500;
+        }
+        return  (window.innerHeight - this._launcherContentBody.offsetTop) - 64;
+    }
+
+    public GetListHeight():number {
+        return 500; //TODO
     }
 
     public OnFileSelected($event:SourceFile) {
