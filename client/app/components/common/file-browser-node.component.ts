@@ -4,21 +4,21 @@ import {FileSystemService} from "../../services/file-system.service";
 @Component({
     selector: 'spice-file-browser-node',
     template: `
-<md-list-item #ListItemElement (click)="Clicked()" class="file-system-node" [ngClass]="{'selected': !!file && selectedFileRef.file == file}" [style.background]="GetBackground()">
+<md-list-item #ListItemElement (click)="Clicked()" class="file-system-node" [ngClass]="{'selected': !!file && selectedFileRef.file === file}" [style.background]="GetBackground()">
     <md-icon md-list-avatar class="file-icon" *ngIf="!!file" >{{IconName()}}</md-icon>
     <md-progress-spinner md-list-avatar *ngIf="!file" mode="indeterminate"></md-progress-spinner>
     <p md-line class="file-header">{{FileHead()}}</p>
 </md-list-item>
 <span *ngIf="IsFolder()" [style.display]="IsExpanded() ? 'inherit' : 'none'" >
     <md-divider></md-divider>
-    <span *ngIf="file.contents != undefined">
-        <spice-file-browser-node *ngFor="let f of file.contents" 
+    <span *ngIf="FileHasContents()">
+        <spice-file-browser-node *ngFor="let f of file.data.contents" 
          [file]="f" 
          [fileDepth]="fileDepth + 1" 
          [selectedFileRef]="selectedFileRef" 
          [onSelected]="onSelected"
          [customPath]="customPath"></spice-file-browser-node></span>
-    <span *ngIf="file.contents == undefined"><spice-file-browser-node *ngIf="file.contents == undefined" [fileDepth]="fileDepth + 1"></spice-file-browser-node></span>
+    <span *ngIf="!FileHasContents()"><spice-file-browser-node *ngIf="!FileHasContents()" [fileDepth]="fileDepth + 1"></spice-file-browser-node></span>
     <md-divider></md-divider>
 </span>
 `
@@ -55,7 +55,10 @@ export class FileBrowserNodeComponent implements OnInit{
     }
 
     public IsFolder():boolean {
-        return !!this.file && this.file.fType == 'dir';
+        return !!this.file && this.file.data.fType === 'directory';
+    }
+    public FileHasContents():boolean {
+        return !!this.file && this.file.data.fType === 'directory' && this.file.data.contents !== null;
     }
     public IsExpanded():boolean {
         if(this.inCustomPath()) {
@@ -68,13 +71,13 @@ export class FileBrowserNodeComponent implements OnInit{
     }
     public IconName():string {
         if(!!this.file) {
-            if(this.file.fType == 'dir') {
+            if(this.file.data.fType === 'directory') {
                 if(this.IsExpanded()) {
                     return 'folder_open';
                 } else {
                     return 'folder';
                 }
-            } else if(this.file.fType == 'file') {
+            } else if(this.file.data.fType === 'file') {
                 return 'insert_drive_file';
             } else {
                 return 'error_outline';
@@ -91,14 +94,15 @@ export class FileBrowserNodeComponent implements OnInit{
     }
     public Clicked() {
         if(!!this.file){
-            if(this.file.fType == 'dir' && !this.inCustomPath()) {
-                if(this.file.contents == undefined) {
-                    this.fSS.getFullFile(this.file).subscribe((sf:SourceFile)=>{}, (e:any)=> {
+            if(this.file.data.fType === 'directory' && !this.inCustomPath()) {
+                if(this.file.data.contents === null) {
+                    this.fSS.getFullFile(this.file).subscribe((sf:SourceFile)=>{
+                    }, (e:any)=> {
                         console.error('Error error getting file contents', e); //TODO professionalize
                     });
                 }
                 this.expanded = !this.expanded;
-            } else if(this.file.fType == 'file') {
+            } else if(this.file.data.fType === 'file') {
                 this.onSelected(this.file);
             }
         }

@@ -6,10 +6,10 @@
                 <button md-mini-fab [disabled]="!selectedFileOrProcess || attaching || !!debugState" (click)="Attach()"><md-icon>launch</md-icon></button>
                 <div fxFlex class="selected-info">
                     <div class="selected-title">
-                        {{GetSelectedName()}}
+                        {{ GetSelectedName() }}
                     </div>
                     <div class="selected-subtitle">
-                        {{GetSelectedInformation()}}
+                        {{ GetSelectedInformation() }}
                     </div>
                 </div>
             </div>

@@ -48,7 +48,7 @@ export class LauncherComponent implements AfterContentChecked {
     public GetSelectedInformation():string {
         if(this.selectedFileOrProcess) {
             if(this.selectedFileOrProcess instanceof Process) {
-                return this.selectedFileOrProcess.id;
+                return this.selectedFileOrProcess.id.toString();
             } else {
                 //console.log('p', this.selectedFileOrProcess);
                 return this.selectedFileOrProcess.path;

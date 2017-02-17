@@ -3,18 +3,18 @@ import { DebuggerState } from "../models/DebuggerState";
 import { Observable } from "rxjs/Observable";
 import { DebuggerHttpService } from "./debugger-http.service";
 import { CacheMap } from "../util/CacheMap";
-import { DebugId } from "../models/DebugId";
+import { DebugInfo, DebugId } from "../models/DebugInfo";
 import { Process } from "../models/Process";
 
 @Injectable()
 export class DebuggerService {
 	protected currentDebuggerState: DebuggerState | null;
-	protected debuggerStates: CacheMap<Observable<DebuggerState>>;
+	protected debuggerStates: CacheMap<DebugId, Observable<DebuggerState>>;
 
 
 
 	constructor(private debuggerHttp: DebuggerHttpService) {
-		this.debuggerStates = new CacheMap<Observable<DebuggerState>>();
+		this.debuggerStates = new CacheMap<DebugId, Observable<DebuggerState>>();
 		this.currentDebuggerState = null;
 	}
 
@@ -31,7 +31,9 @@ export class DebuggerService {
 			return this.debuggerStates.get(id);
 		}
 		catch(e) {
-			let ds = new DebuggerState(id, this.debuggerHttp);
+			let info = new DebugInfo();
+			info.id = id;
+			let ds = new DebuggerState(info, this.debuggerHttp);
 			this.debuggerStates.set(id, Observable.of(ds));
 			return ds.initialize().map(()=> ds);
 		}
@@ -40,16 +42,16 @@ export class DebuggerService {
 	public attachBinary(path: string): Observable<DebuggerState> {
 		let dsObservable = this.debuggerHttp.attachBinary(path)
 			.switchMap(ds => {
-				this.debuggerStates.set(ds.id, dsObservable);
+				this.debuggerStates.set(ds.info.id, dsObservable);
 				return ds.initialize().map(()=> ds);
 			});
 		return dsObservable;
 	}
 
-	public attachProcess(pid: string): Observable<DebuggerState> {
+	public attachProcess(pid: number): Observable<DebuggerState> {
 		let dsObservable = this.debuggerHttp.attachProcess(pid)
 			.switchMap(ds => {
-				this.debuggerStates.set(ds.id, dsObservable);
+				this.debuggerStates.set(ds.info.id, dsObservable);
 				return ds.initialize().map(()=> ds);
 			});
 		return dsObservable;

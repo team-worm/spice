@@ -16,13 +16,14 @@ pub struct Thread {
     pub tx: SyncSender<ServerMessage>,
     pub rx: Receiver<DebugMessage>,
    
-    pub execution: Option<(i32, ExecutionType)>,
+    pub execution: Option<(i32, Execution)>,
     pub id: i32,
 }
 
-pub enum ExecutionType {
-    Function(usize),
+#[derive(Copy, Clone)]
+pub enum Execution {
     Process,
+    Function(usize),
 }
 
 /// messages the debug event loop sends to the server
@@ -42,10 +43,10 @@ pub struct Function {
     pub address: usize,
     pub name: OsString,
     pub source_path: PathBuf,
-    pub line_number: u32,
+    pub line_start: u32,
     pub line_count: u32,
-    pub parameters: Vec<(i32, OsString, usize)>,
-    pub local_variables: Vec<(i32, OsString, usize)>,
+    pub parameters: Vec<(OsString, usize)>,
+    pub locals: Vec<(OsString, usize)>,
 }
 
 // TODO: remove this once these messages are used
@@ -288,22 +289,13 @@ fn describe_function(target: &TargetState, address: usize) -> io::Result<Functio
 
     let debug::Symbol { ref name, size, .. } = function;
 
-    let start = match symbols.line_from_address(address) {
-        Ok((line, _)) => line,
-        Err(_) => return Err(io::Error::from(io::ErrorKind::NotFound)),
-    };
-    let end = match symbols.line_from_address(address + size - 1) {
-        Ok((line, _)) => line,
-        Err(_) => return Err(io::Error::from(io::ErrorKind::NotFound)),
-    };
-
-    let mut id = 0;
+    let (start, _) = symbols.line_from_address(address)?;
+    let (end, _) = symbols.line_from_address(address + size - 1)?;
 
     let mut parameters = vec![];
     symbols.enumerate_locals(address, |symbol, _| {
         if symbol.flags & winapi::SYMFLAG_PARAMETER != 0 {
-            parameters.push((id, symbol.name.clone(), symbol.address));
-            id += 1;
+            parameters.push((symbol.name.clone(), symbol.address));
         }
         true
     })?;
@@ -311,29 +303,23 @@ fn describe_function(target: &TargetState, address: usize) -> io::Result<Functio
     let mut locals = HashMap::new();
     for line in symbols.lines_from_symbol(&function)? {
         symbols.enumerate_locals(line.address, |symbol, _| {
-            if symbol.flags & winapi::SYMFLAG_PARAMETER != 0 {
+            if symbol.flags & winapi::SYMFLAG_PARAMETER == 0 {
                 let name = symbol.name.clone();
-                locals.entry(name).or_insert_with(|| {
-                    let this_id = id;
-                    id += 1;
-                    (this_id, symbol.address)
-                });
+                locals.entry(name).or_insert(symbol.address);
             }
             true
         })?;
     }
-    let local_variables = locals.into_iter()
-        .map(|(name, (id, address))| (id, name, address))
-        .collect();
+    let locals = locals.into_iter().collect();
 
     Ok(Function {
         address: address,
         name: name.clone(),
         source_path: PathBuf::from(&start.file),
-        line_number: start.line,
+        line_start: start.line,
         line_count: end.line - start.line + 1,
         parameters: parameters,
-        local_variables: local_variables,
+        locals: locals,
     })
 }
 

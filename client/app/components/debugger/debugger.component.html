@@ -7,7 +7,7 @@
 				<tr>
 					<td *ngFor="let par of sourceFunction.parameters">
 						<md-input-container class="width-100">
-							<input md-input [(ngModel)]="setParameters[par.id]" placeholder="{{par.sType}} {{par.name}}">
+							<input md-input [(ngModel)]="setParameters[par.name]" placeholder="{{par.sType}} {{par.name}}">
 						</md-input-container>
 					</td>
 				</tr></table>
@@ -23,7 +23,7 @@
 				<div class="source-code-viewer" fxFlex="40" fxLayout="row">
 					<div class="line-number-col" fxFlex="nogrow">
 						<div class="row" [matchMaxHeight]="'debugger-'+i" *ngFor="let line of lines; let i=index;">
-							<span>{{i + sourceFunction.lineNumber}}</span>
+							<span>{{sourceFunction.lineStart + i}}</span>
 						</div>
 					</div>
 					<div class="source-code-col" fxFlex>

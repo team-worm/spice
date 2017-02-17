@@ -29,7 +29,7 @@ import {SourceFile} from "../../models/SourceFile";
 export class FileBrowserComponent {
 
     public selectedFileRef: {
-        file: SourceFile | undefined
+        file: SourceFile | null
     };
 
     @Input()
@@ -43,7 +43,7 @@ export class FileBrowserComponent {
     constructor(public FSS:FileSystemService,
                 public element: ElementRef) {
         this.selectedFileRef = {
-            file: undefined
+            file: null
         };
         this.customPath = '';
         this.elementHeightPx = 0;
