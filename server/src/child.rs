@@ -391,6 +391,14 @@ fn trace_process(
 
     let mut last_breakpoint = None;
     loop {
+
+        match rx.recv().unwrap() {
+            ServerMessage::Stop => {
+                tx.send(DebugMessage::Trace(DebugTrace::StopRequest)).unwrap();
+                return Ok(());
+            }, 
+            _ => {println!("received continue message")},
+        };
         
         let mut event = debug::Event::wait_event()?;
 
@@ -399,12 +407,15 @@ fn trace_process(
             Exception {
                 first_chance: true, code: winapi::EXCEPTION_BREAKPOINT, address
             } if trace.attached => {
-                println!("Exception breakpoint");
                 let TargetState { ref mut child, ref threads, ref mut breakpoints, ..  } = *target;
                 let thread = threads[&event.thread_id];
                 let breakpoint = match breakpoints.get_mut(&address).and_then(Option::take) {
                     Some(breakpoint) => breakpoint,
-                    None => { event.continue_event(false)?; continue; }
+                    None => {
+                        tx.send(DebugMessage::Trace(DebugTrace::Running)).unwrap();
+                        event.continue_event(false)?;
+                        continue;
+                    },
                 };
 
                 let TraceState { event: ref mut trace_event, .. } = *trace;
@@ -422,17 +433,21 @@ fn trace_process(
 
                 debug::set_thread_context(thread, &context)?;
                 event = trace_event.take().unwrap();
+                tx.send(DebugMessage::Trace(DebugTrace::Running)).unwrap();
             }
 
             Exception {
                 first_chance: true, code: winapi::EXCEPTION_SINGLE_STEP, ..
             } if trace.attached => {
-                println!("Exception breakpoint single step");
                 let TargetState { ref mut child, ref symbols, ref mut breakpoints, .. } = *target;
                 let thread = target.threads[&event.thread_id];
                 let address = match last_breakpoint.take() {
                     Some(address) => address,
-                    None => { event.continue_event(false)?; continue }
+                    None => {
+                        tx.send(DebugMessage::Trace(DebugTrace::Running)).unwrap();
+                        event.continue_event(false)?;
+                        continue;
+                    },
                 };
                 let (function, _) = symbols.symbol_from_address(address)?;
 
@@ -473,6 +488,8 @@ fn trace_process(
 
             _ => if trace_event(&mut target.symbols, &mut target.threads, trace, tx, &event) {
                 return Ok(())
+            } else {
+                tx.send(DebugMessage::Trace(DebugTrace::Running)).unwrap();
             },
         }
 
@@ -538,12 +555,10 @@ fn trace_function(
     let mut last_line = line;
     let mut last_breakpoint = None;
     loop {
-        println!("waiting for debug event");
         let mut event = debug::Event::wait_event()?;
         
         match rx.recv().unwrap() {
-            ServerMessage::Stop => { // assuming this code restores us back to where we were before calling the function
-                println!("Received stop message");
+            ServerMessage::Stop => {
                 let TargetState { ref symbols, ref threads, .. } = *target;
                 let thread = threads[&event.thread_id];
 
@@ -558,7 +573,6 @@ fn trace_function(
                 // collect the return value
                 let (_, restore) = call.teardown(breakpoints.child(), &context, &symbols)?;
 
-                println!("Sending stop request response from debug thread");
                 tx.send(DebugMessage::Trace(DebugTrace::StopRequest)).unwrap();
 
                 if let Some(context) = restore {
@@ -577,7 +591,6 @@ fn trace_function(
             Exception {
                 first_chance: true, code: winapi::EXCEPTION_BREAKPOINT, address
             } if trace.attached && address != exit => {
-                println!("Exception breakpoint");
                 let TargetState { ref mut symbols, ref threads, ..  } = *target;
                 let thread = threads[&event.thread_id];
                 let breakpoint = match breakpoints.take_breakpoint(address) {
@@ -636,12 +649,15 @@ fn trace_function(
             Exception {
                 first_chance: true, code: winapi::EXCEPTION_SINGLE_STEP, ..
             } if trace.attached => {
-                println!("Exception breakpoint single step");
                 let TargetState { ref threads, .. } = *target;
                 let thread = threads[&event.thread_id];
                 let address = match last_breakpoint.take() {
                     Some(address) => address,
-                    None => { event.continue_event(false)?; continue; }
+                    None => {
+                        tx.send(DebugMessage::Trace(DebugTrace::Running)).unwrap();
+                        event.continue_event(false)?;
+                        continue;
+                    },
                 };
 
                 let TraceState { event: ref mut trace_event, .. } = *trace;
@@ -649,7 +665,6 @@ fn trace_function(
 
                 let mut context = debug::get_thread_context(thread, winapi::CONTEXT_FULL)?;
 
-                tx.send(DebugMessage::Trace(DebugTrace::Running)).unwrap();
                 // resume normal execution
                 breakpoints.set_breakpoint(address)?;
                 context.set_singlestep(false);
@@ -657,12 +672,12 @@ fn trace_function(
                 debug::set_thread_context(thread, &context)?;
 
                 event = trace_event.take().unwrap();
+                tx.send(DebugMessage::Trace(DebugTrace::Running)).unwrap();
             }
 
             Exception {
                 first_chance: true, code: winapi::EXCEPTION_BREAKPOINT, address
             } if trace.attached && address == exit => {
-                println!("Exception breakpoint and exit");
                 let TargetState { ref symbols, ref threads, .. } = *target;
                 let thread = threads[&event.thread_id];
 
@@ -690,7 +705,6 @@ fn trace_function(
             _ => if trace_event(&mut target.symbols, &mut target.threads, trace, tx, &event) {
                 return Ok(());
             } else {
-                println!("Running");
                 tx.send(DebugMessage::Trace(DebugTrace::Running)).unwrap();
             }
         }
