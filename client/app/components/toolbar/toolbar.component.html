@@ -31,9 +31,24 @@
         <span *ngIf="!debugState"  class="no-target">Not Attached</span>
         <span *ngIf="!!debugState" class="target-name">{{debugProcessName}}</span>
         <span class="flex-pusher"></span>
-        <button md-button [disabled]="!debugState" (click)="GoToFunctionsView()">Breakpoints Set [{{!!debugState ? debugState.breakpoints.size : 0}}]</button>
+
+        <button md-button *ngIf="!debugState || debugState.breakpoints.size === 0" [disabled]="!debugState" (click)="GoToFunctionsView()">Breakpoints Set [{{!!debugState ? debugState.breakpoints.size : 0}}]</button>
+        <button md-button *ngIf="!!debugState && debugState.breakpoints.size > 0" [mdMenuTriggerFor]="breakpointMenu" (click)="GetBpFunctions()">Breakpoints Set [{{!!debugState ? debugState.breakpoints.size : 0}}]</button>
+
         <button md-button *ngIf="!executing" [disabled]="!debugState" (click)="ExecuteBinary()"><md-icon class="md-accent">play_arrow</md-icon> Execute Binary</button>
         <button md-button *ngIf="executing" [disabled]="!debugState" (click)="ExecuteBinary()"><md-icon class="md-accent">skip_next</md-icon> Continue</button>
+
         <button md-button [disabled]="!debugState || !executing" (click)="KillAndDetach()"><md-icon class="md-accent">stop</md-icon> Kill and Detach</button>
     </md-toolbar-row>
 </md-toolbar>
+
+<md-menu class="breakpointMenu" #breakpointMenu="mdMenu">
+    <h3 *ngIf="!debugState || debugState.breakpoints.size === 0">No Breakpoints</h3>
+    <md-list dense *ngIf="!!debugState && debugState.breakpoints.size > 0">
+        <md-list-item *ngFor="let func of bpFunctions">
+            <h3><b>{{func.name}}</b></h3>
+            <span class="breakpointMenuSpacer"></span>
+            <button md-mini-fab class="md-warn" title="Remove Breakpoint" (click)="RemoveBreakpointAtFunc(func)"><md-icon>delete</md-icon></button>
+        </md-list-item>
+    </md-list>
+</md-menu>

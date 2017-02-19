@@ -8,6 +8,7 @@ import {SourceFile} from "../../models/SourceFile";
 import {Execution} from "../../models/Execution";
 import {Observable} from "rxjs/Observable";
 import {Trace} from "../../models/Trace";
+import {SourceFunction, SourceFunctionId} from "../../models/SourceFunction";
 
 @Component({
     selector: 'spice-toolbar',
@@ -17,6 +18,7 @@ export class ToolbarComponent {
 
     public debugState:DebuggerState | null;
     public debugProcessName: string;
+    public bpFunctions:SourceFunction[];
     public executing: boolean; //TODO: get this data from the service
 
     selectedView:string;
@@ -28,6 +30,7 @@ export class ToolbarComponent {
         this.debugProcessName = '';
         this.selectedView = 'launcher';
         this.executing = false;
+        this.bpFunctions = [];
     }
 
     public GoToFunctionsView() {
@@ -84,7 +87,22 @@ export class ToolbarComponent {
             });
         }
     }
+    public GetBpFunctions() {
+        if(this.debugState) {
+            this.bpFunctions = [];
 
+            for(let key of this.debugState.breakpoints.keys()) {
+                this.debugState.sourceFunctions.get(key).subscribe((sf:SourceFunction)=>{
+                    this.bpFunctions.push(sf);
+                })
+            }
+        }
+    }
+    public RemoveBreakpointAtFunc(func:SourceFunction) {
+        if(this.debugState) {
+            this.debugState.removeBreakpoint(func.address).subscribe();
+        }
+    }
 
     openAboutSpiceDialog() {
         this.dialog.open(AboutComponent);
