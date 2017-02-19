@@ -397,7 +397,7 @@ fn trace_process(
                 tx.send(DebugMessage::Trace(DebugTrace::StopRequest)).unwrap();
                 return Ok(());
             }, 
-            _ => {println!("received continue message")},
+            _ => {},
         };
         
         let mut event = debug::Event::wait_event()?;
@@ -583,7 +583,7 @@ fn trace_function(
                 return Ok(());
 
             }, 
-            _ => {println!("received continue message")},
+            _ => {},
         };
 
         use debug::EventInfo::*;
