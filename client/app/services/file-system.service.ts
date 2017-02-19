@@ -2,15 +2,13 @@ import {Injectable} from "@angular/core";
 import {SourceFile} from "../models/SourceFile";
 import {Observable} from "rxjs/Observable";
 import {Http} from "@angular/http";
-import {InvalidServerDataError, InvalidTypeError} from "../models/errors/Errors";
+import {InvalidServerDataError, InvalidTypeError} from "../models/Errors";
 
 const host:string = 'localhost';
 const port:number = 3000;
 
 @Injectable()
 export class FileSystemService {
-    //TODO: Fully implement, currently filled with Mock Data.
-
     private _filesystem:SourceFile | null;
 
     constructor(private http: Http) {
@@ -28,15 +26,8 @@ export class FileSystemService {
         let path = file.path;
         return this.http.get(`http://${host}:${port}/api/v1/filesystem/${path}`)
             .map((res: any) => {
-                let retSf = SourceFile.fromObjectStrict(res.json());
-                if(retSf.fType === 'dir' && !!retSf.contents) { //TODO: fix the API russell
-                    file.contents = retSf.contents.map((sf:SourceFile)=> {
-                        if(sf.fType === 'dir') {
-                            sf.contents = undefined;
-                        }
-                        return sf;
-                    });
-                }
+                let retSf = res.json() as SourceFile;
+                file.data = retSf.data;
                 return retSf;
             })
             .catch(FileSystemService.handleServerDataError('SourceFile')).share();

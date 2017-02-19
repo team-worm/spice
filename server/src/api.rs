@@ -1,5 +1,3 @@
-use serde_json::Value;
-
 #[derive(Deserialize)]
 pub struct Launch {
     /// Command line arguments
@@ -14,124 +12,117 @@ pub struct Call {
     pub parameters: Vec<i32>,
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct Error {
-    /// Unique code identifying error type
-    pub code: i32,
-    /// Unique human readable message for error
-    pub message: String,
-    // TODO: this needs to be another struct.  Data specific to error
-    pub data: i32,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct File {
-    /// Name of file
-    pub name: String,
-    /// Path to file
-    pub path: String,
-    /// File or directory
-    #[serde(rename = "fType")]
-    pub f_type: String,
-    /// Vector of File objects
-    pub contents: Vec<File>,
-}
-
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize)]
 pub struct Process {
-    /// Identifying number of process on host machine
     pub id: u32,
-    /// Name of process on host machine
     pub name: String,
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct Execution {
-    /// Unique identifier
+#[derive(Serialize)]
+pub struct File {
+    pub name: String,
+    pub path: String,
+    pub data: FileData,
+}
+
+#[derive(Serialize)]
+#[serde(tag = "fType")]
+pub enum FileData {
+    #[serde(rename = "file")]
+    File,
+    #[serde(rename = "directory")]
+    Directory { contents: Option<Vec<File>> },
+}
+
+#[derive(Serialize)]
+pub struct DebugInfo {
     pub id: i32,
-    /// Type of execution.  Either 'function' or 'process'
-    #[serde(rename = "eType")]
-    pub e_type: String,
-    /// Either `pending`, `executing`, `stopped`, or `done`
-    pub status: String,
-    /// Nanoseconds
-    #[serde(rename = "executionTime")]
-    pub execution_time: i32,
-    /// Function or next execution
-    pub data: Value,
+    #[serde(rename = "attachedProcess")]
+    pub attached_process: Process,
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct ProcessExecution {
-    #[serde(rename = "nextExecution")]
-    pub next_execution: i32,
+#[derive(Serialize)]
+pub struct Function {
+    pub address: usize,
+    pub name: String,
+    #[serde(rename = "sourcePath")]
+    pub source_path: String,
+    #[serde(rename = "lineStart")]
+    pub line_start: u32,
+    #[serde(rename = "lineCount")]
+    pub line_count: u32,
+    pub parameters: Vec<Variable>,
+    pub locals: Vec<Variable>,
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct FunctionExecution {
+#[derive(Serialize)]
+pub struct Variable {
+    pub name: String,
+    #[serde(rename = "sType")]
+    pub source_type: Type,
+}
+
+pub type Type = String;
+
+#[derive(Serialize)]
+pub struct Breakpoint {
     #[serde(rename = "sFunction")]
     pub function: usize,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize)]
+pub struct Execution {
+    pub id: i32,
+    pub data: ExecutionData,
+}
+
+#[derive(Serialize)]
+#[serde(tag = "eType")]
+pub enum ExecutionData {
+    #[serde(rename = "process")]
+    Process,
+    #[serde(rename = "function")]
+    Function {
+        #[serde(rename = "sFunction")]
+        function: usize
+    },
+}
+
+#[derive(Serialize)]
 pub struct Trace {
     pub index: i32,
-    #[serde(rename = "tType")]
-    pub t_type: i32,
     pub line: u32,
-    pub data: Value,
+    pub data: TraceData,
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct TraceData {
-    pub state: Vec<TraceState>,
+#[derive(Serialize)]
+#[serde(tag = "tType")]
+pub enum TraceData {
+    #[serde(rename = "line")]
+    Line { state: Vec<TraceState> },
+    #[serde(rename = "return")]
+    Return { value: String },
+    #[serde(rename = "break")]
+    Break {
+        #[serde(rename = "nextExecution")]
+        next_execution: i32
+    },
+    #[serde(rename = "exit")]
+    Exit { code: u32 },
+    #[serde(rename = "crash")]
+    Crash { stack: String },
+    #[serde(rename = "error")]
+    Error { error: Error },
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize)]
 pub struct TraceState {
     #[serde(rename = "sVariable")]
     pub variable: String,
     pub value: String,
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct Function {
-    pub address: usize,
-    pub name: String,
-    #[serde(rename = "sourcePath")]
-    pub source_path: String,
-    #[serde(rename = "lineNumber")]
-    pub line_number: i32,
-    #[serde(rename = "lineCount")]
-    pub line_count: i32,
-    pub parameters: Vec<Variable>,
-    #[serde(rename = "localVariables")]
-    pub local_variables: Vec<Variable>,
+#[derive(Serialize)]
+pub struct Error {
+    pub message: String,
 }
-
-#[derive(Serialize, Deserialize)]
-pub struct DebugInfo {
-    pub id: i32,
-    #[serde(rename = "attachedProcess")]
-    pub attached_process: Process,
-    #[serde(rename = "sourcePath")]
-    pub source_path: String,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct Breakpoint {
-    #[serde(rename = "sFunction")]
-    pub function: usize,
-    pub metadata: String
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct Variable {
-    pub id: i32,
-    pub name: String,
-    #[serde(rename = "sType")]
-    pub s_type: SourceType,
-    pub address: usize,
-}
-
-pub type SourceType = String;

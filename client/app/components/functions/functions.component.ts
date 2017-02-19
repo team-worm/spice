@@ -1,24 +1,21 @@
-import {Component, OnInit, AfterViewChecked} from "@angular/core";
-import {SourceFunction} from "../../models/SourceFunction";
+import { Component, OnInit } from "@angular/core";
+import { SourceFunction, SourceFunctionId } from "../../models/SourceFunction";
 import {DebuggerService} from "../../services/debugger.service";
 import {DebuggerState} from "../../models/DebuggerState";
 import {MdSnackBar} from "@angular/material";
 import {Breakpoint} from "../../models/Breakpoint";
-import {Execution} from "../../models/execution/Execution";
-import {Trace} from "../../models/trace/Trace";
-import {TraceOfTermination} from "../../models/trace/TraceOfTermination";
+import {Execution} from "../../models/Execution";
+import {Trace} from "../../models/Trace";
 import {ViewService} from "../../services/view.service";
 import {Observable} from "rxjs/Observable";
-import {ExecutionOfFunction} from "../../models/execution/ExecutionOfFunction";
 import {FileSystemService} from "../../services/file-system.service";
 import {MatchMaxHeightDirective} from "../../directives/MatchMaxHeight.directive";
-import {SourceFunctionId} from "../../models/SourceFunctionId";
 
 @Component({
     selector: 'spice-configuration',
     templateUrl: 'app/components/functions/functions.component.html'
 })
-export class FunctionsComponent implements OnInit, AfterViewChecked {
+export class FunctionsComponent implements OnInit {
 
     private _configurationContentBody:HTMLElement | null;
 
@@ -35,7 +32,7 @@ export class FunctionsComponent implements OnInit, AfterViewChecked {
                 private fileSystemService: FileSystemService) {
         this.selectedFunction = null;
         this.debugState = null;
-        this.lines = null;
+        this.lines = [];
     }
 
     public ngOnInit() {
@@ -45,19 +42,12 @@ export class FunctionsComponent implements OnInit, AfterViewChecked {
         }
     }
 
-    public ngAfterViewChecked() {
-		//TODO: fix this so it doesn't just execute on any update
-		if(this.lines) {
-			this.lines.forEach((l,i) => MatchMaxHeightDirective.update('functions-'+i.toString()));
-		}
-	}
-
     public ToggleBreakpoint() {
         if(this.selectedFunction && this.debugState) {
-            if (this.debugState.breakpoints.has(this.selectedFunction.id)) {
-                this.removeBreakpoint(this.debugState, this.selectedFunction.id);
+            if (this.debugState.breakpoints.has(this.selectedFunction.address)) {
+                this.removeBreakpoint(this.debugState, this.selectedFunction.address);
             } else {
-                this.addBreakpoint(this.debugState, this.selectedFunction.id);
+                this.addBreakpoint(this.debugState, this.selectedFunction.address);
             }
         } else {
             this.snackBar.open('No function selected.', undefined, {
@@ -101,8 +91,7 @@ export class FunctionsComponent implements OnInit, AfterViewChecked {
         this.fileSystemService.getFileContents($event.sourcePath).subscribe((contents:string)=> {
             this.lines = contents.split('\n');
             this.linesLoaded = true;
-            //TODO: figure out how to do this without a delay
-            //Observable.of(null).delay(100).subscribe(() => this.refreshHeights());
+            this.refreshHeights();
         }, (error:Error)=> {
             this.lines = [];
             this.linesLoaded = false;
@@ -121,7 +110,7 @@ export class FunctionsComponent implements OnInit, AfterViewChecked {
 
     public refreshHeights(): void {
         if(!!this.lines) {
-            this.lines.forEach((l,i) => MatchMaxHeightDirective.update('functions-'+i.toString()));
+            this.lines.forEach((l,i) => MatchMaxHeightDirective.markDirty('functions-'+i.toString()));
         }
     }
 
@@ -129,7 +118,7 @@ export class FunctionsComponent implements OnInit, AfterViewChecked {
         if(!this.selectedFunction) {
             return 'none';
         } else {
-            return this.selectedFunction.name + ' ' + this.selectedFunction.GetParametersAsString();
+            return this.selectedFunction.name + ' ' + this.selectedFunction.getParametersAsString();
         }
     }
     public GetListHeight():number {

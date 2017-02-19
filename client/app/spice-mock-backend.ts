@@ -21,11 +21,11 @@ let sourceVariables = {
 	'7': `{"id": 7, "name": "t", "sType": "int", "address": 4}`,
 };
 let sourceFunctions = {
-	'0': `{"address": 0, "name": "add", "sourcePath": "add.cpp", "lineNumber": 1, "lineCount": 5,
+	'0': `{"address": 0, "name": "add", "sourcePath": "add.cpp", "lineStart": 1, "lineCount": 5,
 		"parameters": [${sourceVariables['0']}, ${sourceVariables['1']}], "localVariables": [${sourceVariables['2']}]}`,
-	'4': `{"address": 4, "name": "test", "sourcePath": "test.cpp", "lineNumber": 6, "lineCount": 5,
+	'4': `{"address": 4, "name": "test", "sourcePath": "test.cpp", "lineStart": 6, "lineCount": 5,
 		"parameters": [${sourceVariables['3']}, ${sourceVariables['4']}], "localVariables": [${sourceVariables['5']}]}`,
-	'8': `{"address": 8, "name": "collatz", "sourcePath": "collatz.c", "lineNumber": 0, "lineCount": 12,
+	'8': `{"address": 8, "name": "collatz", "sourcePath": "collatz.c", "lineStart": 0, "lineCount": 12,
 		"parameters": [${sourceVariables['6']}], "localVariables": [${sourceVariables['7']}]}`
 };
 
