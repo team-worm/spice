@@ -780,17 +780,8 @@ fn debug_trace_stop(caps: Captures, kill: Arc<(AtomicBool, AtomicIsize)>) -> io:
     }
     
     kill.0.store(true, Ordering::Relaxed);
-
-    let data = ProcessExecution { next_execution: 0 };
-    let message = Execution {
-        id: 1,
-        e_type: String::from("function"),
-        status: String::from("stopped"),
-        execution_time: -1,
-        data: data.to_json().unwrap(),
-    };
     
-    Ok(serde_json::to_vec(&message).unwrap())
+    Ok(vec![])
 }
 
 fn trace_stream(
@@ -812,18 +803,14 @@ fn trace_stream(
     while !done {
         match kill.0.load(Ordering::Relaxed) {
             true => {
-                println!("kill value is true");
-                println!("Sending stop message to debug loop");
                 child.tx.send(ServerMessage::Stop).unwrap();   
             },
             false => {
-                println!("kill value is false");
                 child.tx.send(ServerMessage::Continue).unwrap();   
             }
         };
         let message = match child.rx.recv().unwrap() {
             DebugMessage::Trace(DebugTrace::Line(line, locals)) => {
-                println!("debug trace line");
                 let this_index = index;
                 index += 1;
 
@@ -841,7 +828,6 @@ fn trace_stream(
             }
 
             DebugMessage::Trace(DebugTrace::Return(line, value)) => {
-                println!("debug trace stop return");
                 done = true;
                 child.execution = None;
 
@@ -851,7 +837,6 @@ fn trace_stream(
 
             DebugMessage::Trace(DebugTrace::Breakpoint(address)) => {
                 done = true;
-                println!("debug trace breakpoint");
                 let id = child.next_id();
                 child.execution = Some((id, ExecutionType::Function(address)));
 
@@ -860,7 +845,6 @@ fn trace_stream(
             }
 
             DebugMessage::Trace(DebugTrace::Exit(code)) => {
-                println!("debug trace exit");
                 terminated = true;
                 done = true;
                 child.execution = None;
@@ -870,7 +854,6 @@ fn trace_stream(
             }
 
             DebugMessage::Trace(DebugTrace::Crash) => {
-                println!("debug trace crash");
                 terminated = true;
                 done = true;
                 child.execution = None;
@@ -880,7 +863,6 @@ fn trace_stream(
             }
 
             DebugMessage::Trace(DebugTrace::StopRequest) => {
-                println!("debug trace stop request");
                 done = true;
                 child.execution = None;
                 kill.0.store(false, Ordering::Relaxed);
@@ -905,7 +887,6 @@ fn trace_stream(
     }
 
     res.write_all(b"\n]")?;
-    println!("leaving trace stream");
     Ok(terminated)
 }
     
@@ -922,8 +903,8 @@ fn debug_execution_stop(caps: Captures, child: ChildThread) -> io::Result<Vec<u8
     let child = child.as_ref()
         .ok_or(io::Error::from(io::ErrorKind::NotConnected))?;
 
-    let (id, e_type) = match child.execution {
-        Some((id, ref e_type)) if id == execution_id => (id, e_type),
+    match child.execution {
+        Some((id, _)) if id == execution_id => {},
         _ => return Err(io::Error::new(io::ErrorKind::NotFound, "no such execution")),
     };
 
@@ -934,25 +915,5 @@ fn debug_execution_stop(caps: Captures, child: ChildThread) -> io::Result<Vec<u8
         _ => {},
     };
 
-    let (e_type, data) = match *e_type {
-        ExecutionType::Function(address) => {
-            let data = FunctionExecution { function: address };
-            (String::from("function"), data.to_json().unwrap())
-        }
-
-        ExecutionType::Process => {
-            let data = ProcessExecution { next_execution: 0 };
-            (String::from("process"), data.to_json().unwrap())
-        }
-    };
-
-    let message = Execution {
-        id: id,
-        e_type: e_type,
-        status: String::from("stopped"),
-        execution_time: -1,
-        data: data.to_json().unwrap(),
-    };
-
-    Ok(serde_json::to_vec(&message).unwrap())
+    Ok(vec![])
 }
