@@ -46,7 +46,7 @@ impl Event {
     pub fn wait_event() -> io::Result<Event> {
         unsafe {
             let mut event = mem::uninitialized();
-            if kernel32::WaitForDebugEvent(&mut event, winapi::INFINITE) == winapi::FALSE {
+            if kernel32::WaitForDebugEvent(&mut event, 2000) == winapi::FALSE {
                 return Err(io::Error::last_os_error());
             }
 

@@ -113,6 +113,8 @@ pub enum TraceData {
     Crash { stack: String },
     #[serde(rename = "error")]
     Error { error: Error },
+    #[serde(rename = "cancel")]
+    Cancel,
 }
 
 #[derive(Serialize)]

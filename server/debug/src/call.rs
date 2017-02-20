@@ -113,6 +113,10 @@ impl Call {
         let value = Value::read_return(child, context.as_raw(), symbols, self.return_type)?;
         Ok((value, self.context))
     }
+
+    pub fn cancel(self) -> Option<Context> {
+        self.context
+    }
 }
 
 fn get_function_types(symbols: &SymbolHandler, function: &Symbol) ->
