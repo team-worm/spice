@@ -37,7 +37,6 @@ export class DebuggerComponent {
 	}
 
 	public displayTrace(executionId: ExecutionId) {
-		console.log('displayTRACE');
 		if(this.debugState) {
 			let ds: DebuggerState = this.debugState;
 			ds.getExecution(executionId)

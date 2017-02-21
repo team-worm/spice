@@ -26,6 +26,7 @@ export class LauncherComponent implements AfterContentChecked {
     public debugState:DebuggerState | null = null;
     public debugProcessName: string = '';
     public attaching:boolean = false;
+    public launchedFile: SourceFile | null = null;
 
     constructor(private debuggerService: DebuggerService,
                 private snackBar: MdSnackBar,
@@ -78,6 +79,7 @@ export class LauncherComponent implements AfterContentChecked {
     private launchBinary(f:SourceFile) {
         this.attaching = true;
 
+		this.launchedFile = f;
         let launchedFile = f;
         this.debuggerService.attachBinary(f.path).subscribe(
             (ds: DebuggerState) => { this.onAttach(ds, launchedFile.name); },
@@ -128,5 +130,20 @@ export class LauncherComponent implements AfterContentChecked {
 			this.viewService.debuggerComponent.debugState = ds;
 		}
 		this.viewService.activeView = 'functions';
+	}
+
+	public onDetach() {
+		this.debuggerService.setCurrentDebuggerState(null);
+		this.debugState = null;
+		this.debugProcessName = '';
+		this.launchedFile = null;
+		if (this.viewService.toolbarComponent) {
+			this.viewService.toolbarComponent.debugState = null;
+			this.viewService.toolbarComponent.debugProcessName = '';
+		}
+		if (this.viewService.debuggerComponent) {
+			this.viewService.debuggerComponent.debugState = null;
+		}
+		this.viewService.activeView = 'launcher';
 	}
 }

@@ -149,4 +149,11 @@ export class DebuggerHttpService {
 			});
 		}).share();
 	}
+
+	public stopExecution(id: DebugId, executionId: ExecutionId): Observable<Execution> {
+		return this.http.post(`http://${host}:${port}/api/v1/debug/${id}/executions/${executionId}/stop`, undefined)
+			.map(res => fromJSON(res.json(), Execution))
+			.catch(DebuggerHttpService.handleServerDataError('Execution'))
+			.share();
+	}
 }
