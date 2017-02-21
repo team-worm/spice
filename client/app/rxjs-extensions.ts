@@ -17,3 +17,5 @@ import 'rxjs/add/operator/concat';
 import 'rxjs/add/operator/concatAll';
 import 'rxjs/add/operator/delay';
 import 'rxjs/add/operator/defaultIfEmpty';
+import 'rxjs/add/operator/publishLast';
+import 'rxjs/add/operator/publishReplay';

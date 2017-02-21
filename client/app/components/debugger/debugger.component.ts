@@ -59,7 +59,6 @@ export class DebuggerComponent {
 					this.lines.forEach((_, i) => {
 						MatchMaxHeightDirective.markDirty(`debugger-${i}`);
 					});
-					
 					return Observable.from(traces);
 				})
                 .subscribe({
