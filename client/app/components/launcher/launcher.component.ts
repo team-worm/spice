@@ -1,4 +1,4 @@
-import { Component, ViewChild, ElementRef, AfterContentChecked} from "@angular/core";
+import { Component, ViewChild, ElementRef, AfterContentChecked } from "@angular/core";
 import {MdSnackBar} from "@angular/material";
 import {Response} from "@angular/http";
 
@@ -9,6 +9,7 @@ import {DebuggerState} from "../../models/DebuggerState";
 import {ViewService} from "../../services/view.service";
 import {FileBrowserComponent} from "../common/file-browser.component";
 import {ProcessListComponent} from "../common/process-list.component";
+import { LineGraphComponent } from "../common/line-graph.component";
 
 @Component({
     selector: 'spice-launcher',

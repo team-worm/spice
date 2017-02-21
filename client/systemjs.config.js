@@ -30,7 +30,8 @@
             // other libraries
             'rxjs': 'npm:rxjs',
             'hammerjs': 'npm:hammerjs/hammer.js',
-            'angular-in-memory-web-api': 'npm:angular-in-memory-web-api/bundles/in-memory-web-api.umd.js'
+            'angular-in-memory-web-api': 'npm:angular-in-memory-web-api/bundles/in-memory-web-api.umd.js',
+            'd3': 'npm:d3',
         },
         // packages tells the System loader how to load when no filename and/or no extension
         packages: {
@@ -39,6 +40,10 @@
                 defaultExtension: 'js'
             },
             rxjs: {
+                defaultExtension: 'js'
+            },
+            d3: {
+                main: 'build/d3.js',
                 defaultExtension: 'js'
             }
         }

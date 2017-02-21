@@ -29,9 +29,9 @@
     "@angular/platform-browser": "~2.4.0",
     "@angular/platform-browser-dynamic": "~2.4.0",
     "@angular/router": "~3.4.0",
-    "@types/reflect-metadata": "^0.0.5",
     "angular-in-memory-web-api": "~0.2.4",
     "core-js": "^2.4.1",
+    "d3": "^4.6.0",
     "hammerjs": "^2.0.8",
     "normalize-scss": "^6.0.0",
     "oboe": "^2.1.3",
@@ -41,8 +41,10 @@
     "zone.js": "^0.7.6"
   },
   "devDependencies": {
+    "@types/d3": "^4.5.0",
     "@types/jasmine": "2.5.41",
     "@types/node": "^6.0.46",
+    "@types/reflect-metadata": "^0.0.5",
     "canonical-path": "0.0.2",
     "concurrently": "^3.1.0",
     "http-server": "^0.9.0",
