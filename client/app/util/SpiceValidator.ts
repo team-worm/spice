@@ -34,7 +34,6 @@ interface PropertyType {
 export function Deserialize(options?: DeserializeOptions) {
     options = options || {};
     const element = options.element;
-
     return (target: any, key: string) => {
         const constructor = Reflect.getMetadata("design:type", target, key);
         if (constructor == Array && !element) {

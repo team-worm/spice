@@ -1,26 +1,28 @@
-<div class="launcher">
-    <md-card class="smallMargin">
-        <md-card-title>Filesystem and Existing Processes</md-card-title>
+<div #Launcher id="LauncherContainer">
+    <md-card class="smallMargin" [style.height.px]="launcherCardHeight">
+        <md-card-title>Launch from filesystem or existing process.</md-card-title>
         <md-card-content>
-            <md-tab-group>
-                <md-tab label="Binary or Executable">
-                    <h3>
-                        <i *ngIf="!selectedFile">No file selected</i>
-                        <span *ngIf="!!selectedFile">{{selectedFile.name}}</span>:
-                    </h3>
-                    <button md-raised-button [disabled]="!selectedFile || attaching || !!debugState" (click)="LaunchBinary()">Launch and Attach</button>
-                    <h4>Select a File</h4>
-                    <spice-file-browser (onFileSelected)="OnFileSelected($event)"></spice-file-browser>
-                </md-tab>
-                <md-tab label="Existing Process">
-                    <h3>Select a process to attach to: {{selectedProcess ? selectedProcess.name : 'none'}}</h3>
-                    <div>
-                        <button md-raised-button [disabled]="!selectedProcess || attaching || !!debugState" (click)="AttachToProcess()">Attach</button>
+            <div fxLayout="row">
+                <button md-mini-fab [disabled]="!selectedFileOrProcess || attaching || !!debugState" (click)="Attach()"><md-icon>launch</md-icon></button>
+                <div fxFlex class="selected-info">
+                    <div class="selected-title">
+                        {{ GetSelectedName() }}
                     </div>
-                    <spice-process-list (onProcessSelected)="OnProcessSelected($event)"></spice-process-list>
-                </md-tab>
-            </md-tab-group>
+                    <div class="selected-subtitle">
+                        {{ GetSelectedInformation() }}
+                    </div>
+                </div>
+            </div>
         </md-card-content>
+        <hr>
+        <md-tab-group>
+            <md-tab label="Binary or Executable">
+                <spice-file-browser #LauncherFileBrowser (onFileSelected)="OnFileSelected($event)" [elementHeightPx]="fileBrowserHeight"></spice-file-browser>
+            </md-tab>
+            <md-tab label="Existing Process">
+                <spice-process-list #LauncherProcessList (onProcessSelected)="OnProcessSelected($event)" [elementHeightPx]="processListHeight"></spice-process-list>
+            </md-tab>
+        </md-tab-group>
     </md-card>
 </div>
 
