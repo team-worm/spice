@@ -1,4 +1,4 @@
-import { Component, ViewChild, ElementRef, AfterContentChecked} from "@angular/core";
+import { Component, ViewChild, ElementRef, AfterContentChecked } from "@angular/core";
 import {MdSnackBar} from "@angular/material";
 import {Response} from "@angular/http";
 
@@ -9,6 +9,7 @@ import {DebuggerState} from "../../models/DebuggerState";
 import {ViewService} from "../../services/view.service";
 import {FileBrowserComponent} from "../common/file-browser.component";
 import {ProcessListComponent} from "../common/process-list.component";
+import { LineGraphComponent } from "../common/line-graph.component";
 
 @Component({
     selector: 'spice-launcher',
@@ -27,6 +28,14 @@ export class LauncherComponent implements AfterContentChecked {
     public debugProcessName: string = '';
     public attaching:boolean = false;
     public launchedFile: SourceFile | null = null;
+    public testData = [{x:0,y:0},{x:1,y:1},{x:2,y:4},{x:3,y:9}];
+    public i = 4;
+    @ViewChild('graph') lineGraph: LineGraphComponent;
+    public addData() {
+    	this.testData.push({x: this.i, y: Math.sin(this.i)});
+    	this.lineGraph.onDataUpdated();
+		this.i++;
+	}
 
     constructor(private debuggerService: DebuggerService,
                 private snackBar: MdSnackBar,
