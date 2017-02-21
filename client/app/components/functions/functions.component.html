@@ -4,6 +4,7 @@
         <md-card class="smallerMargin" [style.height.px]="GetFullCardHeight()">
             <md-card-subtitle>Functions</md-card-subtitle>
             <spice-function-list
+                    #FunctionsFunctionList
                     class="width-100"
                     [sourceFunctions]="sourceFunctions"
                     [debuggerState]="debugState"

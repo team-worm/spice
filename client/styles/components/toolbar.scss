@@ -33,17 +33,27 @@
     }
 }
 .breakpointMenu {
-    md-list-item {
-        padding-bottom: 0.5em;
-    }
-    md-list-item:last-child {
-        padding-bottom: 0;
-    }
-    .breakpointMenuSpacer {
-        min-width: 1em;
-        flex: 1 1 auto;
+    //md-list-item {
+    //    padding-top: 0.3em;
+    //    padding-bottom: 0.5em;
+    //}
+    //md-list-item:hover {
+    //    cursor:pointer;
+    //    background-color: rgba(0,0,0,0.3);
+    //}
+    //
+    //md-list-item:last-child {
+    //    padding-bottom: 0;
+    //}
+    //.breakpointMenuSpacer {
+    //    min-width: 1em;
+    //    flex: 1 1 auto;
+    //}
+    .overflow-ellipsis{
+        text-overflow: ellipsis;
+        overflow-x: hidden;
     }
     md-icon {
-        color: white;
+        color: black;
     }
 }

@@ -1,4 +1,4 @@
-import { Component, OnInit } from "@angular/core";
+import {Component, OnInit, ViewChild} from "@angular/core";
 import { SourceFunction, SourceFunctionId } from "../../models/SourceFunction";
 import {DebuggerService} from "../../services/debugger.service";
 import {DebuggerState} from "../../models/DebuggerState";
@@ -7,6 +7,7 @@ import {Breakpoint} from "../../models/Breakpoint";
 import {ViewService} from "../../services/view.service";
 import {FileSystemService} from "../../services/file-system.service";
 import {MatchMaxHeightDirective} from "../../directives/MatchMaxHeight.directive";
+import {FunctionListComponent} from "../common/function-list.component";
 
 @Component({
     selector: 'spice-configuration',
@@ -15,6 +16,8 @@ import {MatchMaxHeightDirective} from "../../directives/MatchMaxHeight.directive
 export class FunctionsComponent implements OnInit {
 
     private _functionsContentBody: HTMLElement | null;
+
+    @ViewChild('FunctionsFunctionList') functionList:FunctionListComponent;
 
     public lines: string[] | null;
     public linesLoaded: boolean = true;
@@ -93,6 +96,11 @@ export class FunctionsComponent implements OnInit {
     }
 
     public OnFunctionSelected($event: SourceFunction) {
+        if(this.functionList) {
+            /* Redundantly sets the list in case OnFunctionSelected is called outside of this component. */
+            this.functionList.selectedFunction = $event;
+        }
+
         this.lines = null;
         this.linesLoaded = false;
         this.fileSystemService.getFileContents($event.sourcePath).subscribe((contents: string) => {
@@ -122,11 +130,7 @@ export class FunctionsComponent implements OnInit {
     }
 
     public GetSelectedFunctionAsString(): string {
-        if (!this.selectedFunction) {
-            return 'none';
-        } else {
-            return this.selectedFunction.name + ' ' + this.selectedFunction.getParametersAsString();
-        }
+        return this.selectedFunction ? this.selectedFunction.getAsStringWithParameters(' ') : 'none';
     }
 
     public GetListHeight(): number {

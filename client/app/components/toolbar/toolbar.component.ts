@@ -98,9 +98,11 @@ export class ToolbarComponent {
             }
         }
     }
-    public RemoveBreakpointAtFunc(func:SourceFunction) {
-        if(this.debugState) {
-            this.debugState.removeBreakpoint(func.address).subscribe();
+
+    public BreakpointFunctionSelected(func:SourceFunction) {
+        this.GoToFunctionsView();
+        if(this.viewService.functionsComponent) {
+            this.viewService.functionsComponent.OnFunctionSelected(func);
         }
     }
 

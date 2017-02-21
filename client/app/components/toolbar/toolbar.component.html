@@ -44,11 +44,8 @@
 
 <md-menu class="breakpointMenu" #breakpointMenu="mdMenu">
     <h3 *ngIf="!debugState || debugState.breakpoints.size === 0">No Breakpoints</h3>
-    <md-list dense *ngIf="!!debugState && debugState.breakpoints.size > 0">
-        <md-list-item *ngFor="let func of bpFunctions">
-            <h3><b>{{func.name}}</b></h3>
-            <span class="breakpointMenuSpacer"></span>
-            <button md-mini-fab class="md-warn" title="Remove Breakpoint" (click)="RemoveBreakpointAtFunc(func)"><md-icon>delete</md-icon></button>
-        </md-list-item>
-    </md-list>
+    <button md-menu-item *ngFor="let func of bpFunctions" (click)="BreakpointFunctionSelected(func)" title="{{func.getAsStringWithParameters(' ')}}">
+        <md-icon md-prefix>library_books</md-icon>
+        <span class="overflow-ellipsis">{{func.getAsStringWithParameters(' ')}}</span>
+    </button>
 </md-menu>
