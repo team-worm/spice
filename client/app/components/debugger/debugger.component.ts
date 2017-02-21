@@ -48,20 +48,21 @@ export class DebuggerComponent {
 					}
 					return Observable.forkJoin(
 						ds.getSourceFunction(ex.data.sFunction)
-						.mergeMap((sf:SourceFunction) => {
-							this.sourceFunction = sf; return this.fileSystemService.getFileContents(sf.sourcePath)}),
+                            .mergeMap((sf:SourceFunction) => {
+								this.sourceFunction = sf; return this.fileSystemService.getFileContents(sf.sourcePath)}),
 						Observable.of(ds.getTrace(executionId)));
 				})
-				.mergeMap(([fileContents, traces]) => {
+                .mergeMap(([fileContents, traces]) => {
 					this.lines = fileContents.split('\n')
-						.filter((l,i) => this.sourceFunction && i>=(this.sourceFunction.lineStart-1) && i<(this.sourceFunction.lineStart-1 + this.sourceFunction.lineCount))
-						.map(l => {return { sourceCode: l, traces: []}});
+                        .filter((l,i) => this.sourceFunction && i>=(this.sourceFunction.lineStart-1) && i<(this.sourceFunction.lineStart-1 + this.sourceFunction.lineCount))
+                        .map(l => {return { sourceCode: l, traces: []}});
 					this.lastTraceLine = Number.POSITIVE_INFINITY;
 					this.traceColCount = 0;
 					this.lines.forEach((_, i) => {
 						MatchMaxHeightDirective.markDirty(`debugger-${i}`);
 					});
-					return ds.getTrace(executionId)
+					
+					return Observable.from(traces);
 				})
                 .subscribe({
 					next: (t: Trace)=>{
@@ -95,6 +96,7 @@ export class DebuggerComponent {
 
 	public ExecuteFunction() {
 		if(this.debugState && this.sourceFunction) {
+			console.log(this.setParameters);
 			this.debugState.executeFunction(this.sourceFunction.address,this.setParameters)
                 .subscribe((ex:Execution)=>{
 					this.displayTrace(ex.id);
