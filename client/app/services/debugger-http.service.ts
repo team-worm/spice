@@ -43,7 +43,7 @@ export class DebuggerHttpService {
 			.map(res => fromJSON(res.json(), DebugInfo))
 			.map((info: DebugInfo) => new DebuggerState(info, this))
 			.catch(DebuggerHttpService.handleServerDataError('DebuggerState'))
-			.share();
+			.publishLast().refCount();
 	}
 
 	public attachProcess(pid: number): Observable<DebuggerState> {
@@ -51,7 +51,7 @@ export class DebuggerHttpService {
 			.map(res => fromJSON(res.json(), DebugInfo))
 			.map((info: DebugInfo) => new DebuggerState(info, this))
 			.catch(DebuggerHttpService.handleServerDataError('DebuggerState'))
-			.share();
+			.publishLast().refCount();
 	}
 
 	/**
@@ -61,7 +61,7 @@ export class DebuggerHttpService {
 		return this.http.get(`http://${host}:${port}/api/v1/processes`)
 			.map(res => res.json().map((json: any) => fromJSON(json, Process)))
 			.catch(DebuggerHttpService.handleServerDataError('Process'))
-			.share();
+			.publishLast().refCount();
 	}
 
 	/**
@@ -71,14 +71,14 @@ export class DebuggerHttpService {
 		return this.http.get(`http://${host}:${port}/api/v1/debug/${id}/functions`)
 			.map(res => res.json().map((json: any) => fromJSON(json, SourceFunction)))
 			.catch(DebuggerHttpService.handleServerDataError('SourceFunction'))
-			.share();
+			.publishLast().refCount();
 	}
 
 	public getSourceFunction(id: DebugId, sFunction: SourceFunctionId): Observable<SourceFunction> {
 		return this.http.get(`http://${host}:${port}/api/v1/debug/${id}/functions/${sFunction}`)
 			.map(res => fromJSON(res.json(), SourceFunction))
 			.catch(DebuggerHttpService.handleServerDataError('SourceFunction'))
-			.share();
+			.publishLast().refCount();
 	}
 
 	public executeFunction(id: DebugId, sFunction: SourceFunctionId, parameters: {[id: string]: any}): Observable<Execution> {
@@ -88,7 +88,7 @@ export class DebuggerHttpService {
 		)
 			.map(res => fromJSON(res.json(), Execution))
 			.catch(DebuggerHttpService.handleServerDataError('Execution'))
-			.share();
+			.publishLast().refCount();
 	}
 
 	/**
@@ -98,21 +98,21 @@ export class DebuggerHttpService {
 		return this.http.get(`http://${host}:${port}/api/v1/debug/${id}/breakpoints`)
 			.map(res => res.json().map((json: any) => fromJSON(json, Breakpoint)))
 			.catch(DebuggerHttpService.handleServerDataError('Breakpoint'))
-			.share();
+			.publishLast().refCount();
 	}
 
 	public setBreakpoint(id: DebugId, sFunction: SourceFunctionId): Observable<Breakpoint> {
 		return this.http.put(`http://${host}:${port}/api/v1/debug/${id}/breakpoints/${sFunction}`, undefined)
 			.map((res: Response) => fromJSON(res.json(), Breakpoint))
 			.catch(DebuggerHttpService.handleServerDataError('Breakpoint'))
-			.share();
+			.publishLast().refCount();
 	}
 
 	public removeBreakpoint(id: DebugId, sFunction: SourceFunctionId): Observable<boolean> {
 		return this.http.delete(`http://${host}:${port}/api/v1/debug/${id}/breakpoints/${sFunction}`)
 			.map(res => true)
 			.catch(DebuggerHttpService.handleServerDataError('NONE'))
-			.share();
+			.publishLast().refCount();
 	}
 
 	/**
@@ -122,14 +122,14 @@ export class DebuggerHttpService {
 		return this.http.post(`http://${host}:${port}/api/v1/debug/${id}/execute`, { args, env })
 			.map(res => fromJSON(res.json(), Execution))
 			.catch(DebuggerHttpService.handleServerDataError('Execution'))
-			.share();
+			.publishLast().refCount();
 	}
 
 	public getExecution(id: DebugId, execution: ExecutionId): Observable<Execution> {
 		return this.http.get(`http://${host}:${port}/api/v1/debug/${id}/executions/${execution}`)
 			.map(res => fromJSON(res.json(), Execution))
 			.catch(DebuggerHttpService.handleServerDataError('Execution'))
-			.share();
+			.publishLast().refCount();
 	}
 
 	public getTrace(id: DebugId, execution: ExecutionId): Observable<Trace> {
@@ -147,13 +147,13 @@ export class DebuggerHttpService {
 					observer.error(DebuggerHttpService.handleServerDataError('Trace')(e));
 				}
 			});
-		}).share();
+		}).publishReplay().refCount();
 	}
 
 	public stopExecution(id: DebugId, executionId: ExecutionId): Observable<Execution> {
 		return this.http.post(`http://${host}:${port}/api/v1/debug/${id}/executions/${executionId}/stop`, undefined)
 			.map(res => fromJSON(res.json(), Execution))
 			.catch(DebuggerHttpService.handleServerDataError('Execution'))
-			.share();
+			.publishLast().refCount();
 	}
 }

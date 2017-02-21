@@ -5,12 +5,11 @@ import {AboutComponent} from "./about.component";
 import {HelpComponent} from "./help.component";
 import {ViewService} from "../../services/view.service";
 import {DebuggerState} from "../../models/DebuggerState";
-import {SourceFile} from "../../models/SourceFile";
 import {Execution} from "../../models/Execution";
 import {Observable} from "rxjs/Observable";
 import {Trace} from "../../models/Trace";
+import {SourceFunction, SourceFunctionId} from "../../models/SourceFunction";
 import { DebuggerService } from "../../services/debugger.service";
-import { SourceFunctionId } from "../../models/SourceFunction";
 import { Breakpoint } from "../../models/Breakpoint";
 
 @Component({
@@ -19,21 +18,15 @@ import { Breakpoint } from "../../models/Breakpoint";
 })
 export class ToolbarComponent {
 
-    public debugState:DebuggerState | null;
-    public debugProcessName: string;
-    public execution: Execution | null; //TODO: get this data from the service
-
-    selectedView:string;
+    public debugState:DebuggerState | null = null;
+    public debugProcessName: string = '';
+    public bpFunctions:SourceFunction[] = [];
+    public execution: Execution | null = null; //TODO: get this data from the service
 
     constructor(public dialog: MdDialog,
                 public viewService:ViewService,
                 public debuggerService:DebuggerService,
-                private snackBar: MdSnackBar) {
-        this.debugState = null;
-        this.debugProcessName = '';
-        this.selectedView = 'launcher';
-        this.execution = null;
-    }
+                private snackBar: MdSnackBar) {}
 
     public GoToFunctionsView() {
         this.viewService.activeView = 'functions';
@@ -147,7 +140,23 @@ export class ToolbarComponent {
 			}
         }
     }
+    public GetBpFunctions() {
+        if(this.debugState) {
+            this.bpFunctions = [];
 
+            for(let key of this.debugState.breakpoints.keys()) {
+                this.debugState.sourceFunctions.get(key).subscribe((sf:SourceFunction)=>{
+                    this.bpFunctions.push(sf);
+                })
+            }
+        }
+    }
+    public BreakpointFunctionSelected(func:SourceFunction) {
+        this.GoToFunctionsView();
+        if(this.viewService.functionsComponent) {
+            this.viewService.functionsComponent.OnFunctionSelected(func);
+        }
+    }
     openAboutSpiceDialog() {
         this.dialog.open(AboutComponent);
     }

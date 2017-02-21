@@ -4,6 +4,7 @@
         <md-card class="smallerMargin" [style.height.px]="GetFullCardHeight()">
             <md-card-subtitle>Functions</md-card-subtitle>
             <spice-function-list
+                    #FunctionsFunctionList
                     class="width-100"
                     [sourceFunctions]="sourceFunctions"
                     [debuggerState]="debugState"
@@ -23,7 +24,6 @@
                     <button md-button [disabled]="!selectedFunction" *ngIf="!!selectedFunction && debugState.breakpoints.has(selectedFunction.address)" (click)="ToggleBreakpoint()">
                         <md-icon>bookmark</md-icon>Remove Breakpoint
                     </button>
-                    <button md-button [disabled]="!debugState || debugState.breakpoints.size === 0" (click)="ExecuteBinary()"><md-icon class="md-accent">play_arrow</md-icon> Execute Binary</button>
                     <i>or</i>
                     <button md-button [disabled]="!selectedFunction" (click)="ExecuteFunctionWithCustomParams()"><md-icon class="md-accent">play_circle_outline</md-icon>Run with Custom Parameters</button>
                 </md-card-actions>

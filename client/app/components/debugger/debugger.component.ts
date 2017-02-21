@@ -1,5 +1,4 @@
 import { Component } from "@angular/core";
-import { DebuggerService } from "../../services/debugger.service";
 import { DebuggerState } from "../../models/DebuggerState";
 import { Execution, ExecutionId } from "../../models/Execution";
 import { Trace } from "../../models/Trace";
@@ -25,8 +24,7 @@ export class DebuggerComponent {
 	public debugState: DebuggerState | null;
 	public setParameters:{[id: string]: any};
 
-	constructor(private debuggerService: DebuggerService,
-				private fileSystemService: FileSystemService,
+	constructor(private fileSystemService: FileSystemService,
 				private viewService: ViewService,
 				private snackBar: MdSnackBar) {
 
@@ -61,7 +59,6 @@ export class DebuggerComponent {
 					this.lines.forEach((_, i) => {
 						MatchMaxHeightDirective.markDirty(`debugger-${i}`);
 					});
-					
 					return Observable.from(traces);
 				})
                 .subscribe({

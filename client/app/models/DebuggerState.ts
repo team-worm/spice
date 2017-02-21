@@ -3,7 +3,6 @@ import { Execution, ExecutionId } from "./Execution";
 import { Breakpoint } from "./Breakpoint";
 import { SourceFunction, SourceFunctionId } from "./SourceFunction";
 import { SourceVariable } from "./SourceVariable";
-import { SpiceValidator } from "../util/SpiceValidator";
 import { Observable } from "rxjs/Observable";
 import { CacheMap } from "../util/CacheMap";
 import { DebuggerHttpService } from "../services/debugger-http.service";
