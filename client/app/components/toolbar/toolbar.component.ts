@@ -1,16 +1,17 @@
 import {Component} from "@angular/core";
+import { Response } from "@angular/http";
 import {MdDialog, MdSnackBar} from "@angular/material";
 import {AboutComponent} from "./about.component";
 import {HelpComponent} from "./help.component";
 import {ViewService} from "../../services/view.service";
 import {DebuggerState} from "../../models/DebuggerState";
 import {SourceFile} from "../../models/SourceFile";
-import {Execution} from "../../models/execution/Execution";
+import {Execution} from "../../models/Execution";
 import {Observable} from "rxjs/Observable";
-import {Trace} from "../../models/trace/Trace";
-import {TraceOfTermination} from "../../models/trace/TraceOfTermination";
+import {Trace} from "../../models/Trace";
 import { DebuggerService } from "../../services/debugger.service";
-import { Response } from "@angular/http";
+import { SourceFunctionId } from "../../models/SourceFunction";
+import { Breakpoint } from "../../models/Breakpoint";
 
 @Component({
     selector: 'spice-toolbar',
@@ -48,23 +49,23 @@ export class ToolbarComponent {
 					this.execution = ex;
                     return this.debugState.getTrace(ex.id);
                 }).map((t:Trace)=> {
-                if(t.tType === 2) {
-                    let tTerm: TraceOfTermination = t as TraceOfTermination;
-                    if (tTerm.data.cause === 'breakpoint') {
+                    switch (t.data.tType) {
+                    case "break":
                         if (this.viewService.debuggerComponent) {
                             this.viewService.debuggerComponent.setParameters = {};
-                            this.viewService.debuggerComponent.displayTrace(tTerm.data.nextExecution);
+                            this.viewService.debuggerComponent.displayTrace(t.data.nextExecution);
                             this.viewService.activeView = 'debugger';
                             if(this.debugState) {
-								this.debugState.getExecution(tTerm.data.nextExecution).subscribe((ex: Execution) => { this.execution = ex; });
+								this.debugState.getExecution(t.data.nextExecution).subscribe((ex: Execution) => { this.execution = ex; });
 							}
-
                         }
-                    } else if(tTerm.data.cause === 'exit') {
+                        break;
+
+                    case "exit":
 						this.OnExecutionStopped();
+                        break;
 					}
-                }
-                return t;
+                    return t;
             }).subscribe({
                 next: (t)=>{},
                 complete: ()=>{},
@@ -107,12 +108,12 @@ export class ToolbarComponent {
 		if(this.debugState && this.viewService.launcherComponent && this.viewService.launcherComponent.launchedFile) {
 			let launchedFile = this.viewService.launcherComponent.launchedFile;
 			//save breakpoints
-			this.debugState.getBreakpoints().subscribe((breakpoints) => {
+			this.debugState.getBreakpoints().subscribe((breakpoints: Map<SourceFunctionId, Breakpoint>) => {
 				this.debuggerService.attachBinary(launchedFile.path).subscribe(
 					(ds: DebuggerState) => { 
 						if(this.viewService.launcherComponent) {
 							this.viewService.launcherComponent.onAttach(ds, launchedFile.name); 
-							Object.keys(breakpoints).forEach(bId => {
+							breakpoints.forEach((breakpoint, bId) => {
 								ds.setBreakpoint(bId).subscribe(
 									()=>{},
 									(error)=>{

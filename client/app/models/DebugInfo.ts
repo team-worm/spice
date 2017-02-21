@@ -1,8 +1,12 @@
-import {DebugId} from "./DebugId";
-import {Process} from "./Process";
+import { Deserialize } from "../util/SpiceValidator";
+import { Process } from "./Process";
+
+export type DebugId = number;
 
 export class DebugInfo {
-    public id: DebugId;
-    public attachedProcess: Process;
-    public sourcePath: string; //Path to root directory of source code.
+    @Deserialize()
+    id: DebugId;
+
+    @Deserialize()
+    attachedProcess: Process;
 }

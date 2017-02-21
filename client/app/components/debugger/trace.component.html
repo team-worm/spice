@@ -1,14 +1,10 @@
 <div class="trace">
-	<div *ngIf="trace.tType===0" class="trace-instruction">
+	<div *ngIf="trace.data.tType==='line'" class="trace-instruction">
 		<ul>
 			<li *ngFor="let state of trace.data.state">{{state.sVariable}}={{state.value}}</li>
 		</ul>
 	</div>
-	<div *ngIf="trace.tType===1" class="trace-output">
-		output: {{trace.data.output}}
-	</div>
-	<div *ngIf="trace.tType===2" class="trace-termination">
-		<span *ngIf="trace.data.cause === 'return'">returned {{trace.data.returnValue}}</span>
-		<span *ngIf="trace.data.cause !== 'return'">terminated: {{trace.data.cause}}</span>
+	<div *ngIf="trace.data.tType==='return'" class="trace-termination">
+		returned {{trace.data.value}}
 	</div>
 </div>

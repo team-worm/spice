@@ -11,8 +11,8 @@ unicase = "1.0"
 reroute = "0.3.2"
 url = "1.0"
 mime_guess = "1.8"
-serde = "0.9"
-serde_derive = "0.9"
+serde = "0.9.6"
+serde_derive = "0.9.6"
 serde_json = "0.9"
 debug = { path = "debug" }
 winapi = { git = "https://github.com/team-worm/winapi-rs" }

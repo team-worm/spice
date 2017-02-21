@@ -1,8 +1,7 @@
 import {Component, Input, EventEmitter, Output} from "@angular/core";
-import {SourceFunction} from "../../models/SourceFunction";
+import { SourceFunction, SourceFunctionId } from "../../models/SourceFunction";
 import {SourceType} from "../../models/SourceType";
 import {DebuggerState} from "../../models/DebuggerState";
-import {SourceFunctionId} from "../../models/SourceFunctionId";
 
 @Component({
     selector: 'spice-function-list',
@@ -22,7 +21,7 @@ import {SourceFunctionId} from "../../models/SourceFunctionId";
         (click)="FunctionClicked(func)">
         <md-icon class="function-icon" md-list-avatar *ngIf="!FunctionHasBreakpoint(func.id)">library_books</md-icon>
         <md-icon class="function-icon" md-list-avatar *ngIf="FunctionHasBreakpoint(func.id)">book</md-icon>
-        <p class="function-header" md-line title="{{func.name}} {{func.GetParametersAsString()}}"><b>{{func.name}}</b> {{func.GetParametersAsString()}}</p>
+        <p class="function-header" md-line title="{{func.name}} {{func.getParametersAsString()}}"><b>{{func.name}}</b> {{func.getParametersAsString()}}</p>
         <p class="function-subheader" md-line title="{{func.sourcePath}}">{{func.sourcePath}}</p>
     </md-list-item>
 </md-list>
