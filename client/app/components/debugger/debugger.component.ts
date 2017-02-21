@@ -1,7 +1,7 @@
-import { Component } from "@angular/core";
+import { Component, ViewChild } from "@angular/core";
 import { DebuggerState } from "../../models/DebuggerState";
 import { Execution, ExecutionId } from "../../models/Execution";
-import { Trace } from "../../models/Trace";
+import { Trace, TraceState } from "../../models/Trace";
 import { Observable } from "rxjs/Observable";
 import { SourceFunction } from "../../models/SourceFunction";
 import { MatchMaxHeightDirective } from "../../directives/MatchMaxHeight.directive";
@@ -9,6 +9,9 @@ import { Response } from "@angular/http";
 import { ViewService } from "../../services/view.service";
 import { FileSystemService } from "../../services/file-system.service";
 import { MdSnackBar } from "@angular/material";
+import { LineGraphComponent, DataXY } from "../common/line-graph.component";
+import { SourceVariable } from "../../models/SourceVariable";
+import { Subscriber } from "rxjs/Subscriber";
 
 @Component({
 	selector: 'spice-debugger',
@@ -24,6 +27,13 @@ export class DebuggerComponent {
 	public debugState: DebuggerState | null;
 	public setParameters:{[id: string]: any};
 
+	@ViewChild('lineGraph') lineGraph: LineGraphComponent;
+	public graphData: DataXY[] = [];
+	//public graphVariable: SourceVariable | null = null; //TODO: update this when we don't just use variable name in trace (and corresponding html)
+	public graphVariable: string = "";
+	public graphVariableName: string = "";
+	public currentExecution: ExecutionId | null = null;
+
 	constructor(private fileSystemService: FileSystemService,
 				private viewService: ViewService,
 				private snackBar: MdSnackBar) {
@@ -37,8 +47,12 @@ export class DebuggerComponent {
 	}
 
 	public displayTrace(executionId: ExecutionId) {
+		this.currentExecution = executionId;
 		if(this.debugState) {
 			let ds: DebuggerState = this.debugState;
+			if(this.graphVariable !== '') {
+				this.SetGraphVariable(this.graphVariable);
+			}
 			ds.getExecution(executionId)
                 .mergeMap((ex: Execution) => {
 					if(ex.data.eType !== 'function') {
@@ -117,5 +131,35 @@ export class DebuggerComponent {
 
 	public GoToFunctionsView() {
 		this.viewService.activeView = 'functions';
+	}
+
+	public SetGraphVariable(variableName: string): void {
+		if(this.currentExecution !== null) {
+			this.graphData = [];
+			this.graphVariable = variableName;
+			this.lineGraph.onDataUpdated();
+
+			if(this.debugState && this.currentExecution !== null) {
+				let graphUpdates = Observable.create((observer: Subscriber<Trace>) => {
+					this.debugState!.getTrace(this.currentExecution!).subscribe(
+						(t: Trace) => {
+							if(t.data.tType === 'line') {
+								t.data.state.filter((s:TraceState) => s.sVariable === variableName)
+									.forEach((s:TraceState) => {
+									this.graphData.push({x: this.graphData.length, y: parseInt(s.value)});
+									observer.next();
+								});
+							}
+						},
+						(error:Response)=>{
+							console.error(error);
+						});
+				}).debounceTime(100).subscribe(
+					() => this.lineGraph.onDataUpdated());
+			}
+			else {
+				console.error('Not attached');
+			}
+		}
 	}
 }

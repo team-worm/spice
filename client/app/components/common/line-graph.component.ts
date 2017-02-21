@@ -2,7 +2,7 @@ import { Component, ElementRef, Input, OnInit, AfterViewInit, OnChanges, OnDestr
 import { Observable } from "rxjs/Observable";
 import * as d3 from 'd3';
 
-type DataXY = {x: number, y: number};
+export type DataXY = {x: number, y: number};
 
 @Component({
 	selector: 'spice-line-graph',
