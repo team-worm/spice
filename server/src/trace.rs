@@ -4,24 +4,26 @@ use std::collections::HashMap;
 use debug;
 
 pub struct Trace<'a> {
-    child: &'a mut debug::Child,
+    child: &'a debug::Child,
     breakpoints: Breakpoints,
 }
 
 type Breakpoints = HashMap<usize, Option<debug::Breakpoint>>;
 
 impl<'a> Trace<'a> {
-    pub fn create(child: &mut debug::Child) -> Trace {
+    pub fn create(child: &debug::Child) -> Trace {
         Trace { child, breakpoints: Breakpoints::default() }
     }
 
-    pub fn resume(child: &mut debug::Child, breakpoints: Breakpoints) -> Trace {
+    pub fn resume(child: &debug::Child, breakpoints: Breakpoints) -> Trace {
         Trace { child, breakpoints }
     }
 
-    pub fn child(&mut self) -> &debug::Child {
-        let Trace { ref child, .. } = *self;
-        &*child
+    pub fn pause(self) -> Breakpoints {
+        let breakpoints = unsafe { ptr::read(&self.breakpoints) };
+        mem::forget(self);
+
+        breakpoints
     }
 
     pub fn set_breakpoint(&mut self, address: usize) -> io::Result<()> {
@@ -33,17 +35,6 @@ impl<'a> Trace<'a> {
 
     pub fn take_breakpoint(&mut self, address: usize) -> Option<debug::Breakpoint> {
         self.breakpoints.get_mut(&address).and_then(Option::take)
-    }
-
-    pub fn remove_breakpoint(&mut self, breakpoint: debug::Breakpoint) -> io::Result<()> {
-        self.child.remove_breakpoint(breakpoint)
-    }
-
-    pub fn commit(self) -> Breakpoints {
-        let breakpoints = unsafe { ptr::read(&self.breakpoints) };
-        mem::forget(self);
-
-        breakpoints
     }
 }
 

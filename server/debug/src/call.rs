@@ -18,8 +18,8 @@ impl Call {
     }
 
     pub fn setup(
-        child: &mut Child, context: &mut Context, symbols: &SymbolHandler,
-        function: &Symbol, args: Vec<Value>
+        child: &Child, symbols: &SymbolHandler,
+        context: &mut Context, function: &Symbol, args: Vec<Value>
     ) -> io::Result<Call> {
         let (module, return_type, arg_types) = get_function_types(symbols, function)?;
 
@@ -135,7 +135,7 @@ fn get_function_types(symbols: &SymbolHandler, function: &Symbol) ->
 }
 
 fn write_value(
-    arg: &Value, arg_type: &Type, child: &mut Child, context: &mut Context
+    arg: &Value, arg_type: &Type, child: &Child, context: &mut Context
 ) -> io::Result<(usize, bool)> {
     if &arg.data_type != arg_type {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "argument types do not match"));
