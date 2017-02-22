@@ -3,6 +3,8 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::ffi::OsString;
 use std::sync::mpsc::{sync_channel, SyncSender, Receiver};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use std::thread::JoinHandle;
 use std::os::windows::io::RawHandle;
@@ -15,9 +17,12 @@ pub struct Thread {
     pub thread: JoinHandle<()>,
     pub tx: SyncSender<ServerMessage>,
     pub rx: Receiver<DebugMessage>,
-   
+}
+
+#[derive(Clone)]
+pub struct ChildExecution {
     pub execution: Option<(i32, Execution)>,
-    pub id: i32,
+    pub id: i32,    
 }
 
 #[derive(Copy, Clone)]
@@ -58,6 +63,7 @@ pub enum DebugTrace {
     Breakpoint(usize),
     Exit(u32),
     Crash,
+    Cancel,
 }
 
 /// messages the server sends to the debug event loop to request info
@@ -71,9 +77,15 @@ pub enum ServerMessage {
     ClearBreakpoint { address: usize },
     Continue,
     CallFunction { address: usize, arguments: Vec<i32> },
-    Trace,
-    Stop,
+    Trace { cancel: Arc<AtomicBool> },
     Quit,
+}
+
+impl ChildExecution {
+    pub fn next_id(&mut self) -> i32 {
+        self.id += 1;
+        self.id
+    }
 }
 
 impl Thread {
@@ -112,16 +124,9 @@ impl Thread {
             thread: thread,
             tx: server_tx,
             rx: debug_rx,
-
-            execution: None,
-            id: -1,
         }
     }
 
-    pub fn next_id(&mut self) -> i32 {
-        self.id += 1;
-        self.id
-    }
 }
 
 struct TargetState {
@@ -163,7 +168,18 @@ fn run(
         breakpoints: HashMap::new(),
     };
 
-    let event = debug::Event::wait_event()?;
+    let event;
+    loop {
+        event = match debug::Event::wait_event() {
+            Ok(event) => event,
+            Err(ref e) if e.kind() == io::ErrorKind::TimedOut => {
+                continue;
+            }
+            Err(e) => { return Err(e); }
+        };
+        break;
+    }
+
     if let debug::EventInfo::CreateProcess { ref file, main_thread, base, .. } = event.info {
         let _ = file.as_ref()
             .ok_or(io::Error::new(io::ErrorKind::Other, "no file handle for CreateProcess"))
@@ -231,16 +247,16 @@ fn run(
                 tx.send(message).unwrap();
             }
 
-            ServerMessage::Trace => {
+            ServerMessage::Trace { cancel } => {
                 assert!(trace.event.is_none());
 
                 let result = match trace.execution.take() {
                     Some(ex @ ExecutionState::Process) => {
-                        trace_process(&mut target, &mut trace, &tx, ex)
+                        trace_process(&mut target, &mut trace, &tx, ex, cancel) 
                     }
 
                     Some(ex @ ExecutionState::Function { .. }) => {
-                        trace_function(&mut target, &mut trace, &tx, ex)
+                        trace_function(&mut target, &mut trace, &tx, ex, cancel)
                     }
 
                     None => Err(io::Error::from(io::ErrorKind::NotFound)),
@@ -250,8 +266,6 @@ fn run(
                     tx.send(DebugMessage::Error(e)).unwrap();
                 }
             }
-
-            ServerMessage::Stop => {}
 
             ServerMessage::Quit => {
                 let _ = target.child.terminate();
@@ -360,7 +374,7 @@ fn continue_process(trace: &mut TraceState) -> io::Result<()> {
 
 fn trace_process(
     target: &mut TargetState, trace: &mut TraceState, tx: &SyncSender<DebugMessage>,
-    execution: ExecutionState
+     execution: ExecutionState, cancel: Arc<AtomicBool>
 ) -> io::Result<()> {
     let _ = match execution {
         ExecutionState::Process => (),
@@ -368,9 +382,24 @@ fn trace_process(
     };
 
     let mut last_breakpoint = None;
-    loop {
-        let mut event = debug::Event::wait_event()?;
 
+    loop {
+        let mut event;
+
+        event = match debug::Event::wait_event() {
+            Ok(event) => event,
+            Err(ref e) if e.kind() == io::ErrorKind::TimedOut => {
+                // check for cancellation
+                if cancel.load(Ordering::Relaxed) {
+                    tx.send(DebugMessage::Trace(DebugTrace::Cancel)).unwrap();
+                    return Ok(());
+                }
+                continue;
+            }
+            Err(e) => { return Err(e); }
+        };
+
+        
         use debug::EventInfo::*;
         match event.info {
             Exception {
@@ -380,7 +409,10 @@ fn trace_process(
                 let thread = threads[&event.thread_id];
                 let breakpoint = match breakpoints.get_mut(&address).and_then(Option::take) {
                     Some(breakpoint) => breakpoint,
-                    None => { event.continue_event(false)?; continue; }
+                    None => {
+                        event.continue_event(false)?;
+                        continue;
+                    },
                 };
 
                 let TraceState { event: ref mut trace_event, .. } = *trace;
@@ -407,7 +439,10 @@ fn trace_process(
                 let thread = target.threads[&event.thread_id];
                 let address = match last_breakpoint.take() {
                     Some(address) => address,
-                    None => { event.continue_event(false)?; continue }
+                    None => {
+                        event.continue_event(false)?;
+                        continue;
+                    },
                 };
                 let (function, _) = symbols.symbol_from_address(address)?;
 
@@ -448,7 +483,7 @@ fn trace_process(
 
             _ => if trace_event(&mut target.symbols, &mut target.threads, trace, tx, &event) {
                 return Ok(())
-            },
+            } 
         }
 
         event.continue_event(true)?;
@@ -502,18 +537,55 @@ fn call_function(
 
 fn trace_function(
     target: &mut TargetState, trace: &mut TraceState, tx: &SyncSender<DebugMessage>,
-    execution: ExecutionState
+    execution: ExecutionState, cancel: Arc<AtomicBool>
 ) -> io::Result<()> {
     let (breakpoints, line, exit, call) = match execution {
         ExecutionState::Function { trace, line, exit, call } => (trace, line, exit, call),
         _ => unreachable!(),
     };
+
     let mut breakpoints = Trace::resume(&mut target.child, breakpoints);
 
     let mut last_line = line;
     let mut last_breakpoint = None;
     loop {
-        let mut event = debug::Event::wait_event()?;
+
+        let mut event;
+
+        event = match debug::Event::wait_event() {
+            Ok(event) => event,
+            Err(ref e) if e.kind() == io::ErrorKind::TimedOut => {
+                continue;
+            }
+            Err(e) => { return Err(e); }
+        };
+
+        if cancel.load(Ordering::Relaxed) {
+
+            let TargetState { ref threads, .. } = *target;
+            let thread = threads[&event.thread_id];
+
+            let TraceState { event: ref mut trace_event, .. } = *trace;
+            *trace_event = Some(event);
+
+            let context = debug::get_thread_context(thread, winapi::CONTEXT_FULL)?;
+
+            // restart the instruction
+            //context.set_instruction_pointer(address);
+
+            let restore = call.cancel();
+
+            tx.send(DebugMessage::Trace(DebugTrace::Cancel)).unwrap();
+
+            if let Some(context) = restore {
+                debug::set_thread_context(thread, &context)?;
+            } else {
+                debug::set_thread_context(thread, &context)?;
+            }
+
+            println!("Received stop message and returning out");
+            return Ok(());
+        };
 
         use debug::EventInfo::*;
         match event.info {
@@ -524,7 +596,10 @@ fn trace_function(
                 let thread = threads[&event.thread_id];
                 let breakpoint = match breakpoints.take_breakpoint(address) {
                     Some(breakpoint) => breakpoint,
-                    None => { event.continue_event(false)?; continue; }
+                    None => {
+                        event.continue_event(false)?;
+                        continue;
+                    },
                 };
 
                 let TraceState { event: ref mut trace_event, .. } = *trace;
@@ -578,7 +653,10 @@ fn trace_function(
                 let thread = threads[&event.thread_id];
                 let address = match last_breakpoint.take() {
                     Some(address) => address,
-                    None => { event.continue_event(false)?; continue; }
+                    None => {
+                        event.continue_event(false)?;
+                        continue;
+                    },
                 };
 
                 let TraceState { event: ref mut trace_event, .. } = *trace;

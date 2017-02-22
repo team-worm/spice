@@ -16,6 +16,7 @@ extern crate winapi;
 
 use std::{io, fs};
 use std::sync::{Mutex, Arc};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::io::{Write};
 use std::path::Path;
 use std::ffi::OsStr;
@@ -34,10 +35,17 @@ mod trace;
 mod api;
 
 type ChildThread = Arc<Mutex<Option<child::Thread>>>;
+type ChildExecution = Arc<Mutex<child::ChildExecution>>;
 
 fn main() {
     // current child thread (only one at a time)
     let child_thread = Arc::new(Mutex::new(None));
+
+    // (cancel_flag)
+    let cancel_flag = Arc::new(AtomicBool::new(false));
+
+    //execution id used for stopping purposes
+    let child_execution = Arc::new(Mutex::new(child::ChildExecution{ execution: None, id: -1 }));
 
     let mut router = RouterBuilder::new();
 
@@ -127,7 +135,8 @@ fn main() {
     });
 
     // executions
-
+    
+    let exec = child_execution.clone();
     let child = child_thread.clone();
     router.post(r"/api/v1/debug/([0-9]*)/execute", move |mut req, res, caps| {
         let body: api::Launch = match serde_json::from_reader(&mut req) {
@@ -138,13 +147,14 @@ fn main() {
             }
         };
 
-        match debug_execute(caps, body, child.clone()) {
+        match debug_execute(caps, body, child.clone(), exec.clone()) {
             Ok(body) => send(req, res, &body),
             Err(e) => send_error(req, res, e),
         }.unwrap();
     });
 
     let child = child_thread.clone();
+    let exec = child_execution.clone();
     router.post(r"/api/v1/debug/([0-9]*)/functions/([0-9]*)/execute", move |mut req, res, caps| {
         let body: api::Call = match serde_json::from_reader(&mut req) {
             Ok(body) => body,
@@ -154,29 +164,31 @@ fn main() {
             }
         };
 
-        match debug_function_execute(caps, body, child.clone()) {
+        match debug_function_execute(caps, body, child.clone(), exec.clone()) {
             Ok(body) => send(req, res, &body),
             Err(e) => send_error(req, res, e),
         }.unwrap();
     });
 
-    let child = child_thread.clone();
+    let exec = child_execution.clone();
     router.get(r"/api/v1/debug/([0-9]*)/executions", move |req, res, caps| {
-        match debug_executions(caps, child.clone()) {
+        match debug_executions(caps, exec.clone()) {
             Ok(body) => send(req, res, &body),
             Err(e) => send_error(req, res, e),
         }.unwrap();
     });
 
-    let child = child_thread.clone();
+    let exec = child_execution.clone();
     router.get(r"/api/v1/debug/([0-9]*)/executions/([0-9]*)", move |req, res, caps| {
-        match debug_execution(caps, child.clone()) {
+        match debug_execution(caps, exec.clone()) {
             Ok(body) => send(req, res, &body),
             Err(e) => send_error(req, res, e),
         }.unwrap();
     });
 
     let child = child_thread.clone();
+    let cancel = cancel_flag.clone();
+    let exec = child_execution.clone();
     router.get(r"/api/v1/debug/([0-9]*)/executions/([0-9]*)/trace", move |mut req, mut res, caps| {
         let mut child = child.lock().unwrap();
         if child.is_none() {
@@ -184,7 +196,7 @@ fn main() {
             return send_error(req, res, e).unwrap();
         }
 
-        let _ = match debug_execution_trace(caps, child.as_ref().unwrap()) {
+        let _ = match debug_execution_trace(caps, exec.clone()) {
             Ok(execution) => execution,
             Err(e) => return send_error(req, res, e).unwrap(),
         };
@@ -200,7 +212,7 @@ fn main() {
         }
 
         let mut res = res.start().unwrap();
-        let terminated = match trace_stream(&mut res, child.as_mut().unwrap()) {
+        let terminated = match trace_stream(&mut res, child.as_mut().unwrap(), cancel.clone(), exec.clone()) {
             Ok(terminated) => terminated,
             Err(e) => {
                 let error = api::Error { message: format!("{:?}", e) };
@@ -222,7 +234,16 @@ fn main() {
         }
     });
 
-    router.post(r"/api/v1/debug/([0-9]*)/executions/([0-9]*)/stop", debug_execution_stop);
+    let cancel = cancel_flag.clone();
+    let exec = child_execution.clone();
+    router.post(r"/api/v1/debug/([0-9]*)/executions/([0-9]*)/stop", move |req, res, caps| {
+        match debug_execution_stop(caps, cancel.clone(), exec.clone()) {
+            Ok(body) => {
+                send(req, res, &body)
+            },
+            Err(e) => send_error(req, res, e),
+        }.unwrap();
+    });
 
     router.options(r".*", move |_, mut res, _| {
         {
@@ -247,6 +268,7 @@ fn main() {
     let router = router.finalize().unwrap();
 
     let server = Server::http("127.0.0.1:3000").unwrap();
+    println!("Server running on 127.0.0.1:3000");
     server.handle(router).unwrap();
 }
 
@@ -568,7 +590,10 @@ fn debug_breakpoint_delete(caps: Captures, child: ChildThread) -> io::Result<Vec
 }
 
 /// POST /debug/:id/execute
-fn debug_execute(caps: Captures, _body: api::Launch, child: ChildThread) -> io::Result<Vec<u8>> {
+fn debug_execute(
+    caps: Captures, _body: api::Launch,
+    child: ChildThread, child_execution: ChildExecution
+) -> io::Result<Vec<u8>> {
     let caps = caps.unwrap();
     let _debug_id = caps[1].parse::<u64>()
         .map_err(|e| io::Error::new(io::ErrorKind::NotConnected, e))?;
@@ -577,20 +602,26 @@ fn debug_execute(caps: Captures, _body: api::Launch, child: ChildThread) -> io::
     let child = child.as_mut()
         .ok_or(io::Error::from(io::ErrorKind::NotConnected))?;
 
+    let mut child_execution = child_execution.lock().unwrap();
+    
     child.tx.send(ServerMessage::Continue).unwrap();
     let id = match child.rx.recv().unwrap() {
-        DebugMessage::Executing => child.next_id(),
+        DebugMessage::Executing => child_execution.next_id(),
         DebugMessage::Error(e) => return Err(e),
         _ => unreachable!(),
     };
-    child.execution = Some((id, child::Execution::Process));
+
+    child_execution.execution = Some((id, child::Execution::Process));
 
     let message = api::Execution { id: id, data: api::ExecutionData::Process };
     Ok(serde_json::to_vec(&message).unwrap())
 }
 
 /// POST /debug/:id/functions/:function/execute
-fn debug_function_execute(caps: Captures, body: api::Call, child: ChildThread) -> io::Result<Vec<u8>> {
+fn debug_function_execute(
+    caps: Captures, body: api::Call,
+    child: ChildThread, child_execution: ChildExecution
+) -> io::Result<Vec<u8>> {
     let caps = caps.unwrap();
     let _debug_id = caps[1].parse::<u64>()
         .map_err(|e| io::Error::new(io::ErrorKind::NotConnected, e))?;
@@ -602,13 +633,16 @@ fn debug_function_execute(caps: Captures, body: api::Call, child: ChildThread) -
     let child = child.as_mut()
         .ok_or(io::Error::from(io::ErrorKind::NotConnected))?;
 
+    let mut child_execution = child_execution.lock().unwrap();
+    
     child.tx.send(ServerMessage::CallFunction { address, arguments }).unwrap();
     let id = match child.rx.recv().unwrap() {
-        DebugMessage::Executing => child.next_id(),
+        DebugMessage::Executing => child_execution.next_id(),
         DebugMessage::Error(e) => return Err(e),
         _ => unreachable!(),
     };
-    child.execution = Some((id, child::Execution::Function(address)));
+
+    child_execution.execution = Some((id, child::Execution::Function(address)));
 
     let data = api::ExecutionData::Function { function: address };
     let message = api::Execution { id: id, data: data };
@@ -616,16 +650,15 @@ fn debug_function_execute(caps: Captures, body: api::Call, child: ChildThread) -
 }
 
 /// POST /debug/:id/executions
-fn debug_executions(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
+fn debug_executions(
+    caps: Captures,  child_execution: ChildExecution
+) -> io::Result<Vec<u8>> {
     let caps = caps.unwrap();
     let _debug_id = caps[1].parse::<u64>()
         .map_err(|e| io::Error::new(io::ErrorKind::NotConnected, e))?;
 
-    let mut child = child.lock().unwrap();
-    let child = child.as_mut()
-        .ok_or(io::Error::from(io::ErrorKind::NotConnected))?;
-
-    let message: Vec<_> = child.execution.iter()
+    let child_execution = child_execution.lock().unwrap();
+    let message: Vec<_> = child_execution.execution.iter()
         .map(|&(id, execution)| {
             let data = api::ExecutionData::from(execution);
             api::Execution { id: id, data: data }
@@ -635,18 +668,17 @@ fn debug_executions(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
 }
 
 /// GET /debug/:id/executions/:execution
-fn debug_execution(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
+fn debug_execution(
+    caps: Captures, child_execution: ChildExecution
+) -> io::Result<Vec<u8>> {
     let caps = caps.unwrap();
     let _debug_id = caps[1].parse::<u64>()
         .map_err(|e| io::Error::new(io::ErrorKind::NotConnected, e))?;
     let execution_id = caps[2].parse::<i32>()
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
-
-    let mut child = child.lock().unwrap();
-    let child = child.as_mut()
-        .ok_or(io::Error::from(io::ErrorKind::NotConnected))?;
-
-    let (id, execution) = match child.execution {
+    
+    let child_execution = child_execution.lock().unwrap();
+    let (id, execution) = match child_execution.execution {
         Some((id, execution)) if id == execution_id => (id, execution),
         _ => return Err(io::Error::new(io::ErrorKind::NotFound, "no such execution")),
     };
@@ -667,26 +699,34 @@ impl From<child::Execution> for api::ExecutionData {
 }
 
 /// GET /debug/:id/executions/:execution/trace
-fn debug_execution_trace(caps: Captures, child: &child::Thread) -> io::Result<i32> {
+fn debug_execution_trace(
+    caps: Captures, child_execution: ChildExecution
+) -> io::Result<i32> {
     let caps = caps.unwrap();
     let _debug_id = caps[1].parse::<u64>()
         .map_err(|e| io::Error::new(io::ErrorKind::NotConnected, e))?;
     let execution = caps[2].parse::<i32>()
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
 
-    match child.execution {
+    let child_execution = child_execution.lock().unwrap();
+    match child_execution.execution {
         Some((id, _)) if id == execution => Ok(id),
         _ => Err(io::Error::new(io::ErrorKind::NotFound, "no such execution")),
     }
 }
 
-fn trace_stream(res: &mut Response<Streaming>, child: &mut child::Thread) -> io::Result<bool> {
-    child.tx.send(ServerMessage::Trace).unwrap();
+fn trace_stream(
+    res: &mut Response<Streaming>, child: &mut child::Thread,
+    cancel: Arc<AtomicBool>, child_execution: ChildExecution
+) -> io::Result<bool> {
+    child.tx.send(ServerMessage::Trace { cancel: cancel.clone() }).unwrap();
 
     res.write_all(b"[\n")?;
 
     let mut index = 0;
     let mut prev_locals = HashMap::new();
+
+    let mut child_execution = child_execution.lock().unwrap();
 
     let mut terminated = false;
     let mut done = false;
@@ -714,7 +754,7 @@ fn trace_stream(res: &mut Response<Streaming>, child: &mut child::Thread) -> io:
 
             DebugMessage::Trace(DebugTrace::Return(line, value)) => {
                 done = true;
-                child.execution = None;
+                child_execution.execution = None;
 
                 let data = api::TraceData::Return { value: value };
                 api::Trace { index: index, line: line, data: data }
@@ -722,9 +762,8 @@ fn trace_stream(res: &mut Response<Streaming>, child: &mut child::Thread) -> io:
 
             DebugMessage::Trace(DebugTrace::Breakpoint(address)) => {
                 done = true;
-
-                let id = child.next_id();
-                child.execution = Some((id, child::Execution::Function(address)));
+                let id = child_execution.next_id();
+                child_execution.execution = Some((id, child::Execution::Function(address)));
 
                 let data = api::TraceData::Break { next_execution: id };
                 api::Trace { index: 0, line: 0, data: data }
@@ -733,7 +772,7 @@ fn trace_stream(res: &mut Response<Streaming>, child: &mut child::Thread) -> io:
             DebugMessage::Trace(DebugTrace::Exit(code)) => {
                 terminated = true;
                 done = true;
-                child.execution = None;
+                child_execution.execution = None;
 
                 let data = api::TraceData::Exit { code: code };
                 api::Trace { index: 0, line: 0, data: data }
@@ -743,14 +782,35 @@ fn trace_stream(res: &mut Response<Streaming>, child: &mut child::Thread) -> io:
             DebugMessage::Trace(DebugTrace::Crash) => {
                 terminated = true;
                 done = true;
-                child.execution = None;
+                child_execution.execution = None;
 
                 let data = api::TraceData::Crash { stack: String::new() };
                 api::Trace { index: 0, line: 0, data: data }
             }
 
+            DebugMessage::Trace(DebugTrace::Cancel) => {
+                done = true;
+                let (_, e_type) = child_execution.execution.take().unwrap();
+
+                let data = match e_type {
+                    child::Execution::Process => {
+                        terminated = true;
+                        child_execution.execution = None;
+                        api::TraceData::Cancel
+                        
+                    }
+                    child::Execution::Function(_) => {
+                        child_execution.execution = None;
+                        api::TraceData::Cancel
+                    }
+                };
+
+                cancel.store(false, Ordering::Relaxed);
+                api::Trace { index: 0, line: 0, data: data }
+            }
+
             DebugMessage::Error(e) => {
-                child.execution = None;
+                child_execution.execution = None;
                 return Err(e);
             }
             _ => unreachable!(),
@@ -764,9 +824,30 @@ fn trace_stream(res: &mut Response<Streaming>, child: &mut child::Thread) -> io:
     res.write_all(b"\n]")?;
     Ok(terminated)
 }
-
+    
+// Stops the execution and terminates the process.  User has to start over
 /// POST /debug/:id/executions/:execution/stop -- Halts a running execution
-fn debug_execution_stop(req: Request, mut res: Response, _: Captures) {
-    *res.status_mut() = StatusCode::NotImplemented;
-    send(req, res, b"").unwrap();
+fn debug_execution_stop(
+    caps: Captures, cancel: Arc<AtomicBool>,
+    child_execution: ChildExecution,
+) -> io::Result<Vec<u8>> {
+    let caps = caps.unwrap();
+    let _debug_id = caps[1].parse::<u64>()
+        .map_err(|e| io::Error::new(io::ErrorKind::NotConnected, e))?;
+    let execution_id = caps[2].parse::<i32>()
+        .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
+
+    cancel.store(true, Ordering::Relaxed);
+
+    let child_execution = child_execution.lock().unwrap();
+    let id = match child_execution.execution {
+        Some((id, _)) => id,
+        None => return Err(io::Error::new(io::ErrorKind::NotFound, "not currently executing")),
+    };
+    
+    if execution_id != id {
+        return Err(io::Error::new(io::ErrorKind::NotFound, "not currently executing"));
+    }
+
+    Ok(vec![])
 }
