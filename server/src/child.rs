@@ -53,6 +53,7 @@ pub struct Function {
 #[allow(dead_code)]
 pub enum DebugTrace {
     Line(u32, Vec<(String, String)>),
+    Call(u32, usize),
     Return(u32, String),
 
     Breakpoint(usize),
@@ -136,16 +137,20 @@ struct DebugState {
     execution: Option<ExecutionState>,
     event: Option<debug::Event>,
     attached: bool,
+    last_call: Option<usize>,
 }
 
 enum ExecutionState {
     Process,
 
     Function {
-        trace: HashMap<usize, Option<debug::Breakpoint>>,
-        line: u32,
-        exit: usize,
         call: debug::Call,
+        trace: HashMap<usize, Option<debug::Breakpoint>>,
+        attached: bool,
+
+        line: u32,
+        entry: usize,
+        exit: usize,
     },
 }
 
@@ -169,6 +174,7 @@ fn run(
         execution: None,
         event: None,
         attached: false,
+        last_call: None,
     };
 
     let event = debug::Event::wait_event()?;
@@ -335,6 +341,10 @@ fn set_breakpoint(target: &TargetState, state: &mut DebugState, address: usize) 
         return Err(io::Error::new(io::ErrorKind::NotFound, "no such function"));
     }
 
+    if breakpoints.contains_key(&function.address) {
+        return Ok(());
+    }
+
     let breakpoint = child.set_breakpoint(function.address)?;
     breakpoints.insert(function.address, Some(breakpoint));
 
@@ -374,88 +384,29 @@ fn trace_process(
         _ => unreachable!(),
     };
 
-    let TargetState { ref child, ref symbols } = *target;
-
-    let mut last_breakpoint = None;
     loop {
         let mut event = debug::Event::wait_event()?;
 
-        use debug::EventInfo::*;
-        match event.info {
-            Exception { first_chance: true, code: winapi::EXCEPTION_BREAKPOINT, address } if
-                state.attached
-            => {
-                let DebugState { ref threads, ref mut breakpoints, .. } = *state;
-                let thread = threads[&event.thread_id];
-                let breakpoint = match breakpoints.get_mut(&address).and_then(Option::take) {
-                    Some(breakpoint) => breakpoint,
-                    None => { event.continue_event(false)?; continue; }
+        state.event = Some(event);
+        match trace_default(target, state, tx, &mut true)? {
+            Some(TraceEvent::Call(ex @ ExecutionState::Function { .. })) => {
+                let address = match ex {
+                    ExecutionState::Function { entry, .. } => entry,
+                    _ => unreachable!(),
                 };
-
-                state.event = Some(event);
-                let mut context = debug::get_thread_context(thread, winapi::CONTEXT_FULL)?;
-
-                // disable and save the breakpoint
-                child.remove_breakpoint(breakpoint)?;
-                last_breakpoint = Some(address);
-
-                // restart the instruction and enable singlestep
-                context.set_instruction_pointer(address);
-                context.set_singlestep(true);
-
-                debug::set_thread_context(thread, &context)?;
-                event = state.event.take().unwrap();
-            }
-
-            Exception { first_chance: true, code: winapi::EXCEPTION_SINGLE_STEP, .. } if
-                state.attached
-            => {
-                let DebugState { ref threads, ref mut breakpoints, .. } = *state;
-                let thread = threads[&event.thread_id];
-                let address = match last_breakpoint.take() {
-                    Some(address) => address,
-                    None => { event.continue_event(false)?; continue }
-                };
-                let (function, _) = symbols.symbol_from_address(address)?;
-
-                state.event = Some(event);
-                let mut context = debug::get_thread_context(thread, winapi::CONTEXT_FULL)?;
-
-                // resume normal execution
-                let breakpoint = child.set_breakpoint(address)?;
-                breakpoints.insert(address, Some(breakpoint));
-                context.set_singlestep(false);
-
-                // capture the call
-                let frame = symbols.walk_stack(thread)?.next().unwrap();
-                let exit = frame.stack.AddrReturn.Offset as usize;
-                let call = debug::Call::capture(symbols, &function)?;
-
-                // set a breakpoint on each line
-                let mut lines = symbols.lines_from_symbol(&function)?;
-                let line = lines.next().map(|line| line.line).unwrap_or(0);
-                let mut trace = Trace::create(child);
-                for line in lines {
-                    trace.set_breakpoint(line.address)?;
-                }
-                trace.set_breakpoint(exit)?;
-
-                debug::set_thread_context(thread, &context)?;
-                event = state.event.take().unwrap();
-
-                // move to a new execution
-                let trace = trace.pause();
-                state.execution = Some(ExecutionState::Function { trace, line, exit, call });
                 tx.send(DebugMessage::Trace(DebugTrace::Breakpoint(address))).unwrap();
+                state.execution = Some(ex);
 
+                event = state.event.take().unwrap();
                 event.continue_event(true)?;
                 return Ok(());
             }
 
-            _ => if trace_event(target, state, tx, &event) {
-                return Ok(())
-            },
+            Some(TraceEvent::Terminate) => { return Ok(()); }
+            None => {}
+            _ => unreachable!(),
         }
+        event = state.event.take().unwrap();
 
         event.continue_event(true)?;
     }
@@ -476,6 +427,8 @@ fn call_function(
 
     state.event = Some(event);
     let mut context = debug::get_thread_context(thread, winapi::CONTEXT_FULL)?;
+
+    set_breakpoint(target, state, address)?;
 
     // set up the call
     let arg_type = debug::Type::Base { base: debug::Primitive::Int { signed: true }, size: 4 };
@@ -499,7 +452,9 @@ fn call_function(
 
     // move to a new execution
     let trace = trace.pause();
-    state.execution = Some(ExecutionState::Function { trace, line, exit, call });
+    let attached = false;
+    let entry = address;
+    state.execution = Some(ExecutionState::Function { call, trace, attached, line, entry, exit });
 
     event.continue_event(true)?;
     Ok(())
@@ -509,10 +464,12 @@ fn trace_function(
     target: &TargetState, state: &mut DebugState, tx: &SyncSender<DebugMessage>,
     execution: ExecutionState
 ) -> io::Result<()> {
-    let (trace, line, exit, call) = match execution {
-        ExecutionState::Function { trace, line, exit, call } => (trace, line, exit, call),
+    let (call, trace, mut attached, line, address, exit) = match execution {
+        ExecutionState::Function { call, trace, attached, line, entry, exit } =>
+            (call, trace, attached, line, entry, exit),
         _ => unreachable!(),
     };
+    tx.send(DebugMessage::Trace(DebugTrace::Call(line, address))).unwrap();
 
     let TargetState { ref child, ref symbols } = *target;
     let mut trace = Trace::resume(child, trace);
@@ -525,14 +482,10 @@ fn trace_function(
         use debug::EventInfo::*;
         match event.info {
             Exception { first_chance: true, code: winapi::EXCEPTION_BREAKPOINT, address } if
-                state.attached && address != exit
+                state.attached && trace.has_breakpoint(address) && address != exit
             => {
-                let DebugState { ref threads, ..  } = *state;
-                let thread = threads[&event.thread_id];
-                let breakpoint = match trace.take_breakpoint(address) {
-                    Some(breakpoint) => breakpoint,
-                    None => { event.continue_event(false)?; continue; }
-                };
+                let thread = state.threads[&event.thread_id];
+                let breakpoint = trace.take_breakpoint(address).unwrap();
 
                 state.event = Some(event);
                 let mut context = debug::get_thread_context(thread, winapi::CONTEXT_FULL)?;
@@ -570,20 +523,15 @@ fn trace_function(
                 tx.send(DebugMessage::Trace(DebugTrace::Line(last_line, locals))).unwrap();
                 last_line = line.line;
 
-                // move to the next line
                 debug::set_thread_context(thread, &context)?;
                 event = state.event.take().unwrap();
             }
 
             Exception { first_chance: true, code: winapi::EXCEPTION_SINGLE_STEP, .. } if
-                state.attached
+                state.attached && last_breakpoint.is_some()
             => {
-                let DebugState { ref threads, ..  } = *state;
-                let thread = threads[&event.thread_id];
-                let address = match last_breakpoint.take() {
-                    Some(address) => address,
-                    None => { event.continue_event(false)?; continue; }
-                };
+                let thread = state.threads[&event.thread_id];
+                let address = last_breakpoint.take().unwrap();
 
                 state.event = Some(event);
                 let mut context = debug::get_thread_context(thread, winapi::CONTEXT_FULL)?;
@@ -599,8 +547,7 @@ fn trace_function(
             Exception { first_chance: true, code: winapi::EXCEPTION_BREAKPOINT, address } if
                 state.attached && address == exit
             => {
-                let DebugState { ref threads, .. } = *state;
-                let thread = threads[&event.thread_id];
+                let thread = state.threads[&event.thread_id];
 
                 state.event = Some(event);
                 let mut context = debug::get_thread_context(thread, winapi::CONTEXT_FULL)?;
@@ -621,8 +568,20 @@ fn trace_function(
                 return Ok(());
             }
 
-            _ => if trace_event(target, state, tx, &event) {
-                return Ok(());
+            _ => {
+                state.event = Some(event);
+                match trace_default(target, state, tx, &mut attached)? {
+                    Some(TraceEvent::Call(ex @ ExecutionState::Function { .. })) => {
+                        event = state.event.take().unwrap();
+                        event.continue_event(true)?;
+                        trace_function(target, state, tx, ex)?;
+                    }
+
+                    Some(TraceEvent::Terminate) => { return Ok(()); }
+                    None => {}
+                    _ => unreachable!(),
+                }
+                event = state.event.take().unwrap();
             }
         }
 
@@ -630,19 +589,25 @@ fn trace_function(
     }
 }
 
-fn trace_event(
+enum TraceEvent {
+    Call(ExecutionState),
+    Terminate,
+}
+
+fn trace_default(
     target: &TargetState, state: &mut DebugState, tx: &SyncSender<DebugMessage>,
-    event: &debug::Event
-) -> bool {
-    let TargetState { ref symbols, .. } = *target;
-    let DebugState { ref mut threads, ref mut attached, .. } = *state;
+    capture_calls: &mut bool
+) -> io::Result<Option<TraceEvent>> {
+    let TargetState { ref child, ref symbols } = *target;
+    let DebugState { ref mut threads, ref mut breakpoints, ref mut attached, .. } = *state;
+
+    let event = state.event.as_ref().unwrap();
 
     use debug::EventInfo::*;
     match event.info {
         ExitProcess { exit_code } => {
-            let trace = DebugTrace::Exit(exit_code);
-            tx.send(DebugMessage::Trace(trace)).unwrap();
-            return true;
+            tx.send(DebugMessage::Trace(DebugTrace::Exit(exit_code))).unwrap();
+            return Ok(Some(TraceEvent::Terminate));
         }
 
         CreateThread { thread, .. } => { threads.insert(event.thread_id, thread); }
@@ -660,8 +625,71 @@ fn trace_event(
             *attached = true;
         }
 
+        Exception { first_chance: true, code: winapi::EXCEPTION_BREAKPOINT, address } if
+            *attached && breakpoints.contains_key(&address)
+        => {
+            let thread = threads[&event.thread_id];
+            let breakpoint = breakpoints.get_mut(&address).and_then(Option::take).unwrap();
+
+            let mut context = debug::get_thread_context(thread, winapi::CONTEXT_FULL)?;
+
+            // disable and save the breakpoint
+            child.remove_breakpoint(breakpoint)?;
+            state.last_call = Some(address);
+
+            // restart the instruction and enable singlestep
+            context.set_instruction_pointer(address);
+            context.set_singlestep(true);
+
+            debug::set_thread_context(thread, &context)?;
+        }
+
+        Exception { first_chance: true, code: winapi::EXCEPTION_SINGLE_STEP, .. } if
+            *attached && state.last_call.is_some()
+        => {
+            let thread = threads[&event.thread_id];
+            let address = state.last_call.take().unwrap();
+            let (function, _) = symbols.symbol_from_address(address)?;
+
+            let mut context = debug::get_thread_context(thread, winapi::CONTEXT_FULL)?;
+
+            // resume normal execution
+            let breakpoint = child.set_breakpoint(address)?;
+            breakpoints.insert(address, Some(breakpoint));
+            context.set_singlestep(false);
+
+            debug::set_thread_context(thread, &context)?;
+
+            // if this is a function-level breakpoint and we came from call_function, we're done
+            if !*capture_calls {
+                *capture_calls = true;
+                return Ok(None);
+            }
+
+            // capture the call
+            let frame = symbols.walk_stack(thread)?.next().unwrap();
+            let exit = frame.stack.AddrReturn.Offset as usize;
+            let call = debug::Call::capture(symbols, &function)?;
+
+            // set a breakpoint on each line
+            let mut lines = symbols.lines_from_symbol(&function)?;
+            let line = lines.next().map(|line| line.line).unwrap_or(0);
+            let mut trace = Trace::create(child);
+            for line in lines {
+                trace.set_breakpoint(line.address)?;
+            }
+            trace.set_breakpoint(exit)?;
+
+            // move to a new execution
+            let trace = trace.pause();
+            let attached = true;
+            let entry = address;
+            let execution = ExecutionState::Function { call, trace, attached, line, entry, exit };
+            return Ok(Some(TraceEvent::Call(execution)));
+        }
+
         _ => {}
     }
 
-    false
+    Ok(None)
 }
