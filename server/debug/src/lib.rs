@@ -1,5 +1,4 @@
 #![feature(optin_builtin_traits)]
-#![feature(field_init_shorthand)]
 #![feature(associated_consts)]
 
 extern crate winapi;

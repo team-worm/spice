@@ -1,5 +1,3 @@
-#![feature(field_init_shorthand)]
-
 extern crate hyper;
 extern crate unicase;
 extern crate reroute;

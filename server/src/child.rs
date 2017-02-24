@@ -49,8 +49,6 @@ pub struct Function {
     pub locals: Vec<(OsString, usize)>,
 }
 
-// TODO: remove this once these messages are used
-#[allow(dead_code)]
 pub enum DebugTrace {
     Line(u32, Vec<(String, String)>),
     Call(u32, usize),
@@ -251,6 +249,7 @@ fn run(
 
                     Some(ex @ ExecutionState::Function { .. }) => {
                         trace_function(&target, &mut state, &tx, ex, 0)
+                            .map(|_| ())
                     }
 
                     None => Err(io::Error::from(io::ErrorKind::NotFound)),
@@ -269,7 +268,6 @@ fn run(
             }
         }
     }
-
 
     Ok(())
 }
@@ -459,10 +457,15 @@ fn call_function(
     Ok(())
 }
 
+enum TraceEvent {
+    Call(ExecutionState),
+    Terminate,
+}
+
 fn trace_function(
     target: &TargetState, state: &mut DebugState, tx: &SyncSender<DebugMessage>,
     execution: ExecutionState, last_line: u32
-) -> io::Result<()> {
+) -> io::Result<Option<TraceEvent>> {
     let (call, mut attached, entry, exit, stack) = match execution {
         ExecutionState::Function { call, attached, entry, exit, stack } =>
             (call, attached, entry, exit, stack),
@@ -578,7 +581,7 @@ fn trace_function(
                         context.set_singlestep(false);
                         debug::set_thread_context(thread, &context)?;
                     }
-                    return Ok(());
+                    return Ok(None);
                 }
 
                 debug::set_thread_context(thread, &context)?;
@@ -613,12 +616,15 @@ fn trace_function(
                         let breakpoint = ret.take().unwrap();
                         child.remove_breakpoint(breakpoint.into_inner())?;
 
-                        trace_function(target, state, tx, ex, last_line)?;
+                        let event = trace_function(target, state, tx, ex, last_line)?;
+                        if let Some(TraceEvent::Terminate) = event {
+                            return Ok(event);
+                        }
 
                         ret = Some(BreakpointGuard::new(child, child.set_breakpoint(exit)?));
                     }
 
-                    Some(TraceEvent::Terminate) => { return Ok(()); }
+                    event @ Some(TraceEvent::Terminate) => { return Ok(event); }
                     None => {}
                     _ => unreachable!(),
                 }
@@ -628,11 +634,6 @@ fn trace_function(
 
         event.continue_event(true)?;
     }
-}
-
-enum TraceEvent {
-    Call(ExecutionState),
-    Terminate,
 }
 
 fn trace_default(
@@ -722,6 +723,11 @@ fn trace_default(
             // move to a new execution
             let execution = ExecutionState::Function { call, attached, entry, exit, stack };
             return Ok(Some(TraceEvent::Call(execution)));
+        }
+
+        Exception { first_chance: false, .. } => {
+            tx.send(DebugMessage::Trace(DebugTrace::Crash)).unwrap();
+            return Ok(Some(TraceEvent::Terminate));
         }
 
         _ => {}
