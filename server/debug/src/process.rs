@@ -13,6 +13,10 @@ use {FromWide, AsBytes};
 /// A running or exited debugee process, created via a `Command`
 pub struct Child(RawHandle);
 
+/// A handle to a process that can inject breakpoints
+pub struct Cancel(RawHandle);
+unsafe impl Send for Cancel {}
+
 impl Child {
     /// Read `buffer.len()` bytes from a process's address space at `address`
     pub fn read_memory(&self, address: usize, buffer: &mut [u8]) -> io::Result<usize> {
@@ -66,6 +70,10 @@ impl Child {
         self.write_memory(address, &bytes)?;
 
         Ok(())
+    }
+
+    pub fn get_cancel(&self) -> Cancel {
+        Cancel(self.0)
     }
 
     pub fn attach(pid: u32) -> io::Result<Child> {
@@ -127,6 +135,18 @@ impl AsRawHandle for Child {
 
 impl IntoRawHandle for Child {
     fn into_raw_handle(self) -> RawHandle { self.0 }
+}
+
+impl Cancel {
+    pub fn trigger_breakpoint(&self) -> io::Result<()> {
+        unsafe {
+            if kernel32::DebugBreakProcess(self.0) == winapi::FALSE {
+                return Err(io::Error::last_os_error());
+            }
+
+            Ok(())
+        }
+    }
 }
 
 /// An enabled breakpoint in a child process

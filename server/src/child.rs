@@ -1,10 +1,11 @@
 use std::{io, mem};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc::{sync_channel, SyncSender, Receiver};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::ffi::OsString;
-use std::sync::mpsc::{sync_channel, SyncSender, Receiver};
-use std::thread;
-use std::thread::JoinHandle;
+use std::thread::{self, JoinHandle};
 use std::os::windows::io::RawHandle;
 
 use debug;
@@ -15,12 +16,11 @@ pub struct Thread {
     pub thread: JoinHandle<()>,
     pub tx: SyncSender<ServerMessage>,
     pub rx: Receiver<DebugMessage>,
-   
+
     pub execution: Option<(i32, Execution)>,
     pub id: i32,
 }
 
-#[derive(Copy, Clone)]
 pub enum Execution {
     Process,
     Function(usize),
@@ -28,7 +28,7 @@ pub enum Execution {
 
 /// messages the debug event loop sends to the server
 pub enum DebugMessage {
-    Attached,
+    Attached(debug::Cancel),
     Functions(Vec<Function>),
     Function(Function),
     Breakpoints(Vec<usize>),
@@ -56,12 +56,11 @@ pub enum DebugTrace {
 
     Breakpoint(usize),
     Exit(u32),
+    Cancel,
     Crash,
 }
 
 /// messages the server sends to the debug event loop to request info
-// TODO: remove this once these messages are used
-#[allow(dead_code)]
 pub enum ServerMessage {
     ListFunctions,
     DescribeFunction { address: usize },
@@ -71,50 +70,54 @@ pub enum ServerMessage {
     Continue,
     CallFunction { address: usize, arguments: Vec<i32> },
     Trace,
-    Stop,
     Quit,
 }
 
 impl Thread {
-    pub fn launch(path: PathBuf) -> Thread {
-        Thread::spawn(move |debug_tx, server_rx| {
+    pub fn launch(path: PathBuf) -> (Thread, Arc<AtomicBool>) {
+        Thread::spawn(move |debug_tx, server_rx, cancel| {
             let child = debug::Command::new(&path)
                 .env_clear()
                 .debug()?;
 
-            run(child, debug_tx, server_rx)
+            run(child, debug_tx, server_rx, cancel)
         })
     }
 
-    pub fn attach(pid: u32) -> Thread {
-        Thread::spawn(move |debug_tx, server_rx| {
+    pub fn attach(pid: u32) -> (Thread, Arc<AtomicBool>) {
+        Thread::spawn(move |debug_tx, server_rx, cancel| {
             let child = debug::Child::attach(pid)?;
 
-            run(child, debug_tx, server_rx)
+            run(child, debug_tx, server_rx, cancel)
         })
     }
 
-    fn spawn<F>(f: F) -> Thread where
-        F: FnOnce(SyncSender<DebugMessage>, Receiver<ServerMessage>) -> io::Result<()>,
+    fn spawn<F>(f: F) -> (Thread, Arc<AtomicBool>) where
+        F: FnOnce(SyncSender<DebugMessage>, Receiver<ServerMessage>, Arc<AtomicBool>)
+            -> io::Result<()>,
         F: Send + 'static
     {
         let (server_tx, server_rx) = sync_channel(0);
         let (debug_tx, debug_rx) = sync_channel(0);
+        let cancel_flag = Arc::new(AtomicBool::new(false));
 
+        let cancel = cancel_flag.clone();
         let thread = thread::spawn(move || {
-            if let Err(e) = f(debug_tx.clone(), server_rx) {
+            if let Err(e) = f(debug_tx.clone(), server_rx, cancel) {
                 debug_tx.send(DebugMessage::Error(e)).unwrap();
             }
         });
 
-        Thread {
+        let thread = Thread {
             thread: thread,
             tx: server_tx,
             rx: debug_rx,
 
             execution: None,
             id: -1,
-        }
+        };
+
+        (thread, cancel_flag)
     }
 
     pub fn next_id(&mut self) -> i32 {
@@ -144,6 +147,7 @@ enum ExecutionState {
 
     Function {
         call: debug::Call,
+        thread: RawHandle,
         attached: bool,
 
         entry: usize,
@@ -153,7 +157,8 @@ enum ExecutionState {
 }
 
 fn run(
-    child: debug::Child, tx: SyncSender<DebugMessage>, rx: Receiver<ServerMessage>
+    child: debug::Child, tx: SyncSender<DebugMessage>, rx: Receiver<ServerMessage>,
+    cancel: Arc<AtomicBool>
 ) -> io::Result<()> {
     let options = debug::SymbolHandler::get_options();
     debug::SymbolHandler::set_options(winapi::SYMOPT_DEBUG | winapi::SYMOPT_LOAD_LINES | options);
@@ -183,7 +188,7 @@ fn run(
             .and_then(|file| target.symbols.load_module(file, base));
 
         state.threads.insert(event.thread_id, main_thread);
-        tx.send(DebugMessage::Attached).unwrap();
+        tx.send(DebugMessage::Attached(target.child.get_cancel())).unwrap();
     } else {
         panic!("got another debug event before CreateProcess");
     }
@@ -244,11 +249,11 @@ fn run(
 
                 let result = match state.execution.take() {
                     Some(ex @ ExecutionState::Process) => {
-                        trace_process(&target, &mut state, &tx, ex)
+                        trace_process(&target, &mut state, &tx, &cancel, ex)
                     }
 
                     Some(ex @ ExecutionState::Function { .. }) => {
-                        trace_function(&target, &mut state, &tx, ex, 0)
+                        trace_function(&target, &mut state, &tx, &cancel, ex, 0)
                             .map(|_| ())
                     }
 
@@ -259,8 +264,6 @@ fn run(
                     tx.send(DebugMessage::Error(e)).unwrap();
                 }
             }
-
-            ServerMessage::Stop => {}
 
             ServerMessage::Quit => {
                 let _ = target.child.terminate();
@@ -380,7 +383,8 @@ fn continue_process(state: &mut DebugState) -> io::Result<()> {
 }
 
 fn trace_process(
-    target: &TargetState, state: &mut DebugState, tx: &SyncSender<DebugMessage>,
+    target: &TargetState, state: &mut DebugState,
+    tx: &SyncSender<DebugMessage>, cancel: &AtomicBool,
     execution: ExecutionState
 ) -> io::Result<()> {
     let _ = match execution {
@@ -392,7 +396,7 @@ fn trace_process(
         let mut event = debug::Event::wait_event()?;
 
         state.event = Some(event);
-        match trace_default(target, state, tx, &mut true)? {
+        match trace_default(target, state, tx, cancel, &mut true)? {
             Some(TraceEvent::Call(ex @ ExecutionState::Function { .. })) => {
                 let address = match ex {
                     ExecutionState::Function { entry, .. } => entry,
@@ -406,6 +410,7 @@ fn trace_process(
                 return Ok(());
             }
 
+            Some(TraceEvent::Cancel) => { return Ok(()); }
             Some(TraceEvent::Terminate) => { return Ok(()); }
             None => {}
             _ => unreachable!(),
@@ -451,7 +456,7 @@ fn call_function(
     event = state.event.take().unwrap();
 
     // move to a new execution
-    state.execution = Some(ExecutionState::Function { call, attached, entry, exit, stack });
+    state.execution = Some(ExecutionState::Function { call, thread, attached, entry, exit, stack });
 
     event.continue_event(true)?;
     Ok(())
@@ -459,21 +464,23 @@ fn call_function(
 
 enum TraceEvent {
     Call(ExecutionState),
+    Cancel,
     Terminate,
 }
 
 fn trace_function(
-    target: &TargetState, state: &mut DebugState, tx: &SyncSender<DebugMessage>,
+    target: &TargetState, state: &mut DebugState,
+    tx: &SyncSender<DebugMessage>, cancel: &AtomicBool,
     execution: ExecutionState, last_line: u32
 ) -> io::Result<Option<TraceEvent>> {
-    let (call, mut attached, entry, exit, stack) = match execution {
-        ExecutionState::Function { call, attached, entry, exit, stack } =>
-            (call, attached, entry, exit, stack),
+    let (call, thread, mut attached, entry, exit, stack) = match execution {
+        ExecutionState::Function { call, thread, attached, entry, exit, stack } =>
+            (call, thread, attached, entry, exit, stack),
         _ => unreachable!(),
     };
     tx.send(DebugMessage::Trace(DebugTrace::Call(last_line, entry))).unwrap();
 
-    let TargetState { ref child, ref symbols, ref traces, .. } = *target;
+    let TargetState { ref child, ref symbols, ref breakpoints, ref traces, .. } = *target;
     let ref trace = traces[&entry];
     let mut ret = Some(BreakpointGuard::new(child, child.set_breakpoint(exit)?));
 
@@ -608,26 +615,40 @@ fn trace_function(
 
             _ => {
                 state.event = Some(event);
-                match trace_default(target, state, tx, &mut attached)? {
-                    Some(TraceEvent::Call(ex @ ExecutionState::Function { .. })) => {
-                        event = state.event.take().unwrap();
-                        event.continue_event(true)?;
 
-                        let breakpoint = ret.take().unwrap();
-                        child.remove_breakpoint(breakpoint.into_inner())?;
+                let mut trace_event = trace_default(target, state, tx, &cancel, &mut attached)?;
 
-                        let event = trace_function(target, state, tx, ex, last_line)?;
-                        if let Some(TraceEvent::Terminate) = event {
-                            return Ok(event);
-                        }
+                if let Some(TraceEvent::Call(ex @ ExecutionState::Function { .. })) = trace_event {
+                    event = state.event.take().unwrap();
+                    event.continue_event(true)?;
 
-                        ret = Some(BreakpointGuard::new(child, child.set_breakpoint(exit)?));
+                    let breakpoint = ret.take().unwrap();
+                    child.remove_breakpoint(breakpoint.into_inner())?;
+
+                    trace_event = trace_function(target, state, tx, cancel, ex, last_line)?;
+                    ret = Some(BreakpointGuard::new(child, child.set_breakpoint(exit)?));
+                }
+
+                if let Some(TraceEvent::Cancel) = trace_event {
+                    if let Some(address) = state.last_call.take() {
+                        *breakpoints[&address].borrow_mut() = Some(child.set_breakpoint(address)?);
+                    }
+                    if let Some(address) = last_breakpoint.take() {
+                        *trace[&address].borrow_mut() = Some(child.set_breakpoint(address)?);
                     }
 
-                    event @ Some(TraceEvent::Terminate) => { return Ok(event); }
-                    None => {}
-                    _ => unreachable!(),
+                    let restore = call.cancel();
+                    if let Some(context) = restore {
+                        debug::set_thread_context(thread, &context)?;
+                    }
+
+                    return Ok(trace_event);
                 }
+
+                if let Some(TraceEvent::Terminate) = trace_event {
+                    return Ok(trace_event);
+                }
+
                 event = state.event.take().unwrap();
             }
         }
@@ -637,7 +658,8 @@ fn trace_function(
 }
 
 fn trace_default(
-    target: &TargetState, state: &mut DebugState, tx: &SyncSender<DebugMessage>,
+    target: &TargetState, state: &mut DebugState,
+    tx: &SyncSender<DebugMessage>, cancel: &AtomicBool,
     capture_calls: &mut bool
 ) -> io::Result<Option<TraceEvent>> {
     let TargetState { ref child, ref symbols, ref breakpoints, .. } = *target;
@@ -721,8 +743,16 @@ fn trace_default(
             let attached = true;
 
             // move to a new execution
-            let execution = ExecutionState::Function { call, attached, entry, exit, stack };
+            let execution = ExecutionState::Function { call, thread, attached, entry, exit, stack };
             return Ok(Some(TraceEvent::Call(execution)));
+        }
+
+        Exception { first_chance: true, code: winapi::EXCEPTION_BREAKPOINT, .. } if
+            cancel.load(Ordering::Relaxed)
+        => {
+            cancel.store(false, Ordering::Relaxed);
+            tx.send(DebugMessage::Trace(DebugTrace::Cancel)).unwrap();
+            return Ok(Some(TraceEvent::Cancel));
         }
 
         Exception { first_chance: false, .. } => {

@@ -14,6 +14,7 @@ extern crate winapi;
 
 use std::{io, fs};
 use std::sync::{Mutex, Arc};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::io::{Write};
 use std::path::Path;
 use std::ffi::OsStr;
@@ -32,10 +33,17 @@ mod trace;
 mod api;
 
 type ChildThread = Arc<Mutex<Option<child::Thread>>>;
+type ChildCancel = Arc<Mutex<Option<Cancel>>>;
+
+struct Cancel {
+    cancel: debug::Cancel,
+    flag: Arc<AtomicBool>,
+}
 
 fn main() {
     // current child thread (only one at a time)
     let child_thread = Arc::new(Mutex::new(None));
+    let child_cancel = Arc::new(Mutex::new(None));
 
     let mut router = RouterBuilder::new();
 
@@ -60,16 +68,18 @@ fn main() {
     // attaching
 
     let child = child_thread.clone();
+    let cancel = child_cancel.clone();
     router.post(r"/api/v1/debug/attach/pid/([0-9]*)", move |req, res, caps| {
-        match debug_attach_pid(caps, child.clone()) {
+        match debug_attach_pid(caps, child.clone(), cancel.clone()) {
             Ok(body) => send(req, res, &body),
             Err(e) => send_error(req, res, e),
         }.unwrap();
     });
 
     let child = child_thread.clone();
+    let cancel = child_cancel.clone();
     router.post(r"/api/v1/debug/attach/bin/(.*)", move |req, res, caps| {
-        match debug_attach_bin(caps, child.clone()) {
+        match debug_attach_bin(caps, child.clone(), cancel.clone()) {
             Ok(body) => send(req, res, &body),
             Err(e) => send_error(req, res, e),
         }.unwrap();
@@ -175,14 +185,15 @@ fn main() {
     });
 
     let child = child_thread.clone();
+    let cancel = child_cancel.clone();
     router.get(r"/api/v1/debug/([0-9]*)/executions/([0-9]*)/trace", move |mut req, mut res, caps| {
-        let mut child = child.lock().unwrap();
-        if child.is_none() {
+        let mut child_thread = child.lock().unwrap();
+        if child_thread.is_none() {
             let e = io::Error::from(io::ErrorKind::NotConnected);
             return send_error(req, res, e).unwrap();
         }
 
-        let _ = match debug_execution_trace(caps, child.as_ref().unwrap()) {
+        let _ = match debug_execution_trace(caps, child_thread.as_ref().unwrap()) {
             Ok(execution) => execution,
             Err(e) => return send_error(req, res, e).unwrap(),
         };
@@ -198,7 +209,7 @@ fn main() {
         }
 
         let mut res = res.start().unwrap();
-        let terminated = match trace_stream(&mut res, child.as_mut().unwrap()) {
+        let terminated = match trace_stream(&mut res, child_thread.as_mut().unwrap()) {
             Ok(terminated) => terminated,
             Err(e) => {
                 let error = api::Error { message: format!("{:?}", e) };
@@ -213,14 +224,24 @@ fn main() {
         res.end().unwrap();
 
         if terminated {
-            if let Some(child) = child.take() {
+            let mut child_cancel = cancel.lock().unwrap();
+
+            if let Some(child) = child_thread.take() {
                 child.tx.send(ServerMessage::Quit).unwrap();
                 child.thread.join().unwrap();
+
+                child_cancel.take().unwrap();
             }
         }
     });
 
-    router.post(r"/api/v1/debug/([0-9]*)/executions/([0-9]*)/stop", debug_execution_stop);
+    let cancel = child_cancel.clone();
+    router.post(r"/api/v1/debug/([0-9]*)/executions/([0-9]*)/stop", move |req, res, caps| {
+        match debug_execution_stop(caps, cancel.clone()) {
+            Ok(body) => send(req, res, &body),
+            Err(e) => send_error(req, res, e),
+        }.unwrap();
+    });
 
     router.options(r".*", move |_, mut res, _| {
         {
@@ -372,23 +393,30 @@ fn file(mut req: Request, mut res: Response, caps: Captures) {
 }
 
 /// POST /debug/attach/pid/:pid -- attach to a running process
-fn debug_attach_pid(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
+fn debug_attach_pid(caps: Captures, child: ChildThread, cancel: ChildCancel) -> io::Result<Vec<u8>> {
     let caps = caps.unwrap();
     let pid = caps[1].parse::<u32>()
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
 
     let mut child_thread = child.lock().unwrap();
+    let mut child_cancel = cancel.lock().unwrap();
     if let Some(child) = child_thread.take() {
         child.tx.send(ServerMessage::Quit).unwrap();
         child.thread.join().unwrap();
+
+        child_cancel.take().unwrap();
     }
 
-    let child = child::Thread::attach(pid);
+    let (child, flag) = child::Thread::attach(pid);
     match child.rx.recv().unwrap() {
-        DebugMessage::Attached => *child_thread = Some(child),
+        DebugMessage::Attached(cancel) => {
+            *child_thread = Some(child);
+            *child_cancel = Some(Cancel { cancel, flag });
+        }
+
         DebugMessage::Error(e) => return Err(e),
         _ => unreachable!(),
-    };
+    }
 
     // TODO: get process name
     let message = api::DebugInfo {
@@ -402,24 +430,31 @@ fn debug_attach_pid(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
 }
 
 /// POST /debug/attach/bin/:path -- attach to a binary
-fn debug_attach_bin(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
+fn debug_attach_bin(caps: Captures, child: ChildThread, cancel: ChildCancel) -> io::Result<Vec<u8>> {
     let caps = caps.unwrap();
     let path = url::percent_encoding::percent_decode(caps[1].as_bytes());
     let path = path.decode_utf8_lossy().into_owned();
     let path = Path::new(&path);
 
     let mut child_thread = child.lock().unwrap();
+    let mut child_cancel = cancel.lock().unwrap();
     if let Some(child) = child_thread.take() {
         child.tx.send(ServerMessage::Quit).unwrap();
         child.thread.join().unwrap();
+
+        child_cancel.take().unwrap();
     }
 
-    let child = child::Thread::launch(path.into());
+    let (child, flag) = child::Thread::launch(path.into());
     match child.rx.recv().unwrap() {
-        DebugMessage::Attached => *child_thread = Some(child),
+        DebugMessage::Attached(cancel) => {
+            *child_thread = Some(child);
+            *child_cancel = Some(Cancel { cancel, flag });
+        }
+
         DebugMessage::Error(e) => return Err(e),
         _ => unreachable!(),
-    };
+    }
 
     let name = path.file_name().unwrap_or(OsStr::new(""));
     let message = api::DebugInfo {
@@ -624,7 +659,7 @@ fn debug_executions(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
         .ok_or(io::Error::from(io::ErrorKind::NotConnected))?;
 
     let message: Vec<_> = child.execution.iter()
-        .map(|&(id, execution)| {
+        .map(|&(id, ref execution)| {
             let data = api::ExecutionData::from(execution);
             api::Execution { id: id, data: data }
         })
@@ -645,7 +680,7 @@ fn debug_execution(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
         .ok_or(io::Error::from(io::ErrorKind::NotConnected))?;
 
     let (id, execution) = match child.execution {
-        Some((id, execution)) if id == execution_id => (id, execution),
+        Some((id, ref execution)) if id == execution_id => (id, execution),
         _ => return Err(io::Error::new(io::ErrorKind::NotFound, "no such execution")),
     };
 
@@ -654,9 +689,9 @@ fn debug_execution(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
     Ok(serde_json::to_vec(&message).unwrap())
 }
 
-impl From<child::Execution> for api::ExecutionData {
-    fn from(execution: child::Execution) -> api::ExecutionData {
-        match execution {
+impl<'a> From<&'a child::Execution> for api::ExecutionData {
+    fn from(execution: &child::Execution) -> api::ExecutionData {
+        match *execution {
             child::Execution::Process => api::ExecutionData::Process,
             child::Execution::Function(address) =>
                 api::ExecutionData::Function { function: address },
@@ -754,6 +789,14 @@ fn trace_stream(res: &mut Response<Streaming>, child: &mut child::Thread) -> io:
                 api::Trace { index: next_index, line: 0, data }
             }
 
+            DebugMessage::Trace(DebugTrace::Cancel) => {
+                done = true;
+                child.execution = None;
+
+                let data = api::TraceData::Cancel;
+                api::Trace { index: next_index, line: 0, data }
+            }
+
             // TODO: collect stack trace in child thread
             DebugMessage::Trace(DebugTrace::Crash) => {
                 terminated = true;
@@ -781,7 +824,19 @@ fn trace_stream(res: &mut Response<Streaming>, child: &mut child::Thread) -> io:
 }
 
 /// POST /debug/:id/executions/:execution/stop -- Halts a running execution
-fn debug_execution_stop(req: Request, mut res: Response, _: Captures) {
-    *res.status_mut() = StatusCode::NotImplemented;
-    send(req, res, b"").unwrap();
+fn debug_execution_stop(caps: Captures, cancel: ChildCancel) -> io::Result<Vec<u8>> {
+    let caps = caps.unwrap();
+    let _debug_id = caps[1].parse::<u64>()
+        .map_err(|e| io::Error::new(io::ErrorKind::NotConnected, e))?;
+    let _execution_id = caps[2].parse::<i32>()
+        .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
+
+    let mut cancel = cancel.lock().unwrap();
+    let cancel = cancel.as_mut()
+        .ok_or(io::Error::from(io::ErrorKind::NotConnected))?;
+
+    cancel.flag.store(true, Ordering::Relaxed);
+    cancel.cancel.trigger_breakpoint()?;
+
+    Ok(vec![])
 }
