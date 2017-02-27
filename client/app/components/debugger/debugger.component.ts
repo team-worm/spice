@@ -91,6 +91,10 @@ export class DebuggerComponent {
 	}
 
 	public addTrace(trace: Trace) {
+		if(trace.data.tType === 'call') {
+			//TODO: properly handle these
+			return;
+		}
 		if(this.sourceFunction) {
 			let line = this.lines[trace.line - this.sourceFunction.lineStart];
 			if(this.lastTraceLine >= trace.line) {

@@ -10,7 +10,7 @@ export class Trace {
     line: number;
 
     @Deserialize()
-    data: LineData | ReturnData | BreakData | ExitData | CrashData | ErrorData;
+    data: LineData | ReturnData | BreakData | ExitData | CrashData | CallData | ErrorData;
 }
 
 interface LineData {
@@ -36,6 +36,11 @@ interface ExitData {
 interface CrashData {
     tType: "crash";
     stack: string;
+}
+
+interface CallData {
+    tType: "call";
+    sFunction: number;
 }
 
 interface ErrorData {

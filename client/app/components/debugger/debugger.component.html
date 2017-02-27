@@ -7,7 +7,7 @@
 				<tr>
 					<td *ngFor="let par of sourceFunction.parameters">
 						<md-input-container class="width-100">
-							<input md-input [(ngModel)]="setParameters[par.name]" placeholder="{{par.sType}} {{par.name}}">
+							<input mdInput [(ngModel)]="setParameters[par.name]" placeholder="{{par.sType}} {{par.name}}">
 						</md-input-container>
 					</td>
 				</tr></table>
@@ -20,7 +20,7 @@
 		<md-card-subtitle>Graph variable over time:</md-card-subtitle>
 		<md-card-content>
 			<md-input-container class="width-100">
-				<input md-input [(ngModel)]="graphVariableName" placeholder="Variable name">
+				<input mdInput [(ngModel)]="graphVariableName" placeholder="Variable name">
 			</md-input-container>
 			<button md-button [disabled]="!graphVariableName" (click)="SetGraphVariable(graphVariableName)">Graph</button>
 		</md-card-content>

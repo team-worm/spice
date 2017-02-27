@@ -9,7 +9,7 @@ import {SourceFile} from "../../models/SourceFile";
     <div class="small-padding width-100" fxLayout="row">
         <md-icon class="input-icon">find_in_page</md-icon>
         <md-input-container fxFlex> 
-            <input md-input placeholder="Custom Path" (change)="CustomPathChanged($event)"/>
+            <input mdInput placeholder="Custom Path" (change)="CustomPathChanged($event)"/>
         </md-input-container>
     </div>
     
