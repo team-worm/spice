@@ -9,7 +9,7 @@ import { DebuggerService } from "../../services/debugger.service";
     <div class="small-padding width-100" fxLayout="row">
         <md-icon class="input-icon">search</md-icon>
         <md-input-container fxFlex>
-            <input md-input placeholder="Search Processes" [(ngModel)]="filterString"/>
+            <input mdInput placeholder="Search Processes" [(ngModel)]="filterString"/>
         </md-input-container>
         <span>
             <button md-raised-button [mdMenuTriggerFor]="sortMenu"><md-icon>sort</md-icon>: {{selectedSort.name}}<md-icon>{{selectedSort.icon}}</md-icon></button>

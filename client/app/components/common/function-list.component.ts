@@ -10,7 +10,7 @@ import {DebuggerState} from "../../models/DebuggerState";
 <div class="small-padding" fxFlex="noshrink">
     <md-input-container> 
         <md-icon md-prefix>search</md-icon>
-        <input md-input [(ngModel)]="filterString"/>
+        <input mdInput [(ngModel)]="filterString"/>
     </md-input-container>
 </div>
 <md-list dense fxFlex="grow">

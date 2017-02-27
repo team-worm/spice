@@ -7,14 +7,14 @@
     $background: map-get($theme, background);
     .source-code {
         .row:nth-of-type(odd) {
-            background: md-color($primary, 50);
+            background: mat-color($primary, 50);
         }
         .line-number-col {
-            border-left: 2px solid md-color($primary, 700);
-            border-right: 2px solid md-color($primary, 700);
+            border-left: 2px solid mat-color($primary, 700);
+            border-right: 2px solid mat-color($primary, 700);
         }
         .source-code-col {
-            border-right: 4px solid md-color($primary, 700);
+            border-right: 4px solid mat-color($primary, 700);
         }
     }
 }
