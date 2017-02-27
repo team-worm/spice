@@ -100,12 +100,17 @@ pub struct Trace {
 pub enum TraceData {
     #[serde(rename = "line")]
     Line { state: Vec<TraceState> },
+    #[serde(rename = "call")]
+    Call {
+        #[serde(rename = "sFunction")]
+        function: usize,
+    },
     #[serde(rename = "return")]
     Return { value: String },
     #[serde(rename = "break")]
     Break {
         #[serde(rename = "nextExecution")]
-        next_execution: i32
+        next_execution: i32,
     },
     #[serde(rename = "exit")]
     Exit { code: u32 },

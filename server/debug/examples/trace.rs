@@ -15,7 +15,7 @@ fn main() {
     debug::SymbolHandler::set_options(winapi::SYMOPT_DEBUG | winapi::SYMOPT_LOAD_LINES | options);
 
     let mut threads = HashMap::new();
-    let mut symbols = debug::SymbolHandler::initialize(&child)
+    let symbols = debug::SymbolHandler::initialize(&child)
         .expect("failed to initialize symbol handler");
 
     let mut attached = false;

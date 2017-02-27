@@ -1,4 +1,4 @@
-use std::io;
+use std::{io, mem};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::ffi::OsString;
@@ -49,10 +49,9 @@ pub struct Function {
     pub locals: Vec<(OsString, usize)>,
 }
 
-// TODO: remove this once these messages are used
-#[allow(dead_code)]
 pub enum DebugTrace {
     Line(u32, Vec<(String, String)>),
+    Call(u32, usize),
     Return(u32, String),
 
     Breakpoint(usize),
@@ -127,24 +126,29 @@ impl Thread {
 struct TargetState {
     child: debug::Child,
     symbols: debug::SymbolHandler,
-    threads: HashMap<winapi::DWORD, RawHandle>,
-    breakpoints: HashMap<usize, Option<debug::Breakpoint>>,
+
+    breakpoints: BreakpointSet,
+    traces: HashMap<usize, BreakpointSet>,
 }
 
-struct TraceState {
+struct DebugState {
+    threads: HashMap<winapi::DWORD, RawHandle>,
     execution: Option<ExecutionState>,
     event: Option<debug::Event>,
     attached: bool,
+    last_call: Option<usize>,
 }
 
 enum ExecutionState {
     Process,
 
     Function {
-        trace: HashMap<usize, Option<debug::Breakpoint>>,
-        line: u32,
-        exit: usize,
         call: debug::Call,
+        attached: bool,
+
+        entry: usize,
+        exit: usize,
+        stack: usize,
     },
 }
 
@@ -159,8 +163,17 @@ fn run(
     let mut target = TargetState {
         child: child,
         symbols: symbols,
+
+        breakpoints: BreakpointSet::new(),
+        traces: HashMap::new(),
+    };
+
+    let mut state = DebugState {
         threads: HashMap::new(),
-        breakpoints: HashMap::new(),
+        execution: None,
+        event: None,
+        attached: false,
+        last_call: None,
     };
 
     let event = debug::Event::wait_event()?;
@@ -169,17 +182,12 @@ fn run(
             .ok_or(io::Error::new(io::ErrorKind::Other, "no file handle for CreateProcess"))
             .and_then(|file| target.symbols.load_module(file, base));
 
-        target.threads.insert(event.thread_id, main_thread);
+        state.threads.insert(event.thread_id, main_thread);
         tx.send(DebugMessage::Attached).unwrap();
     } else {
         panic!("got another debug event before CreateProcess");
     }
-
-    let mut trace = TraceState {
-        execution: None,
-        event: Some(event),
-        attached: false,
-    };
+    state.event = Some(event);
 
     loop {
         match rx.recv().unwrap() {
@@ -218,29 +226,30 @@ fn run(
             }
 
             ServerMessage::Continue => {
-                let message = continue_process(&mut trace)
+                let message = continue_process(&mut state)
                     .map(|()| DebugMessage::Executing)
                     .unwrap_or_else(DebugMessage::Error);
                 tx.send(message).unwrap();
             }
 
             ServerMessage::CallFunction { address, arguments } => {
-                let message = call_function(&mut target, &mut trace, address, arguments)
+                let message = call_function(&mut target, &mut state, address, arguments)
                     .map(|()| DebugMessage::Executing)
                     .unwrap_or_else(DebugMessage::Error);
                 tx.send(message).unwrap();
             }
 
             ServerMessage::Trace => {
-                assert!(trace.event.is_none());
+                assert!(state.event.is_none());
 
-                let result = match trace.execution.take() {
+                let result = match state.execution.take() {
                     Some(ex @ ExecutionState::Process) => {
-                        trace_process(&mut target, &mut trace, &tx, ex)
+                        trace_process(&target, &mut state, &tx, ex)
                     }
 
                     Some(ex @ ExecutionState::Function { .. }) => {
-                        trace_function(&mut target, &mut trace, &tx, ex)
+                        trace_function(&target, &mut state, &tx, ex, 0)
+                            .map(|_| ())
                     }
 
                     None => Err(io::Error::from(io::ErrorKind::NotFound)),
@@ -259,7 +268,6 @@ fn run(
             }
         }
     }
-
 
     Ok(())
 }
@@ -324,42 +332,55 @@ fn describe_function(target: &TargetState, address: usize) -> io::Result<Functio
 }
 
 fn set_breakpoint(target: &mut TargetState, address: usize) -> io::Result<()> {
-    let TargetState { ref mut child, ref symbols, ref mut breakpoints, .. } = *target;
+    let TargetState { ref child, ref symbols, ref mut breakpoints, ref mut traces } = *target;
 
     let (function, offset) = symbols.symbol_from_address(address)?;
     if offset > 0 {
         return Err(io::Error::new(io::ErrorKind::NotFound, "no such function"));
     }
 
-    let breakpoint = child.set_breakpoint(function.address)?;
-    breakpoints.insert(address, Some(breakpoint));
+    if breakpoints.contains_key(&address) {
+        return Ok(());
+    }
+
+    let mut trace = TraceGuard::new(child);
+    for line in symbols.lines_from_symbol(&function)? {
+        trace.set_breakpoint(line.address)?;
+    }
+    let mut trace = trace.into_inner();
+
+    breakpoints.insert(address, trace.remove(&address).unwrap());
+    traces.insert(address, trace);
 
     Ok(())
 }
 
 fn remove_breakpoint(target: &mut TargetState, address: usize) -> io::Result<()> {
-    let TargetState { ref mut child, ref mut breakpoints, .. } = *target;
+    let TargetState { ref child, ref mut breakpoints, ref mut traces, .. } = *target;
 
     let breakpoint = breakpoints.remove(&address)
-        .ok_or(io::Error::new(io::ErrorKind::NotFound, "no such breakpoint"))?
-        .ok_or(io::Error::new(io::ErrorKind::Other, "breakpoint temporarily disabled"))?;
-    child.remove_breakpoint(breakpoint)?;
+        .ok_or(io::Error::new(io::ErrorKind::NotFound, "no such breakpoint"))?;
+    let mut trace = traces.remove(&address)
+        .ok_or(io::Error::new(io::ErrorKind::Other, "missing function trace"))?;
+
+    trace.insert(address, breakpoint);
+    mem::drop(TraceGuard::from_set(child, trace));
 
     Ok(())
 }
 
-fn continue_process(trace: &mut TraceState) -> io::Result<()> {
-    let event = trace.event.take()
+fn continue_process(state: &mut DebugState) -> io::Result<()> {
+    let event = state.event.take()
         .ok_or(io::Error::new(io::ErrorKind::AlreadyExists, "process already running"))?;
 
-    trace.execution = Some(ExecutionState::Process);
+    state.execution = Some(ExecutionState::Process);
 
     event.continue_event(true)?;
     Ok(())
 }
 
 fn trace_process(
-    target: &mut TargetState, trace: &mut TraceState, tx: &SyncSender<DebugMessage>,
+    target: &TargetState, state: &mut DebugState, tx: &SyncSender<DebugMessage>,
     execution: ExecutionState
 ) -> io::Result<()> {
     let _ = match execution {
@@ -367,173 +388,115 @@ fn trace_process(
         _ => unreachable!(),
     };
 
-    let mut last_breakpoint = None;
     loop {
         let mut event = debug::Event::wait_event()?;
 
-        use debug::EventInfo::*;
-        match event.info {
-            Exception {
-                first_chance: true, code: winapi::EXCEPTION_BREAKPOINT, address
-            } if trace.attached => {
-                let TargetState { ref mut child, ref threads, ref mut breakpoints, ..  } = *target;
-                let thread = threads[&event.thread_id];
-                let breakpoint = match breakpoints.get_mut(&address).and_then(Option::take) {
-                    Some(breakpoint) => breakpoint,
-                    None => { event.continue_event(false)?; continue; }
+        state.event = Some(event);
+        match trace_default(target, state, tx, &mut true)? {
+            Some(TraceEvent::Call(ex @ ExecutionState::Function { .. })) => {
+                let address = match ex {
+                    ExecutionState::Function { entry, .. } => entry,
+                    _ => unreachable!(),
                 };
-
-                let TraceState { event: ref mut trace_event, .. } = *trace;
-                *trace_event = Some(event);
-
-                let mut context = debug::get_thread_context(thread, winapi::CONTEXT_FULL)?;
-
-                // disable and save the breakpoint
-                child.remove_breakpoint(breakpoint)?;
-                last_breakpoint = Some(address);
-
-                // restart the instruction and enable singlestep
-                context.set_instruction_pointer(address);
-                context.set_singlestep(true);
-
-                debug::set_thread_context(thread, &context)?;
-                event = trace_event.take().unwrap();
-            }
-
-            Exception {
-                first_chance: true, code: winapi::EXCEPTION_SINGLE_STEP, ..
-            } if trace.attached => {
-                let TargetState { ref mut child, ref symbols, ref mut breakpoints, .. } = *target;
-                let thread = target.threads[&event.thread_id];
-                let address = match last_breakpoint.take() {
-                    Some(address) => address,
-                    None => { event.continue_event(false)?; continue }
-                };
-                let (function, _) = symbols.symbol_from_address(address)?;
-
-                let TraceState { ref mut execution, event: ref mut trace_event, .. } = *trace;
-                *trace_event = Some(event);
-
-                let mut context = debug::get_thread_context(thread, winapi::CONTEXT_FULL)?;
-
-                // resume normal execution
-                let breakpoint = child.set_breakpoint(address)?;
-                breakpoints.insert(address, Some(breakpoint));
-                context.set_singlestep(false);
-
-                // capture the call
-                let frame = symbols.walk_stack(thread)?.next().unwrap();
-                let exit = frame.stack.AddrReturn.Offset as usize;
-                let call = debug::Call::capture(symbols, &function)?;
-
-                // set a breakpoint on each line
-                let mut lines = symbols.lines_from_symbol(&function)?;
-                let line = lines.next().map(|line| line.line).unwrap_or(0);
-                let mut trace = Trace::create(child);
-                for line in lines {
-                    trace.set_breakpoint(line.address)?;
-                }
-                trace.set_breakpoint(exit)?;
-
-                // move to a new execution
-                debug::set_thread_context(thread, &context)?;
-                let trace = trace.commit();
-                *execution = Some(ExecutionState::Function { trace, line, exit, call });
                 tx.send(DebugMessage::Trace(DebugTrace::Breakpoint(address))).unwrap();
+                state.execution = Some(ex);
 
-                event = trace_event.take().unwrap();
+                event = state.event.take().unwrap();
                 event.continue_event(true)?;
                 return Ok(());
             }
 
-            _ => if trace_event(&mut target.symbols, &mut target.threads, trace, tx, &event) {
-                return Ok(())
-            },
+            Some(TraceEvent::Terminate) => { return Ok(()); }
+            None => {}
+            _ => unreachable!(),
         }
+        event = state.event.take().unwrap();
 
         event.continue_event(true)?;
     }
 }
 
 fn call_function(
-    target: &mut TargetState, trace: &mut TraceState, address: usize, arguments: Vec<i32>
+    target: &mut TargetState, state: &mut DebugState, address: usize, arguments: Vec<i32>
 ) -> io::Result<()> {
-    let mut event = trace.event.take()
+    let mut event = state.event.take()
         .ok_or(io::Error::new(io::ErrorKind::AlreadyExists, "process already running"))?;
 
-    let TargetState { ref mut child, ref mut symbols, ref threads, .. } = *target;
-    let thread = threads[&event.thread_id];
-    let (function, offset) = symbols.symbol_from_address(address)?;
+    let thread = state.threads[&event.thread_id];
+    let (function, offset) = target.symbols.symbol_from_address(address)?;
     if offset > 0 {
         return Err(io::Error::new(io::ErrorKind::NotFound, "no such function"));
     }
 
-    let TraceState { ref mut execution, event: ref mut trace_event, .. } = *trace;
-    *trace_event = Some(event);
-
+    state.event = Some(event);
     let mut context = debug::get_thread_context(thread, winapi::CONTEXT_FULL)?;
+
+    set_breakpoint(target, address)?;
+
+    // collect location data
+    let entry = address;
+    let exit = context.instruction_pointer();
 
     // set up the call
     let arg_type = debug::Type::Base { base: debug::Primitive::Int { signed: true }, size: 4 };
     let args: Vec<_> = arguments.into_iter()
         .map(|arg| debug::Value::new(arg, arg_type.clone()))
         .collect();
-    let exit = context.instruction_pointer();
-    let call = debug::Call::setup(child, &mut context, &symbols, &function, args)?;
+    let call = debug::Call::setup(&target.child, &target.symbols, &mut context, &function, args)?;
+    let attached = false;
 
-    // set a breakpoint on each line
-    let mut lines = symbols.lines_from_symbol(&function)?;
-    let line = lines.next().map(|line| line.line).unwrap_or(0);
-    let mut trace = Trace::create(child);
-    for line in lines {
-        trace.set_breakpoint(line.address)?;
-    }
-    trace.set_breakpoint(exit)?;
+    let stack = context.stack_pointer() + mem::size_of::<usize>();
+
+    debug::set_thread_context(thread, &context)?;
+    event = state.event.take().unwrap();
 
     // move to a new execution
-    debug::set_thread_context(thread, &context)?;
-    let trace = trace.commit();
-    *execution = Some(ExecutionState::Function { trace, line, exit, call });
+    state.execution = Some(ExecutionState::Function { call, attached, entry, exit, stack });
 
-    event = trace_event.take().unwrap();
     event.continue_event(true)?;
     Ok(())
 }
 
+enum TraceEvent {
+    Call(ExecutionState),
+    Terminate,
+}
+
 fn trace_function(
-    target: &mut TargetState, trace: &mut TraceState, tx: &SyncSender<DebugMessage>,
-    execution: ExecutionState
-) -> io::Result<()> {
-    let (breakpoints, line, exit, call) = match execution {
-        ExecutionState::Function { trace, line, exit, call } => (trace, line, exit, call),
+    target: &TargetState, state: &mut DebugState, tx: &SyncSender<DebugMessage>,
+    execution: ExecutionState, last_line: u32
+) -> io::Result<Option<TraceEvent>> {
+    let (call, mut attached, entry, exit, stack) = match execution {
+        ExecutionState::Function { call, attached, entry, exit, stack } =>
+            (call, attached, entry, exit, stack),
         _ => unreachable!(),
     };
-    let mut breakpoints = Trace::resume(&mut target.child, breakpoints);
+    tx.send(DebugMessage::Trace(DebugTrace::Call(last_line, entry))).unwrap();
 
-    let mut last_line = line;
+    let TargetState { ref child, ref symbols, ref traces, .. } = *target;
+    let ref trace = traces[&entry];
+    let mut ret = Some(BreakpointGuard::new(child, child.set_breakpoint(exit)?));
+
+    let mut last_line = symbols.line_from_address(entry).map(|(line, _)| line.line).unwrap_or(0);
     let mut last_breakpoint = None;
     loop {
         let mut event = debug::Event::wait_event()?;
 
         use debug::EventInfo::*;
         match event.info {
-            Exception {
-                first_chance: true, code: winapi::EXCEPTION_BREAKPOINT, address
-            } if trace.attached && address != exit => {
-                let TargetState { ref mut symbols, ref threads, ..  } = *target;
-                let thread = threads[&event.thread_id];
-                let breakpoint = match breakpoints.take_breakpoint(address) {
-                    Some(breakpoint) => breakpoint,
-                    None => { event.continue_event(false)?; continue; }
-                };
+            // per-line breakpoints
 
-                let TraceState { event: ref mut trace_event, .. } = *trace;
-                *trace_event = Some(event);
+            Exception { first_chance: true, code: winapi::EXCEPTION_BREAKPOINT, address } if
+                state.attached && trace.contains_key(&address)
+            => {
+                let thread = state.threads[&event.thread_id];
+                let breakpoint = trace[&address].borrow_mut().take().unwrap();
 
+                state.event = Some(event);
                 let mut context = debug::get_thread_context(thread, winapi::CONTEXT_FULL)?;
 
                 // disable and save the breakpoint
-                breakpoints.remove_breakpoint(breakpoint)?;
+                child.remove_breakpoint(breakpoint)?;
                 last_breakpoint = Some(address);
 
                 // restart the instruction and enable singlestep
@@ -550,14 +513,13 @@ fn trace_function(
                 symbols.enumerate_locals(instruction, |symbol, size| {
                     if size == 0 { return true; }
 
-                    let child = breakpoints.child();
-                    if let Ok(value) = debug::Value::read(child, &context, &symbols, &symbol) {
+                    if let Ok(value) = debug::Value::read(child, &context, symbols, &symbol) {
                         if value.data[0] == 0xcc {
                             return true;
                         }
 
                         let name = symbol.name.to_string_lossy().into();
-                        locals.push((name, format!("{}", value.display(&symbols))));
+                        locals.push((name, format!("{}", value.display(symbols))));
                     }
 
                     true
@@ -566,64 +528,107 @@ fn trace_function(
                 tx.send(DebugMessage::Trace(DebugTrace::Line(last_line, locals))).unwrap();
                 last_line = line.line;
 
-                // move to the next line
                 debug::set_thread_context(thread, &context)?;
-                event = trace_event.take().unwrap();
+                event = state.event.take().unwrap();
             }
 
-            Exception {
-                first_chance: true, code: winapi::EXCEPTION_SINGLE_STEP, ..
-            } if trace.attached => {
-                let TargetState { ref threads, .. } = *target;
-                let thread = threads[&event.thread_id];
-                let address = match last_breakpoint.take() {
-                    Some(address) => address,
-                    None => { event.continue_event(false)?; continue; }
-                };
+            Exception { first_chance: true, code: winapi::EXCEPTION_SINGLE_STEP, .. } if
+                state.attached && last_breakpoint.is_some()
+            => {
+                let thread = state.threads[&event.thread_id];
+                let address = last_breakpoint.take().unwrap();
 
-                let TraceState { event: ref mut trace_event, .. } = *trace;
-                *trace_event = Some(event);
-
+                state.event = Some(event);
                 let mut context = debug::get_thread_context(thread, winapi::CONTEXT_FULL)?;
 
                 // resume normal execution
-                breakpoints.set_breakpoint(address)?;
+                *trace[&address].borrow_mut() = Some(child.set_breakpoint(address)?);
                 context.set_singlestep(false);
 
                 debug::set_thread_context(thread, &context)?;
-
-                event = trace_event.take().unwrap();
+                event = state.event.take().unwrap();
             }
 
-            Exception {
-                first_chance: true, code: winapi::EXCEPTION_BREAKPOINT, address
-            } if trace.attached && address == exit => {
-                let TargetState { ref symbols, ref threads, .. } = *target;
-                let thread = threads[&event.thread_id];
+            // function return breakpoint
 
-                let TraceState { event: ref mut trace_event, .. } = *trace;
-                *trace_event = Some(event);
+            Exception { first_chance: true, code: winapi::EXCEPTION_BREAKPOINT, address } if
+                state.attached && address == exit && ret.is_some()
+            => {
+                let thread = state.threads[&event.thread_id];
+                let breakpoint = ret.take().unwrap();
 
+                state.event = Some(event);
                 let mut context = debug::get_thread_context(thread, winapi::CONTEXT_FULL)?;
 
-                // restart the instruction
+                // disable and save the breakpoint
+                let breakpoint = breakpoint.into_inner();
+                child.remove_breakpoint(breakpoint)?;
+
+                // restart the instruction and enable singlestep
                 context.set_instruction_pointer(address);
+                context.set_singlestep(true);
 
-                // collect the return value
-                let (value, restore) = call.teardown(breakpoints.child(), &context, &symbols)?;
-                let value = format!("{}", value.display(&symbols));
-                tx.send(DebugMessage::Trace(DebugTrace::Return(last_line, value))).unwrap();
+                // if the stack pointer has been restored, we're done
+                if context.stack_pointer() == stack {
+                    // collect the return value
+                    let (value, restore) = call.teardown(child, &context, symbols)?;
+                    let value = format!("{}", value.display(symbols));
+                    tx.send(DebugMessage::Trace(DebugTrace::Return(last_line, value))).unwrap();
 
-                if let Some(context) = restore {
-                    debug::set_thread_context(thread, &context)?;
-                } else {
-                    debug::set_thread_context(thread, &context)?;
+                    if let Some(context) = restore {
+                        debug::set_thread_context(thread, &context)?;
+                    } else {
+                        context.set_singlestep(false);
+                        debug::set_thread_context(thread, &context)?;
+                    }
+                    return Ok(None);
                 }
-                return Ok(());
+
+                debug::set_thread_context(thread, &context)?;
+                event = state.event.take().unwrap();
             }
 
-            _ => if trace_event(&mut target.symbols, &mut target.threads, trace, tx, &event) {
-                return Ok(());
+            Exception { first_chance: true, code: winapi::EXCEPTION_SINGLE_STEP, .. } if
+                state.attached && ret.is_none()
+            => {
+                let thread = state.threads[&event.thread_id];
+
+                state.event = Some(event);
+                let mut context = debug::get_thread_context(thread, winapi::CONTEXT_FULL)?;
+
+                // resume normal execution
+                ret = Some(BreakpointGuard::new(child, child.set_breakpoint(exit)?));
+                context.set_singlestep(false);
+
+                debug::set_thread_context(thread, &context)?;
+                event = state.event.take().unwrap();
+            }
+
+            // recursive calls and other events
+
+            _ => {
+                state.event = Some(event);
+                match trace_default(target, state, tx, &mut attached)? {
+                    Some(TraceEvent::Call(ex @ ExecutionState::Function { .. })) => {
+                        event = state.event.take().unwrap();
+                        event.continue_event(true)?;
+
+                        let breakpoint = ret.take().unwrap();
+                        child.remove_breakpoint(breakpoint.into_inner())?;
+
+                        let event = trace_function(target, state, tx, ex, last_line)?;
+                        if let Some(TraceEvent::Terminate) = event {
+                            return Ok(event);
+                        }
+
+                        ret = Some(BreakpointGuard::new(child, child.set_breakpoint(exit)?));
+                    }
+
+                    event @ Some(TraceEvent::Terminate) => { return Ok(event); }
+                    None => {}
+                    _ => unreachable!(),
+                }
+                event = state.event.take().unwrap();
             }
         }
 
@@ -631,19 +636,20 @@ fn trace_function(
     }
 }
 
-fn trace_event(
-    symbols: &mut debug::SymbolHandler, threads: &mut HashMap<winapi::DWORD, RawHandle>,
-    trace: &mut TraceState, tx: &SyncSender<DebugMessage>,
-    event: &debug::Event
-) -> bool {
-    let TraceState { ref mut attached, .. } = *trace;
+fn trace_default(
+    target: &TargetState, state: &mut DebugState, tx: &SyncSender<DebugMessage>,
+    capture_calls: &mut bool
+) -> io::Result<Option<TraceEvent>> {
+    let TargetState { ref child, ref symbols, ref breakpoints, .. } = *target;
+    let DebugState { ref mut threads, ref mut attached, .. } = *state;
+
+    let event = state.event.as_ref().unwrap();
 
     use debug::EventInfo::*;
     match event.info {
         ExitProcess { exit_code } => {
-            let trace = DebugTrace::Exit(exit_code);
-            tx.send(DebugMessage::Trace(trace)).unwrap();
-            return true;
+            tx.send(DebugMessage::Trace(DebugTrace::Exit(exit_code))).unwrap();
+            return Ok(Some(TraceEvent::Terminate));
         }
 
         CreateThread { thread, .. } => { threads.insert(event.thread_id, thread); }
@@ -655,14 +661,77 @@ fn trace_event(
         }
         UnloadDll { base } => { let _ = symbols.unload_module(base); }
 
-        Exception {
-            first_chance: true, code: winapi::EXCEPTION_BREAKPOINT, ..
-        } if !*attached => {
+        Exception { first_chance: true, code: winapi::EXCEPTION_BREAKPOINT, .. } if
+            !*attached
+        => {
             *attached = true;
+        }
+
+        Exception { first_chance: true, code: winapi::EXCEPTION_BREAKPOINT, address } if
+            *attached && breakpoints.contains_key(&address)
+        => {
+            let thread = threads[&event.thread_id];
+            let breakpoint = breakpoints[&address].borrow_mut().take().unwrap();
+
+            let mut context = debug::get_thread_context(thread, winapi::CONTEXT_FULL)?;
+
+            // disable and save the breakpoint
+            child.remove_breakpoint(breakpoint)?;
+            state.last_call = Some(address);
+
+            // restart the instruction and enable singlestep
+            context.set_instruction_pointer(address);
+            context.set_singlestep(true);
+
+            debug::set_thread_context(thread, &context)?;
+        }
+
+        Exception { first_chance: true, code: winapi::EXCEPTION_SINGLE_STEP, .. } if
+            *attached && state.last_call.is_some()
+        => {
+            let thread = threads[&event.thread_id];
+            let address = state.last_call.take().unwrap();
+            let (function, _) = symbols.symbol_from_address(address)?;
+
+            let mut context = debug::get_thread_context(thread, winapi::CONTEXT_FULL)?;
+
+            // resume normal execution
+            *breakpoints[&address].borrow_mut() = Some(child.set_breakpoint(address)?);
+            context.set_singlestep(false);
+
+            debug::set_thread_context(thread, &context)?;
+
+            // if this is a function-level breakpoint and we came from call_function, we're done
+            if !*capture_calls {
+                *capture_calls = true;
+                return Ok(None);
+            }
+
+            let mut frames = symbols.walk_stack(thread)?;
+            let callee = frames.next().unwrap();
+            let caller = frames.next().unwrap();
+
+            // collect location data
+            let entry = address;
+            let exit = callee.stack.AddrReturn.Offset as usize;
+            let stack = caller.stack.AddrStack.Offset as usize;
+
+            // capture the call
+            let call = debug::Call::capture(symbols, &function)?;
+            let attached = true;
+
+            // move to a new execution
+            let execution = ExecutionState::Function { call, attached, entry, exit, stack };
+            return Ok(Some(TraceEvent::Call(execution)));
+        }
+
+        Exception { first_chance: false, .. } => {
+            tx.send(DebugMessage::Trace(DebugTrace::Crash)).unwrap();
+            return Ok(Some(TraceEvent::Terminate));
         }
 
         _ => {}
     }
 
-    false
+    Ok(None)
 }

@@ -54,7 +54,7 @@ impl SymbolHandler {
     }
 
     /// Load the symbols for a module
-    pub fn load_module(&mut self, file: &File, base: usize) -> io::Result<()> {
+    pub fn load_module(&self, file: &File, base: usize) -> io::Result<()> {
         unsafe {
             // TODO: if we want to enable deferred symbol loading, we need to pass module size too
             if dbghelp::SymLoadModuleExW(
@@ -69,7 +69,7 @@ impl SymbolHandler {
     }
 
     /// Unload the symbols for a module
-    pub fn unload_module(&mut self, base: usize) -> io::Result<()> {
+    pub fn unload_module(&self, base: usize) -> io::Result<()> {
         unsafe {
             if dbghelp::SymUnloadModule64(self.0, base as winapi::DWORD64) == winapi::FALSE {
                 return Err(io::Error::last_os_error());

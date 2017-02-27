@@ -1,5 +1,3 @@
-#![feature(field_init_shorthand)]
-
 extern crate hyper;
 extern crate unicase;
 extern crate reroute;
@@ -685,16 +683,17 @@ fn trace_stream(res: &mut Response<Streaming>, child: &mut child::Thread) -> io:
 
     res.write_all(b"[\n")?;
 
-    let mut index = 0;
+    let mut next_index = 0;
     let mut prev_locals = HashMap::new();
 
     let mut terminated = false;
+    let mut stack: usize = 0;
     let mut done = false;
     while !done {
         let message = match child.rx.recv().unwrap() {
             DebugMessage::Trace(DebugTrace::Line(line, locals)) => {
-                let this_index = index;
-                index += 1;
+                let index = next_index;
+                next_index += 1;
 
                 let mut state = vec![];
                 for &(ref name, ref value) in locals.iter() {
@@ -708,16 +707,32 @@ fn trace_stream(res: &mut Response<Streaming>, child: &mut child::Thread) -> io:
                 }
                 prev_locals.extend(locals.into_iter());
 
-                let data = api::TraceData::Line { state: state };
-                api::Trace { index: this_index, line: line, data: data }
+                let data = api::TraceData::Line { state };
+                api::Trace { index, line, data }
+            }
+
+            DebugMessage::Trace(DebugTrace::Call(line, function)) => {
+                let index = next_index;
+                next_index += 1;
+
+                stack += 1;
+
+                let data = api::TraceData::Call { function };
+                api::Trace { index, line, data }
             }
 
             DebugMessage::Trace(DebugTrace::Return(line, value)) => {
-                done = true;
-                child.execution = None;
+                let index = next_index;
+                next_index += 1;
 
-                let data = api::TraceData::Return { value: value };
-                api::Trace { index: index, line: line, data: data }
+                stack -= 1;
+                if stack == 0 {
+                    done = true;
+                    child.execution = None;
+                }
+
+                let data = api::TraceData::Return { value };
+                api::Trace { index, line, data }
             }
 
             DebugMessage::Trace(DebugTrace::Breakpoint(address)) => {
@@ -727,7 +742,7 @@ fn trace_stream(res: &mut Response<Streaming>, child: &mut child::Thread) -> io:
                 child.execution = Some((id, child::Execution::Function(address)));
 
                 let data = api::TraceData::Break { next_execution: id };
-                api::Trace { index: 0, line: 0, data: data }
+                api::Trace { index: next_index, line: 0, data }
             }
 
             DebugMessage::Trace(DebugTrace::Exit(code)) => {
@@ -736,7 +751,7 @@ fn trace_stream(res: &mut Response<Streaming>, child: &mut child::Thread) -> io:
                 child.execution = None;
 
                 let data = api::TraceData::Exit { code: code };
-                api::Trace { index: 0, line: 0, data: data }
+                api::Trace { index: next_index, line: 0, data }
             }
 
             // TODO: collect stack trace in child thread
@@ -746,7 +761,7 @@ fn trace_stream(res: &mut Response<Streaming>, child: &mut child::Thread) -> io:
                 child.execution = None;
 
                 let data = api::TraceData::Crash { stack: String::new() };
-                api::Trace { index: 0, line: 0, data: data }
+                api::Trace { index: next_index, line: 0, data }
             }
 
             DebugMessage::Error(e) => {

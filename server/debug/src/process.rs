@@ -31,7 +31,7 @@ impl Child {
     }
 
     /// Write `buffer.len()` bytes into a process's address space at `address`
-    pub fn write_memory(&mut self, address: usize, buffer: &[u8]) -> io::Result<usize> {
+    pub fn write_memory(&self, address: usize, buffer: &[u8]) -> io::Result<usize> {
         unsafe {
             let mut written = 0;
             if kernel32::WriteProcessMemory(
@@ -46,19 +46,19 @@ impl Child {
         }
     }
 
-    pub fn set_breakpoint(&mut self, address: usize) -> io::Result<Breakpoint> {
+    pub fn set_breakpoint(&self, address: usize) -> io::Result<Breakpoint> {
         let mut saved = [0u8; 1];
         self.read_memory(address, &mut saved)?;
         self.write_memory(address, &[0xCCu8])?;
         Ok(Breakpoint { address, saved })
     }
 
-    pub fn remove_breakpoint(&mut self, breakpoint: Breakpoint) -> io::Result<()> {
+    pub fn remove_breakpoint(&self, breakpoint: Breakpoint) -> io::Result<()> {
         self.write_memory(breakpoint.address, &breakpoint.saved)?;
         Ok(())
     }
 
-    pub fn stack_push<B: AsBytes>(&mut self, context: &mut Context, value: B) -> io::Result<()> {
+    pub fn stack_push<B: AsBytes>(&self, context: &mut Context, value: B) -> io::Result<()> {
         let bytes = value.as_bytes();
         let address = context.stack_pointer() - bytes.len();
 
