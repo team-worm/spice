@@ -1,4 +1,4 @@
-import { Component, ElementRef, Input, OnInit, AfterViewInit, OnChanges, OnDestroy } from '@angular/core';
+import { Component, ElementRef, Input, OnInit, AfterViewInit, OnChanges, OnDestroy, SimpleChanges } from '@angular/core';
 import { Observable } from "rxjs/Observable";
 import * as d3 from 'd3';
 
@@ -38,7 +38,7 @@ export class LineGraphComponent implements OnInit, AfterViewInit, OnChanges, OnD
 		this.populate();
 	}
 
-	ngOnChanges() {
+	ngOnChanges(changes: SimpleChanges) {
 		this.setup();
 		this.buildSvg();
 		this.populate();

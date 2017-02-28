@@ -2,8 +2,9 @@ import { Component, Input } from "@angular/core";
 import { Trace } from "../../models/Trace";
 
 @Component({
+    moduleId: module.id,
 	selector: 'spice-trace',
-	templateUrl: 'app/components/debugger/trace.component.html'
+	templateUrl: './trace.component.html'
 })
 
 export class TraceComponent {

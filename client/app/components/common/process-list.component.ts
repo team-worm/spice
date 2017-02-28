@@ -44,12 +44,12 @@ export class ProcessListComponent implements OnInit {
     public selectedSort:{
         name:string,
         icon: string,
-        sortFunc:(p:Process[])=>Process[],
+        sortFunc:()=>Process[],
     };
     public sortingOptions:{
         name:string,
         icon: string,
-        sortFunc:(p:Process[])=>Process[],
+        sortFunc:()=>Process[],
     }[];
 
     constructor(private debuggerService: DebuggerService,

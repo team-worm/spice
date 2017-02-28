@@ -12,8 +12,9 @@ import {ProcessListComponent} from "../common/process-list.component";
 import { LineGraphComponent } from "../common/line-graph.component";
 
 @Component({
+    moduleId: module.id,
     selector: 'spice-launcher',
-    templateUrl: 'app/components/launcher/launcher.component.html'
+    templateUrl: './launcher.component.html'
 })
 export class LauncherComponent implements AfterContentChecked {
 

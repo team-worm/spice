@@ -1,7 +1,8 @@
 import {Component} from "@angular/core";
 
 @Component({
+    moduleId: module.id,
     selector: 'spice-help',
-    templateUrl: 'app/components/toolbar/about.component.html'
+    templateUrl: './about.component.html'
 })
 export class AboutComponent {}
