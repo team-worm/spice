@@ -6,6 +6,8 @@ link-checker-results.txt
 app/**/*.js
 *.js.map
 *.css
+bundle.js
+aot
 e2e/**/*.js
 e2e/**/*.js.map
 _test-output

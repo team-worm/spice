@@ -10,8 +10,9 @@ import {MatchMaxHeightDirective} from "../../directives/MatchMaxHeight.directive
 import {FunctionListComponent} from "../common/function-list.component";
 
 @Component({
+    moduleId: module.id,
     selector: 'spice-configuration',
-    templateUrl: 'app/components/functions/functions.component.html'
+    templateUrl: './functions.component.html'
 })
 export class FunctionsComponent implements OnInit {
 

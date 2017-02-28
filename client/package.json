@@ -4,16 +4,14 @@
   "description": "Debug through time.",
   "scripts": {
     "start": "tsc && concurrently \"tsc -w\" \"lite-server\" ",
-    "e2e": "tsc && concurrently \"http-server -s\" \"protractor protractor.config.js\" --kill-others --success first",
+    "sass": "node node_modules/node-sass/bin/node-sass styles/spice.scss spice.css",
+    "sass-watch": "node node_modules/node-sass/bin/node-sass --watch styles/spice.scss spice.css",
     "lint": "tslint ./app/**/*.ts -t verbose",
-    "lite": "lite-server",
-    "pree2e": "webdriver-manager update",
+    "build:aot": "ngc -p tsconfig.aot.json && rollup -c",
     "test": "tsc && concurrently \"tsc -w\" \"karma start karma.conf.js\"",
     "test-once": "tsc && karma start karma.conf.js --single-run",
-    "tsc": "tsc",
-    "tsc:w": "tsc -w",
-    "sass": "node node_modules/node-sass/bin/node-sass styles/spice.scss spice.css",
-    "sass-watch": "node node_modules/node-sass/bin/node-sass --watch styles/spice.scss spice.css"
+    "pree2e": "webdriver-manager update",
+    "e2e": "tsc && concurrently \"http-server -s\" \"protractor protractor.config.js\" --kill-others --success first"
   },
   "keywords": [],
   "author": "",
@@ -21,6 +19,7 @@
   "dependencies": {
     "@angular/common": "~2.4.0",
     "@angular/compiler": "~2.4.0",
+    "@angular/compiler-cli": "^2.4.8",
     "@angular/core": "~2.4.0",
     "@angular/flex-layout": "^2.0.0-beta.4",
     "@angular/forms": "~2.4.0",
@@ -28,6 +27,7 @@
     "@angular/material": "^2.0.0-beta.1",
     "@angular/platform-browser": "~2.4.0",
     "@angular/platform-browser-dynamic": "~2.4.0",
+    "@angular/platform-server": "^2.4.8",
     "@angular/router": "~3.4.0",
     "angular-in-memory-web-api": "~0.2.4",
     "core-js": "^2.4.1",
@@ -59,6 +59,9 @@
     "node-sass": "^4.2.0",
     "protractor": "~4.0.14",
     "rimraf": "^2.5.4",
+    "rollup": "^0.41.4",
+    "rollup-plugin-commonjs": "^7.0.0",
+    "rollup-plugin-node-resolve": "^2.0.0",
     "tslint": "^3.15.1",
     "typescript": "~2.0.10"
   },

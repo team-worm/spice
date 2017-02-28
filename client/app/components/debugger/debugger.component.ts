@@ -14,14 +14,15 @@ import { SourceVariable } from "../../models/SourceVariable";
 import { Subscriber } from "rxjs/Subscriber";
 
 @Component({
+    moduleId: module.id,
 	selector: 'spice-debugger',
-	templateUrl: 'app/components/debugger/debugger.component.html'
+	templateUrl: './debugger.component.html'
 })
 export class DebuggerComponent {
 
-	protected lines: { sourceCode: string, traces: Trace[]}[];
-	protected lastTraceLine: number;
-	protected traceColCount: number;
+	public lines: { sourceCode: string, traces: Trace[]}[];
+	public lastTraceLine: number;
+	public traceColCount: number;
 
 	public sourceFunction: SourceFunction | null;
 	public debugState: DebuggerState | null;

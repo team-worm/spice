@@ -13,8 +13,9 @@ import { DebuggerService } from "../../services/debugger.service";
 import { Breakpoint } from "../../models/Breakpoint";
 
 @Component({
+    moduleId: module.id,
     selector: 'spice-toolbar',
-    templateUrl: 'app/components/toolbar/toolbar.component.html'
+    templateUrl: './toolbar.component.html'
 })
 export class ToolbarComponent {
 
