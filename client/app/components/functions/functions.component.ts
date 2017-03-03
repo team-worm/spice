@@ -50,6 +50,7 @@ export class FunctionsComponent implements OnInit {
             let j = dat.json();
             console.log(j);
             this.defaultFuncCollections.push(<SourceFunctionCollection>fromJSON(j, SourceFunctionCollection))
+            console.log(this.defaultFuncCollections);
         },(err:any)=> {
             console.log(err);
         })
