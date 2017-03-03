@@ -28,11 +28,11 @@
                     <button md-button [disabled]="!selectedFunction" (click)="ExecuteFunctionWithCustomParams()"><md-icon class="md-accent">play_circle_outline</md-icon>Run with Custom Parameters</button>
                 </md-card-actions>
             </md-card>
-            <md-card class="smallerMargin">
-                <md-card-content *ngIf="!lines && linesLoaded">
+            <md-card class="function-source-card smallerMargin">
+                <md-card-content *ngIf="!selectedFunction">
                     Select a function from the list.
                 </md-card-content>
-                <md-card-content class="source-code" *ngIf="!!lines && linesLoaded">
+                <div class="source-code" *ngIf="!!lines && linesLoaded">
                     <div class="source-code-viewer" fxFlex fxLayout="row">
                         <div class="line-number-col" fxFlex="nogrow">
                             <div class="row" [matchMaxHeight]="'functions-'+i" *ngFor="let line of lines; let i=index;">
@@ -45,7 +45,7 @@
                             </div>
                         </div>
                     </div>
-                </md-card-content>
+                </div>
                 <md-card-content *ngIf="!!lines && !linesLoaded">
                     <i>Unable to load file contents.</i>
                 </md-card-content>

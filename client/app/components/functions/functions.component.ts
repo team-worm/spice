@@ -1,13 +1,16 @@
 import {Component, OnInit, ViewChild} from "@angular/core";
-import { SourceFunction, SourceFunctionId } from "../../models/SourceFunction";
+import {Http, Response} from "@angular/http";
+import {MdSnackBar} from "@angular/material";
+import {SourceFunction, SourceFunctionId } from "../../models/SourceFunction";
 import {DebuggerService} from "../../services/debugger.service";
 import {DebuggerState} from "../../models/DebuggerState";
-import {MdSnackBar} from "@angular/material";
 import {Breakpoint} from "../../models/Breakpoint";
 import {ViewService} from "../../services/view.service";
 import {FileSystemService} from "../../services/file-system.service";
 import {MatchMaxHeightDirective} from "../../directives/MatchMaxHeight.directive";
 import {FunctionListComponent} from "../common/function-list.component";
+import {fromJSON} from "../../util/SpiceValidator";
+import {SourceFunctionCollection} from "../../models/SourceFunctionCollection";
 
 @Component({
     moduleId: module.id,
@@ -22,18 +25,20 @@ export class FunctionsComponent implements OnInit {
 
     public lines: string[] | null;
     public linesLoaded: boolean = true;
-
     public selectedFunction: SourceFunction | null;
     public sourceFunctions: SourceFunction[];
     public debugState: DebuggerState | null;
+    public defaultFuncCollections: SourceFunctionCollection[];
 
     constructor(private debuggerService: DebuggerService,
                 private snackBar: MdSnackBar,
                 private viewService: ViewService,
-                private fileSystemService: FileSystemService) {
+                private fileSystemService: FileSystemService,
+                private http: Http) {
         this.selectedFunction = null;
         this.debugState = null;
-        this.lines = [];
+        this.lines = null;
+        this.defaultFuncCollections = [];
     }
 
     public ngOnInit() {
@@ -41,6 +46,14 @@ export class FunctionsComponent implements OnInit {
         if (!this._functionsContentBody) {
             console.error('Error getting FunctionsContainer');
         }
+        this.http.get(`app/components/functions/standardFunctions.json`).subscribe((dat:Response)=> {
+            let j = dat.json();
+            console.log(j);
+            this.defaultFuncCollections.push(<SourceFunctionCollection>fromJSON(j, SourceFunctionCollection))
+        },(err:any)=> {
+            console.log(err);
+        })
+
     }
 
     public ngAfterViewChecked() {

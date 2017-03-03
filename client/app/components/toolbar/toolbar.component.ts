@@ -32,6 +32,9 @@ export class ToolbarComponent {
     public GoToFunctionsView() {
         this.viewService.activeView = 'functions';
     }
+    public GoToDebuggerView() {
+        this.viewService.activeView = 'debugger'
+    }
 
     public ExecuteBinary() {
         if(this.debugState) {

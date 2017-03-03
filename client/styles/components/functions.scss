@@ -5,4 +5,16 @@
         align-items: stretch;
         justify-content: flex-start;
     }
+    md-card {
+        &.function-source-card {
+            padding: 0 !important;
+        }
+        md-card-content {
+            padding: 16px !important;
+
+            md-progress-spinner {
+                height: 48px;
+            }
+        }
+    }
 }

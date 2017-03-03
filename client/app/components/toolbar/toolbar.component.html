@@ -1,16 +1,28 @@
 <md-toolbar class="toolbar center-text" color="primary">
-    <span><h2>Spice Debugger</h2></span>
+    <span class="title" (click)="openAboutSpiceDialog()"><h2>Spice Debugger</h2></span>
     <span class="target-area">
         <span *ngIf="!debugState"  class="no-target">Not Attached</span>
         <span *ngIf="!!debugState" class="target-name">{{debugProcessName}}</span>
     </span>
     <span class="flex-pusher"></span>
-    <button md-button *ngIf="!debugState || debugState.breakpoints.size === 0" [disabled]="!debugState" (click)="GoToFunctionsView()">Breakpoints Set [{{!!debugState ? debugState.breakpoints.size : 0}}]</button>
-    <button md-button *ngIf="!!debugState && debugState.breakpoints.size > 0" [mdMenuTriggerFor]="breakpointMenu" (click)="GetBpFunctions()">Breakpoints Set [{{!!debugState ? debugState.breakpoints.size : 0}}]</button>
-    <button md-button *ngIf="!execution" [disabled]="!debugState" (click)="ExecuteBinary()"><md-icon class="md-accent">play_arrow</md-icon> Execute Binary</button>
-    <button md-button *ngIf="!!execution" [disabled]="!debugState" (click)="ExecuteBinary()"><md-icon class="md-accent">skip_next</md-icon> Continue</button>
-    <button md-button [disabled]="!debugState || !execution" (click)="StopExecution()"><md-icon class="md-accent">stop</md-icon> Stop</button>
-    <button md-button [disabled]="!debugState || !execution" (click)="KillAndDetach()"><md-icon class="md-accent">close</md-icon> Kill and Detach</button>
+    <button md-button *ngIf="!debugState || debugState.breakpoints.size === 0" [disabled]="!debugState" (click)="GoToFunctionsView()">
+        <md-icon>library_books</md-icon>
+        Functions [{{!!debugState ? debugState.breakpoints.size : 0}}]
+    </button>
+    <button md-button *ngIf="!!debugState && debugState.breakpoints.size > 0" [mdMenuTriggerFor]="breakpointMenu" (click)="GoToDebuggerView()">
+        <md-icon>library_books</md-icon>
+        Functions [{{!!debugState ? debugState.breakpoints.size : 0}}]
+    </button>
+    <button md-button [disabled]="!debugState" (click)="GoToFunctionsView()">
+        <md-icon>bug_report</md-icon>
+        Debug Trace [{{!!debugState ? debugState.executions.size : 0}}]
+    </button>
+    <span class="debug-actions">
+        <button md-button *ngIf="!execution" [disabled]="!debugState" (click)="ExecuteBinary()"><md-icon class="md-accent">play_arrow</md-icon> Execute Binary</button>
+        <button md-button *ngIf="!!execution" [disabled]="!debugState" (click)="ExecuteBinary()"><md-icon class="md-accent">skip_next</md-icon> Continue</button>
+        <button md-button [disabled]="!debugState || !execution" (click)="StopExecution()"><md-icon class="md-accent">stop</md-icon> Stop</button>
+        <button md-button [disabled]="!debugState || !execution" (click)="KillAndDetach()"><md-icon class="md-accent">close</md-icon> Kill and Detach</button>
+    </span>
     <!--<span class="width-33 center-text">-->
         <!--<md-button-toggle-group [(ngModel)]="viewService.activeView">-->
             <!--<md-button-toggle title="Launcher" [value]="'launcher'" [disabled]="viewService.activeView == 'launcher'">-->
