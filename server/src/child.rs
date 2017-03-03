@@ -197,6 +197,7 @@ fn run(
     }
     state.event = Some(event);
 
+    let mut breakpoint_added = false;
     loop {
         match rx.recv().unwrap() {
             ServerMessage::ListFunctions => {
@@ -242,6 +243,7 @@ fn run(
 
             ServerMessage::CallFunction { address, arguments } => {
                 let thread = last_thread;
+                breakpoint_added = !target.breakpoints.contains_key(&address);
                 let message = call_function(&mut target, &mut state, thread, address, arguments)
                     .map(|()| DebugMessage::Executing)
                     .unwrap_or_else(DebugMessage::Error);
@@ -257,14 +259,19 @@ fn run(
                     }
 
                     Some(ex @ ExecutionState::Function { .. }) => {
-                        let thread = match ex {
-                            ExecutionState::Function { thread, .. } => thread,
+                        let (thread, entry) = match ex {
+                            ExecutionState::Function { thread, entry, .. } => (thread, entry),
                             _ => unreachable!(),
                         };
 
                         last_thread = thread;
                         trace_function(&target, &mut state, &tx, &cancel, ex, 0)
-                            .map(|_| ())
+                            .and_then(|_| if breakpoint_added {
+                                breakpoint_added = false;
+                                remove_breakpoint(&mut target, entry)
+                            } else {
+                                Ok(())
+                            })
                     }
 
                     None => Err(io::Error::from(io::ErrorKind::NotFound)),
