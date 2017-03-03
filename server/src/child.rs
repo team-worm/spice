@@ -2,6 +2,7 @@ use std::{io, mem};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{sync_channel, SyncSender, Receiver};
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::ffi::OsString;
@@ -148,7 +149,6 @@ enum ExecutionState {
     Function {
         call: debug::Call,
         thread: RawHandle,
-        attached: bool,
 
         entry: usize,
         exit: usize,
@@ -356,13 +356,13 @@ fn set_breakpoint(target: &mut TargetState, address: usize) -> io::Result<()> {
         return Ok(());
     }
 
-    let mut trace = TraceGuard::new(child);
-    for line in symbols.lines_from_symbol(&function)? {
-        trace.set_breakpoint(line.address)?;
+    let mut trace = BreakpointSet::new();
+    for line in symbols.lines_from_symbol(&function)?.skip(1) {
+        trace.insert(line.address, RefCell::new(None));
     }
-    let mut trace = trace.into_inner();
 
-    breakpoints.insert(address, trace.remove(&address).unwrap());
+    let breakpoint = RefCell::new(Some(child.set_breakpoint(address)?));
+    breakpoints.insert(address, breakpoint);
     traces.insert(address, trace);
 
     Ok(())
@@ -373,11 +373,10 @@ fn remove_breakpoint(target: &mut TargetState, address: usize) -> io::Result<()>
 
     let breakpoint = breakpoints.remove(&address)
         .ok_or(io::Error::new(io::ErrorKind::NotFound, "no such breakpoint"))?;
-    let mut trace = traces.remove(&address)
+    let _ = traces.remove(&address)
         .ok_or(io::Error::new(io::ErrorKind::Other, "missing function trace"))?;
 
-    trace.insert(address, breakpoint);
-    mem::drop(TraceGuard::from_set(child, trace));
+    child.remove_breakpoint(breakpoint.into_inner().unwrap())?;
 
     Ok(())
 }
@@ -466,7 +465,6 @@ fn call_function(
         .map(|arg| debug::Value::new(arg, arg_type.clone()))
         .collect();
     let call = debug::Call::setup(&target.child, &target.symbols, &mut context, &function, args)?;
-    let attached = false;
 
     let stack = context.stack_pointer() + mem::size_of::<usize>();
 
@@ -474,7 +472,7 @@ fn call_function(
     event = state.event.take().unwrap();
 
     // move to a new execution
-    state.execution = Some(ExecutionState::Function { call, thread, attached, entry, exit, stack });
+    state.execution = Some(ExecutionState::Function { call, thread, entry, exit, stack });
 
     event.continue_event(true)?;
     Ok(())
@@ -491,19 +489,21 @@ fn trace_function(
     tx: &SyncSender<DebugMessage>, cancel: &AtomicBool,
     execution: ExecutionState, last_line: u32
 ) -> io::Result<Option<TraceEvent>> {
-    let (call, thread, mut attached, entry, exit, stack) = match execution {
-        ExecutionState::Function { call, thread, attached, entry, exit, stack } =>
-            (call, thread, attached, entry, exit, stack),
+    let (call, thread, entry, exit, stack) = match execution {
+        ExecutionState::Function { call, thread, entry, exit, stack } =>
+            (call, thread, entry, exit, stack),
         _ => unreachable!(),
     };
     tx.send(DebugMessage::Trace(DebugTrace::Call(last_line, entry))).unwrap();
 
     let TargetState { ref child, ref symbols, ref traces, .. } = *target;
-    let ref trace = traces[&entry];
     let mut ret = Some(BreakpointGuard::new(child, child.set_breakpoint(exit)?));
+    let mut trace = TraceGuard::guard(child, &traces[&entry]);
+    trace.enable_all()?;
 
     let mut last_line = symbols.line_from_address(entry).map(|(line, _)| line.line).unwrap_or(0);
     let mut last_breakpoint = None;
+    let mut attached = false;
     let mut cancelled = false;
     loop {
         let mut event = debug::Event::wait_event()?;
@@ -713,6 +713,35 @@ fn trace_default(
 
         Exception { first_chance: true, code: winapi::EXCEPTION_BREAKPOINT, address } if
             *attached && current_thread.map(|t| threads[&event.thread_id] == t).unwrap_or(true) &&
+            breakpoints.contains_key(&address) && *capture_calls
+        => {
+            let thread = threads[&event.thread_id];
+            let (function, _) = symbols.symbol_from_address(address)?;
+
+            // restart the instruction
+            let mut context = debug::get_thread_context(thread, winapi::CONTEXT_FULL)?;
+            context.set_instruction_pointer(address);
+            debug::set_thread_context(thread, &context)?;
+
+            let mut frames = symbols.walk_stack(thread)?;
+            let callee = frames.next().unwrap();
+            let caller = frames.next().unwrap();
+
+            // collect location data
+            let entry = address;
+            let exit = callee.stack.AddrReturn.Offset as usize;
+            let stack = caller.stack.AddrStack.Offset as usize;
+
+            // capture the call
+            let call = debug::Call::capture(symbols, &function)?;
+
+            // move to a new execution
+            let execution = ExecutionState::Function { call, thread, entry, exit, stack };
+            return Ok(Some(TraceEvent::Call(execution)));
+        }
+
+        Exception { first_chance: true, code: winapi::EXCEPTION_BREAKPOINT, address } if
+            *attached && current_thread.map(|t| threads[&event.thread_id] == t).unwrap_or(true) &&
             breakpoints.contains_key(&address)
         => {
             let thread = threads[&event.thread_id];
@@ -737,38 +766,15 @@ fn trace_default(
         => {
             let thread = threads[&event.thread_id];
             let address = state.last_call.take().unwrap();
-            let (function, _) = symbols.symbol_from_address(address)?;
 
             let mut context = debug::get_thread_context(thread, winapi::CONTEXT_FULL)?;
 
             // resume normal execution
             *breakpoints[&address].borrow_mut() = Some(child.set_breakpoint(address)?);
             context.set_singlestep(false);
+            *capture_calls = true;
 
             debug::set_thread_context(thread, &context)?;
-
-            // if this is a function-level breakpoint and we came from call_function, we're done
-            if !*capture_calls {
-                *capture_calls = true;
-                return Ok(None);
-            }
-
-            let mut frames = symbols.walk_stack(thread)?;
-            let callee = frames.next().unwrap();
-            let caller = frames.next().unwrap();
-
-            // collect location data
-            let entry = address;
-            let exit = callee.stack.AddrReturn.Offset as usize;
-            let stack = caller.stack.AddrStack.Offset as usize;
-
-            // capture the call
-            let call = debug::Call::capture(symbols, &function)?;
-            let attached = true;
-
-            // move to a new execution
-            let execution = ExecutionState::Function { call, thread, attached, entry, exit, stack };
-            return Ok(Some(TraceEvent::Call(execution)));
         }
 
         Exception { first_chance: true, code: winapi::EXCEPTION_BREAKPOINT, address } if
