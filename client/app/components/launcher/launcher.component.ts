@@ -36,17 +36,37 @@ export class LauncherComponent implements AfterContentChecked {
                 private element: ElementRef) {}
 
     public ngAfterContentChecked() {
-        this.launcherCardHeight = (window.innerHeight - this.element.nativeElement.getBoundingClientRect().top) - 86;
-        this.fileBrowserHeight = (window.innerHeight - this.fileBrowser.element.nativeElement.getBoundingClientRect().top) - 58;
-        this.processListHeight = (window.innerHeight - this.processList.element.nativeElement.getBoundingClientRect().top) - 58;
+        this.launcherCardHeight = (window.innerHeight - this.element.nativeElement.getBoundingClientRect().top) - 34;
+        this.fileBrowserHeight = (window.innerHeight - this.fileBrowser.element.nativeElement.getBoundingClientRect().top) - 93;
+        this.processListHeight = (window.innerHeight - this.processList.element.nativeElement.getBoundingClientRect().top) - 93;
     }
 
     public GetSelectedName():string {
         if(this.selectedFileOrProcess) {
             return this.selectedFileOrProcess.name;
-        } else {
-            return 'Nothing Selected';
         }
+        return '';
+    }
+    public GetSelectedIcon():string {
+        if(this.selectedFileOrProcess !== null) {
+            if((<Process> this.selectedFileOrProcess).id) {
+                return "settings_application";
+            } else if ((<SourceFile> this.selectedFileOrProcess).data) {
+                return "insert_drive_file"
+            }
+        }
+        return "touch_app";
+    }
+    public GetLaunchAttachButtonText():string {
+        if(this.selectedFileOrProcess !== null) {
+            if((<Process> this.selectedFileOrProcess).id) {
+                return "Attach to Process";
+            } else if ((<SourceFile> this.selectedFileOrProcess).data) {
+                return "Launch Binary"
+            }
+            /* Consider adding something specific for selected file vs null*/
+        }
+        return "Select Target";
     }
     public GetSelectedInformation():string {
         if(this.selectedFileOrProcess) {
