@@ -72,7 +72,7 @@ export class DebuggerComponent {
 					this.lastTraceLine = Number.POSITIVE_INFINITY;
 					this.traceColCount = 0;
 					this.lines.forEach((_, i) => {
-						MatchMaxHeightDirective.markDirty(`debugger-${i}`);
+						MatchMaxHeightDirective.markDirty(`debugger-${this.sourceFunction!.lineStart+i}`);
 					});
 					return Observable.from(traces);
 				})
@@ -106,13 +106,12 @@ export class DebuggerComponent {
 
 			this.lastTraceLine = trace.line;
 
-			MatchMaxHeightDirective.markDirty(`debugger-${trace.line-this.sourceFunction.lineStart}`);
+			MatchMaxHeightDirective.markDirty(`debugger-${trace.line}`);
 		}
 	}
 
 	public ExecuteFunction() {
 		if(this.debugState && this.sourceFunction) {
-			console.log(this.setParameters);
 			this.debugState.executeFunction(this.sourceFunction.address,this.setParameters)
                 .subscribe((ex:Execution)=>{
 					this.displayTrace(ex.id);

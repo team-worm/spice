@@ -18,7 +18,7 @@ export class ViewService {
 
     constructor() {
         this.views = ['launcher','functions','debugger'];
-        this._activeView = this.views[0];
+		this._activeView = this.views[0];
     }
 
     get activeView() {

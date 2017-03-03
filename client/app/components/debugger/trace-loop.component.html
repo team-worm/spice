@@ -1,0 +1,21 @@
+<div class="trace-loop iteration-col" fxLayout="row">
+	<div *ngIf="!showAllIterations && loopData.iterations.length > 1" (click)=setShowAllIterations(true) fxFlex>+{{loopData.iterations.length-1}}...</div>
+	<span *ngFor="let iteration of loopData.iterations; let iterIdx=index;">
+		<div fxFlex *ngIf="showAllIterations || iterIdx === loopData.iterations.length-1">
+			<span *ngFor="let n of [].constructor(loopData.endLine-loopData.startLine+1); let i=index;">
+				<span *ngIf="!!getTraceGroupAtLine(iteration, i+loopData.startLine)"
+					[ngSwitch]="getTraceGroupAtLine(iteration, i+loopData.startLine).kind">
+					<div class="row" *ngSwitchCase="'trace'" [matchMaxHeight]="'debugger-'+(i+loopData.startLine)">
+						<spice-trace [trace]="getTraceGroupAtLine(iteration, i+loopData.startLine).trace"></spice-trace>
+					</div>
+					<span *ngSwitchCase="'loop'">
+						<spice-trace-loop *ngIf="(i+loopData.startLine) === getTraceGroupAtLine(iteration, i+loopData.startLine).startLine"
+							[loopData]="getTraceGroupAtLine(iteration, i+loopData.startLine)"></spice-trace-loop>
+					</span>
+				</span>
+				<div *ngIf="!getTraceGroupAtLine(iteration, i+loopData.startLine)" class="row" [matchMaxHeight]="'debugger-'+(i+loopData.startLine)">
+				</div>
+			</span>
+		</div>
+	</span>
+</div>

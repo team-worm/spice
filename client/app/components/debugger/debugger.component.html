@@ -32,22 +32,24 @@
 				<div class="debugger-display source-code" fxFlex="80" fxLayout="row">
 					<div class="source-code-viewer" fxFlex="40" fxLayout="row">
 						<div class="line-number-col" fxFlex="nogrow">
-							<div class="row" [matchMaxHeight]="'debugger-'+i" *ngFor="let line of lines; let i=index;">
+							<div class="row" [matchMaxHeight]="'debugger-'+(sourceFunction.lineStart+i)" *ngFor="let line of lines; let i=index;">
 								<span>{{sourceFunction.lineStart + i}}</span>
 							</div>
 						</div>
 						<div class="source-code-col" fxFlex>
-							<div class="row" [matchMaxHeight]="'debugger-'+i" *ngFor="let line of lines; let i=index;">
+							<div class="row" [matchMaxHeight]="'debugger-'+(sourceFunction.lineStart+i)" *ngFor="let line of lines; let i=index;">
 								<pre>{{line.sourceCode}}</pre>
 							</div>
 						</div>
 					</div>
 					<div class="trace-col" fxFlex fxLayout="row">
-						<div class="iteration-col" fxFlex *ngFor="let n of [].constructor(traceColCount); let colIndex=index;">
-							<div class="row" [matchMaxHeight]="'debugger-'+i" *ngFor="let line of lines; let i=index;">
-								<spice-trace *ngIf="line.traces[colIndex]" [trace]="line.traces[colIndex]" fxFlex></spice-trace>
-							</div>
-						</div>
+						<spice-trace-loop></spice-trace-loop>
+
+						<!--<div class="iteration-col" fxFlex *ngFor="let n of [].constructor(traceColCount); let colIndex=index;">-->
+							<!--<div class="row" [matchMaxHeight]="'debugger-'+i" *ngFor="let line of lines; let i=index;">-->
+								<!--<spice-trace *ngIf="line.traces[colIndex]" [trace]="line.traces[colIndex]" fxFlex></spice-trace>-->
+							<!--</div>-->
+						<!--</div>-->
 					</div>
 				</div>
 				<div fxFlex="20">
