@@ -58,7 +58,7 @@ pub enum DebugTrace {
     Breakpoint(usize),
     Exit(u32),
     Cancel,
-    Crash,
+    Crash(String),
 }
 
 /// messages the server sends to the debug event loop to request info
@@ -421,6 +421,13 @@ fn trace_process(
             return Ok(());
         }
 
+        if let Some(TraceEvent::Exception) = trace_event {
+            event = state.event.take().unwrap();
+            event.continue_event(false)?;
+
+            continue;
+        }
+
         if let Some(TraceEvent::Cancel) = trace_event {
             cancelled = true;
         }
@@ -480,6 +487,7 @@ fn call_function(
 
 enum TraceEvent {
     Call(ExecutionState),
+    Exception,
     Cancel,
     Terminate,
 }
@@ -649,6 +657,12 @@ fn trace_function(
                     ret = Some(BreakpointGuard::new(child, child.set_breakpoint(exit)?));
                 }
 
+                if let Some(TraceEvent::Exception) = trace_event {
+                    event = state.event.take().unwrap();
+                    event.continue_event(false)?;
+
+                    continue;
+                }
 
                 if let Some(TraceEvent::Cancel) = trace_event {
                     cancelled = true;
@@ -794,8 +808,16 @@ fn trace_default(
             return Ok(Some(TraceEvent::Cancel));
         }
 
-        Exception { first_chance: false, .. } => {
-            tx.send(DebugMessage::Trace(DebugTrace::Crash)).unwrap();
+        // crashes
+
+        Exception { first_chance: true, .. } => {
+            return Ok(Some(TraceEvent::Exception));
+        }
+
+        // TODO: collect stack trace
+        Exception { first_chance: false, code, .. } => {
+            let message = format!("unhandled exception 0x{:x}", code);
+            tx.send(DebugMessage::Trace(DebugTrace::Crash(message))).unwrap();
             return Ok(Some(TraceEvent::Terminate));
         }
 

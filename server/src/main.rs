@@ -797,13 +797,12 @@ fn trace_stream(res: &mut Response<Streaming>, child: &mut child::Thread) -> io:
                 api::Trace { index: next_index, line: 0, data }
             }
 
-            // TODO: collect stack trace in child thread
-            DebugMessage::Trace(DebugTrace::Crash) => {
+            DebugMessage::Trace(DebugTrace::Crash(stack)) => {
                 terminated = true;
                 done = true;
                 child.execution = None;
 
-                let data = api::TraceData::Crash { stack: String::new() };
+                let data = api::TraceData::Crash { stack };
                 api::Trace { index: next_index, line: 0, data }
             }
 
