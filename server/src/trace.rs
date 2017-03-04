@@ -1,44 +1,51 @@
-use std::{io, ptr, mem};
+use std::{io, mem, ptr, ops};
 use std::cell::RefCell;
 use std::collections::HashMap;
 
 use debug;
 
-pub struct TraceGuard<'a> {
-    child: &'a debug::Child,
-    breakpoints: BreakpointSet,
-}
-
 pub type BreakpointSet = HashMap<usize, RefCell<Option<debug::Breakpoint>>>;
 
-impl<'a> TraceGuard<'a> {
-    pub fn new(child: &debug::Child) -> TraceGuard {
-        TraceGuard { child, breakpoints: BreakpointSet::default() }
+pub struct TraceGuard<'c, 'b> {
+    child: &'c debug::Child,
+    breakpoints: &'b BreakpointSet,
+    owner: bool,
+}
+
+impl<'c, 'b> TraceGuard<'c, 'b> {
+    pub fn guard(child: &'c debug::Child, breakpoints: &'b BreakpointSet) -> TraceGuard<'c, 'b> {
+        TraceGuard { child, breakpoints, owner: false }
     }
 
-    pub fn from_set(child: &debug::Child, breakpoints: BreakpointSet) -> TraceGuard {
-        TraceGuard { child, breakpoints }
-    }
-
-    pub fn set_breakpoint(&mut self, address: usize) -> io::Result<()> {
-        let breakpoint = self.child.set_breakpoint(address)?;
-        self.breakpoints.insert(address, RefCell::new(Some(breakpoint)));
+    pub fn enable_all(&mut self) -> io::Result<()> {
+        for (&address, breakpoint) in self.breakpoints {
+            let mut breakpoint = breakpoint.borrow_mut();
+            if breakpoint.is_none() {
+                *breakpoint = Some(self.child.set_breakpoint(address)?);
+                self.owner = true;
+            }
+        }
 
         Ok(())
     }
+}
 
-    pub fn into_inner(self) -> BreakpointSet {
-        let breakpoints = unsafe { ptr::read(&self.breakpoints) };
-        mem::forget(self);
-
-        breakpoints
+impl<'c, 'b> ops::Deref for TraceGuard<'c, 'b> {
+    type Target = BreakpointSet;
+    fn deref(&self) -> &Self::Target {
+        self.breakpoints
     }
 }
 
-impl<'a> Drop for TraceGuard<'a> {
+impl<'c, 'b> Drop for TraceGuard<'c, 'b> {
     fn drop(&mut self) {
-        for (_address, breakpoint) in self.breakpoints.drain() {
-            if let Some(breakpoint) = breakpoint.into_inner() {
+        if !self.owner {
+            return;
+        }
+
+        for (_address, breakpoint) in self.breakpoints {
+            let breakpoint = breakpoint.borrow_mut().take();
+            if let Some(breakpoint) = breakpoint {
                 let _ = self.child.remove_breakpoint(breakpoint);
             }
         }
