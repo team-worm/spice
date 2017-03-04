@@ -2,7 +2,6 @@ import {Component} from "@angular/core";
 import { Response } from "@angular/http";
 import {MdDialog, MdSnackBar} from "@angular/material";
 import {AboutComponent} from "./about.component";
-import {HelpComponent} from "./help.component";
 import {ViewService} from "../../services/view.service";
 import {DebuggerState} from "../../models/DebuggerState";
 import {Execution} from "../../models/Execution";
@@ -163,8 +162,5 @@ export class ToolbarComponent {
     }
     openAboutSpiceDialog() {
         this.dialog.open(AboutComponent);
-    }
-    openHelpDialog() {
-        this.dialog.open(HelpComponent);
     }
 }

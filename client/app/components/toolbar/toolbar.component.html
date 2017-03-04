@@ -23,35 +23,6 @@
         <button md-button [disabled]="!debugState || !execution" (click)="StopExecution()"><md-icon class="md-accent">stop</md-icon> Stop</button>
         <button md-button [disabled]="!debugState || !execution" (click)="KillAndDetach()"><md-icon class="md-accent">close</md-icon> Kill and Detach</button>
     </span>
-    <!--<span class="width-33 center-text">-->
-        <!--<md-button-toggle-group [(ngModel)]="viewService.activeView">-->
-            <!--<md-button-toggle title="Launcher" [value]="'launcher'" [disabled]="viewService.activeView == 'launcher'">-->
-                <!--<md-icon>launch</md-icon> Launcher-->
-            <!--</md-button-toggle>-->
-            <!--<md-button-toggle title="Functions" [value]="'functions'" [disabled]="viewService.activeView == 'functions' || !viewService.functionsViewAvailable">-->
-                <!--<md-icon>library_books</md-icon> Functions-->
-            <!--</md-button-toggle>-->
-            <!--<md-button-toggle title="Debugger" [value]="'debugger'" [disabled]="viewService.activeView == 'debugger' || !viewService.debuggerViewAvailable">-->
-                <!--<md-icon>bug_report</md-icon> Debugger-->
-            <!--</md-button-toggle>-->
-        <!--</md-button-toggle-group>-->
-    <!--</span>-->
-    <!--<span class="width-33 right-align-text">-->
-            <!--<button title="Help" md-mini-fab (click)="openHelpDialog()">-->
-                <!--<md-icon>help_outline</md-icon>-->
-            <!--</button>-->
-            <!--<span class="spacer-sm"></span>-->
-            <!--<button title="About Spice" md-mini-fab (click)="openAboutSpiceDialog()">-->
-                <!--<md-icon>info_outline</md-icon>-->
-            <!--</button>-->
-            <!--<span class="spacer-sm"></span>-->
-            <!--<a title="Star on GitHub" href="https://github.com/team-worm/spice" target="_blank" md-mini-fab>-->
-                <!--<md-icon>star</md-icon>-->
-            <!--</a>-->
-    <!--</span>-->
-    <!--<md-toolbar-row class="debug-state-row">-->
-
-    <!--</md-toolbar-row>-->
 </md-toolbar>
 
 <md-menu class="breakpointMenu" #breakpointMenu="mdMenu">

@@ -1,5 +1,5 @@
 {
-    "collectionName": "C Standard Library",
+    "collectionName": "CRT Library",
     "functionNames": [
         "NtCurrentTeb",
         "__crt_debugger_hook",

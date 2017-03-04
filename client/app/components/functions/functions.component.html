@@ -2,11 +2,14 @@
     <div fxLayout="row">
         <div fxFlex="30" >
         <md-card class="smallerMargin" [style.height.px]="GetFullCardHeight()">
-            <md-card-subtitle>Functions</md-card-subtitle>
+            <md-card-title>
+                Functions
+                <button md-button [mdMenuTriggerFor]="functionFilterMenu" ><md-icon>filter_list</md-icon> Collections</button>
+            </md-card-title>
             <spice-function-list
                     #FunctionsFunctionList
                     class="width-100"
-                    [sourceFunctions]="sourceFunctions"
+                    [sourceFunctions]="listedFunctions"
                     [debuggerState]="debugState"
                     [elementHeightPx]="GetListHeight()"
                     (onFunctionSelected)="OnFunctionSelected($event)"></spice-function-list>
@@ -53,7 +56,13 @@
                     <md-progress-spinner mode="indeterminate"></md-progress-spinner>
                 </md-card-content>
             </md-card>
-
         </div>
     </div>
 </div>
+<md-menu #functionFilterMenu="mdMenu" positionY="100">
+    <button md-menu-item *ngFor="let filter of defaultFuncCollections" (click)="ToggleFilter(filter)">
+        <md-icon [color]="'accent'" *ngIf="!filter.doFilter">check</md-icon>
+        <md-icon [color]="'warn'" *ngIf="filter.doFilter">close</md-icon>
+        {{filter.collection.collectionName}}
+    </button>
+</md-menu>
