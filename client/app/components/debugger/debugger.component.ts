@@ -126,7 +126,7 @@ export class DebuggerComponent {
 
     public ExecuteFunction() {
         if (this.debugState && this.sourceFunction) {
-            this.resetGraph();
+            this.ResetGraph();
             console.log(this.setParameters);
             this.debugState.executeFunction(this.sourceFunction.address, this.setParameters)
                 .subscribe((ex: Execution) => {
@@ -141,7 +141,7 @@ export class DebuggerComponent {
         }
     }
 
-    public resetGraph() {
+    public ResetGraph() {
         this.showGraph = false;
         this.graphVariable = "";
         this.variables = new Set();

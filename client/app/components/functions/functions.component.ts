@@ -115,6 +115,15 @@ export class FunctionsComponent implements OnInit {
         this.selectedFunction = $event;
     }
 
+    public GetBreakpointStyle(i: number) {
+        if (this.selectedFunction &&
+            this.debugState &&
+            this.debugState.breakpoints.has(this.selectedFunction.address) &&
+            this.selectedFunction.lineStart == i) {
+            return "#FF0000";
+        }
+    }
+
     public GetFullCardHeight(): number {
 
         if (!this._functionsContentBody) {
@@ -141,7 +150,7 @@ export class FunctionsComponent implements OnInit {
     public ExecuteFunctionWithCustomParams() {
         if (this.viewService.debuggerComponent) {
             this.viewService.debuggerComponent.setParameters = {};
-            this.viewService.debuggerComponent.resetGraph();
+            this.viewService.debuggerComponent.ResetGraph();
             this.viewService.debuggerComponent.lines = [];
             this.viewService.debuggerComponent.sourceFunction = this.selectedFunction;
             this.viewService.activeView = 'debugger';
