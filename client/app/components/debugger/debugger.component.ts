@@ -141,9 +141,10 @@ export class DebuggerComponent {
         }
     }
 
-    private resetGraph() {
+    public resetGraph() {
         this.showGraph = false;
         this.graphVariable = "";
+        this.variables = new Set();
     }
 
     public GetFunctionAsString(): string {

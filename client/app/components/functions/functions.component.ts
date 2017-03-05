@@ -1,13 +1,13 @@
-import {Component, OnInit, ViewChild} from "@angular/core";
+import { Component, OnInit, ViewChild } from "@angular/core";
 import { SourceFunction, SourceFunctionId } from "../../models/SourceFunction";
-import {DebuggerService} from "../../services/debugger.service";
-import {DebuggerState} from "../../models/DebuggerState";
-import {MdSnackBar} from "@angular/material";
-import {Breakpoint} from "../../models/Breakpoint";
-import {ViewService} from "../../services/view.service";
-import {FileSystemService} from "../../services/file-system.service";
-import {MatchMaxHeightDirective} from "../../directives/MatchMaxHeight.directive";
-import {FunctionListComponent} from "../common/function-list.component";
+import { DebuggerService } from "../../services/debugger.service";
+import { DebuggerState } from "../../models/DebuggerState";
+import { MdSnackBar } from "@angular/material";
+import { Breakpoint } from "../../models/Breakpoint";
+import { ViewService } from "../../services/view.service";
+import { FileSystemService } from "../../services/file-system.service";
+import { MatchMaxHeightDirective } from "../../directives/MatchMaxHeight.directive";
+import { FunctionListComponent } from "../common/function-list.component";
 
 @Component({
     moduleId: module.id,
@@ -18,7 +18,7 @@ export class FunctionsComponent implements OnInit {
 
     private _functionsContentBody: HTMLElement | null;
 
-    @ViewChild('FunctionsFunctionList') functionList:FunctionListComponent;
+    @ViewChild('FunctionsFunctionList') functionList: FunctionListComponent;
 
     public lines: string[] | null;
     public linesLoaded: boolean = true;
@@ -28,9 +28,9 @@ export class FunctionsComponent implements OnInit {
     public debugState: DebuggerState | null;
 
     constructor(private debuggerService: DebuggerService,
-                private snackBar: MdSnackBar,
-                private viewService: ViewService,
-                private fileSystemService: FileSystemService) {
+        private snackBar: MdSnackBar,
+        private viewService: ViewService,
+        private fileSystemService: FileSystemService) {
         this.selectedFunction = null;
         this.debugState = null;
         this.lines = [];
@@ -51,7 +51,7 @@ export class FunctionsComponent implements OnInit {
     }
 
     public ToggleBreakpoint() {
-        if(this.selectedFunction && this.debugState) {
+        if (this.selectedFunction && this.debugState) {
             if (this.debugState.breakpoints.has(this.selectedFunction.address)) {
                 this.removeBreakpoint(this.debugState, this.selectedFunction.address);
             } else {
@@ -71,11 +71,11 @@ export class FunctionsComponent implements OnInit {
     }
 
     public loadSourceFunctions() {
-        let ds: DebuggerState|null = null;
+        let ds: DebuggerState | null = null;
         if (ds = this.debuggerService.getCurrentDebuggerState()) {
             this.debugState = ds;
             ds.getSourceFunctions().subscribe({
-                next: (sfMap: {[id: string]: SourceFunction}) => {
+                next: (sfMap: { [id: string]: SourceFunction }) => {
                     this.sourceFunctions = Object.keys(sfMap).map((key: string) => {
                         return sfMap[key]
                     });
@@ -97,7 +97,7 @@ export class FunctionsComponent implements OnInit {
     }
 
     public OnFunctionSelected($event: SourceFunction) {
-        if(this.functionList) {
+        if (this.functionList) {
             /* Redundantly sets the list in case OnFunctionSelected is called outside of this component. */
             this.functionList.selectedFunction = $event;
         }
@@ -108,7 +108,7 @@ export class FunctionsComponent implements OnInit {
             this.lines = contents.split('\n');
             this.linesLoaded = true;
             this.refreshHeights();
-        }, (error:Error)=> {
+        }, (error: Error) => {
             this.lines = [];
             this.linesLoaded = false;
         });
@@ -125,8 +125,8 @@ export class FunctionsComponent implements OnInit {
     }
 
     public refreshHeights(): void {
-        if(!!this.lines) {
-            this.lines.forEach((l,i) => MatchMaxHeightDirective.markDirty('functions-'+i.toString()));
+        if (!!this.lines) {
+            this.lines.forEach((l, i) => MatchMaxHeightDirective.markDirty('functions-' + i.toString()));
         }
     }
 
@@ -141,6 +141,8 @@ export class FunctionsComponent implements OnInit {
     public ExecuteFunctionWithCustomParams() {
         if (this.viewService.debuggerComponent) {
             this.viewService.debuggerComponent.setParameters = {};
+            this.viewService.debuggerComponent.resetGraph();
+            this.viewService.debuggerComponent.lines = [];
             this.viewService.debuggerComponent.sourceFunction = this.selectedFunction;
             this.viewService.activeView = 'debugger';
         }
