@@ -38,12 +38,12 @@
 						</div>
 						<div class="source-code-col" fxFlex>
 							<div class="row" [matchMaxHeight]="'debugger-'+(sourceFunction.lineStart+i)" *ngFor="let line of lines; let i=index;">
-								<pre>{{line.sourceCode}}</pre>
+								<pre>{{line}}</pre>
 							</div>
 						</div>
 					</div>
-					<div class="trace-col" fxFlex fxLayout="row">
-						<spice-trace-loop></spice-trace-loop>
+					<div class="trace-col" fxFlex>
+						<spice-trace-loop [loopData]="traceData"></spice-trace-loop>
 
 						<!--<div class="iteration-col" fxFlex *ngFor="let n of [].constructor(traceColCount); let colIndex=index;">-->
 							<!--<div class="row" [matchMaxHeight]="'debugger-'+i" *ngFor="let line of lines; let i=index;">-->

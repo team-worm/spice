@@ -12,6 +12,7 @@ import { MdSnackBar } from "@angular/material";
 import { LineGraphComponent, DataXY } from "../common/line-graph.component";
 import { SourceVariable } from "../../models/SourceVariable";
 import { Subscriber } from "rxjs/Subscriber";
+import { LoopData, TraceGroup } from "./trace-loop.component";
 
 @Component({
     moduleId: module.id,
@@ -20,13 +21,16 @@ import { Subscriber } from "rxjs/Subscriber";
 })
 export class DebuggerComponent {
 
-	public lines: { sourceCode: string, traces: Trace[]}[];
-	public lastTraceLine: number;
-	public traceColCount: number;
+	public lines: string[] = [];
+	//public lastTraceLine: number = Number.POSITIVE_INFINITY;;
+	//public traceColCount: number = 0;
+	public traceData: LoopData = { kind: 'loop', startLine: 0, endLine: 0, iterations: []};
+	public lastTrace: Trace | null = null;
+	public traceLoopStack: LoopData[] = [];
 
-	public sourceFunction: SourceFunction | null;
-	public debugState: DebuggerState | null;
-	public setParameters:{[id: string]: any};
+	public sourceFunction: SourceFunction | null = null;
+	public debugState: DebuggerState | null = null;
+	public setParameters:{[id: string]: any} = {};
 
 	@ViewChild('lineGraph') lineGraph: LineGraphComponent;
 	public graphData: DataXY[] = [];
@@ -38,13 +42,7 @@ export class DebuggerComponent {
 	constructor(private fileSystemService: FileSystemService,
 				private viewService: ViewService,
 				private snackBar: MdSnackBar) {
-
 		this.viewService.debuggerComponent = this;
-		this.lastTraceLine = Number.POSITIVE_INFINITY;
-		this.traceColCount = 0;
-		this.lines = [];
-		this.sourceFunction = null;
-		this.setParameters = {};
 	}
 
 	public displayTrace(executionId: ExecutionId) {
@@ -67,10 +65,17 @@ export class DebuggerComponent {
 				})
                 .mergeMap(([fileContents, traces]) => {
 					this.lines = fileContents.split('\n')
-                        .filter((l,i) => this.sourceFunction && i>=(this.sourceFunction.lineStart-1) && i<(this.sourceFunction.lineStart-1 + this.sourceFunction.lineCount))
-                        .map(l => {return { sourceCode: l, traces: []}});
-					this.lastTraceLine = Number.POSITIVE_INFINITY;
-					this.traceColCount = 0;
+                        .filter((l,i) => this.sourceFunction && i>=(this.sourceFunction.lineStart-1) && i<(this.sourceFunction.lineStart-1 + this.sourceFunction.lineCount));
+					//this.lastTraceLine = Number.POSITIVE_INFINITY;
+					//this.traceColCount = 0;
+					this.traceData = {
+						kind: 'loop',
+						startLine: this.sourceFunction!.lineStart,
+						endLine: this.sourceFunction!.lineStart + this.sourceFunction!.lineCount,
+						iterations: [[]]
+					};
+					this.lastTrace = null;
+					this.traceLoopStack = [this.traceData];
 					this.lines.forEach((_, i) => {
 						MatchMaxHeightDirective.markDirty(`debugger-${this.sourceFunction!.lineStart+i}`);
 					});
@@ -96,18 +101,52 @@ export class DebuggerComponent {
 			//TODO: properly handle these
 			return;
 		}
-		if(this.sourceFunction) {
-			let line = this.lines[trace.line - this.sourceFunction.lineStart];
-			if(this.lastTraceLine >= trace.line) {
-				this.traceColCount++;
+
+		//This naive implementation doesn't properly handle "early exit" of loops (break, continue)/assumes loops have some kind of "loop closing" trace
+		//In order to handle early exists, we need to go back and reorganize previous loops
+		//this probably involves changing loop.endLine values and moving traces into a more deeply nested loop
+		let currentLoop = this.traceLoopStack[this.traceLoopStack.length - 1];
+		if(this.lastTrace !== null) {
+			if(trace.line > this.lastTrace.line) {
+				if(trace.line > currentLoop.endLine) {
+					this.traceLoopStack.pop();
+					currentLoop = this.traceLoopStack[this.traceLoopStack.length - 1];
+				}
 			}
+			else {
 
-			line.traces[this.traceColCount-1] = trace;
+				while(true) {
+					if(currentLoop.startLine > trace.line) {
+						this.traceLoopStack.pop();
+						currentLoop = this.traceLoopStack[this.traceLoopStack.length - 1];
+					}
+					else if(currentLoop.startLine === trace.line) {
+						currentLoop.iterations.push([]);
+						break;
+					}
+					else {
+						let iteration = currentLoop.iterations[currentLoop.iterations.length-1];
+						let tgLine = -1;
+						let traceGroupIndex = iteration.findIndex((tg:TraceGroup) => {
+							tgLine = (tg.kind === 'trace' && tg.trace.line) ||
+										 (tg.kind === 'loop' && tg.startLine) || -1;
+							return tgLine >= trace.line;
+						});
 
-			this.lastTraceLine = trace.line;
-
-			MatchMaxHeightDirective.markDirty(`debugger-${trace.line}`);
+						//if tgLine === -1 we're in trouble
+						let newLoop: TraceGroup = { kind: 'loop', startLine: tgLine, endLine: this.lastTrace.line, iterations: [iteration.slice(traceGroupIndex), []]};
+						currentLoop.iterations[currentLoop.iterations.length-1] = iteration.slice(0, traceGroupIndex);
+						currentLoop.iterations[currentLoop.iterations.length-1].push(newLoop);
+						this.traceLoopStack.push(newLoop);
+						currentLoop = newLoop;
+						break;
+					}
+				}
+			}
 		}
+
+		currentLoop.iterations[currentLoop.iterations.length-1].push({ kind: 'trace', trace: trace});
+		this.lastTrace = trace;
 	}
 
 	public ExecuteFunction() {

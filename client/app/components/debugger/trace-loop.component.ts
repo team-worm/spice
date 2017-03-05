@@ -1,29 +1,29 @@
-import { Component, Input, OnInit, OnChanges, SimpleChanges } from "@angular/core";
+import { Component, Input } from "@angular/core";
 import { Trace } from "../../models/Trace";
 
 
-interface TraceData {
+export interface TraceData {
 	kind: 'trace';
 	trace: Trace;
 }
 
-interface LoopData {
+export interface LoopData {
 	kind: 'loop';
 	startLine: number;
 	endLine: number;
 	iterations: IterationData[];
 }
 
-type TraceGroup = TraceData | LoopData;
+export type TraceGroup = TraceData | LoopData;
 
-type IterationData = TraceGroup[];
+export type IterationData = TraceGroup[];
 
 @Component({
     moduleId: module.id,
 	selector: 'spice-trace-loop',
 	templateUrl: './trace-loop.component.html'
 })
-export class TraceLoopComponent implements OnInit, OnChanges {
+export class TraceLoopComponent {
 	//@Input() trace: Trace;
 	//public iterationCount: number = 0;
 	//public : number = 0;
@@ -31,10 +31,6 @@ export class TraceLoopComponent implements OnInit, OnChanges {
 	//treat this group as a standalone "iteration"
 	@Input() public loopData: LoopData;
 	constructor() {
-	}
-
-	public ngOnInit() {
-		this.ngOnChanges({});
 	}
 
 	public setShowAllIterations(b: boolean): void {
@@ -60,8 +56,7 @@ export class TraceLoopComponent implements OnInit, OnChanges {
 		return null;
 	}
 
-	public ngOnChanges(changes: any) {
-		if(!this.loopData && !changes.loopData) {
+	/* example loopData for nested loop
 			this.loopData = {
 				kind: 'loop',
 				startLine: 3,
@@ -118,51 +113,5 @@ export class TraceLoopComponent implements OnInit, OnChanges {
 					{ kind: 'trace', trace: {"index":26,"line":14,"data":{"tType":"return","value":"6"}}},
 					]]
 				};
-			//this.loopData = {
-				//kind: 'loop',
-				//startLine: 1,
-				//endLine: 16,
-				//iterations: [[
-					//{ kind: 'trace', trace: {"index":0,"line":0,"data":{"tType":"call","sFunction":140701677395264}}},
-					//{ kind: 'trace', trace: {"index":1,"line":3,"data":{"tType":"line","state":[{"sVariable":"n","value":"8"}]}}},
-					//{ kind: 'trace', trace: {"index":2,"line":4,"data":{"tType":"line","state":[{"sVariable":"i","value":"1"}]}}},
-					//{
-						//kind: 'loop',
-						//startLine: 5,
-						//endLine: 13,
-						//iterations: [
-							//[
-								//{ kind: 'trace', trace: {"index":3,"line":5,"data":{"tType":"line","state":[]}}},
-								//{ kind: 'trace', trace: {"index":4,"line":6,"data":{"tType":"line","state":[]}}},
-								//{ kind: 'trace', trace: {"index":5,"line":7,"data":{"tType":"line","state":[{"sVariable":"n","value":"4"}]}}},
-								//{ kind: 'trace', trace: {"index":6,"line":8,"data":{"tType":"line","state":[]}}},
-								//{ kind: 'trace', trace: {"index":7,"line":12,"data":{"tType":"line","state":[{"sVariable":"i","value":"2"}]}}},
-								//{ kind: 'trace', trace: {"index":8,"line":13,"data":{"tType":"line","state":[]}}}
-							//],
-							//[
-								//{ kind: 'trace', trace: {"index":9,"line":5,"data":{"tType":"line","state":[]}}},
-								//{ kind: 'trace', trace: {"index":10,"line":6,"data":{"tType":"line","state":[]}}},
-								//{ kind: 'trace', trace: {"index":11,"line":7,"data":{"tType":"line","state":[{"sVariable":"n","value":"2"}]}}},
-								//{ kind: 'trace', trace: {"index":12,"line":8,"data":{"tType":"line","state":[]}}},
-								//{ kind: 'trace', trace: {"index":13,"line":12,"data":{"tType":"line","state":[{"sVariable":"i","value":"3"}]}}},
-								//{ kind: 'trace', trace: {"index":14,"line":13,"data":{"tType":"line","state":[]}}}
-							//],
-							//[
-								//{ kind: 'trace', trace: {"index":15,"line":5,"data":{"tType":"line","state":[]}}},
-								//{ kind: 'trace', trace: {"index":16,"line":6,"data":{"tType":"line","state":[]}}},
-								//{ kind: 'trace', trace: {"index":17,"line":7,"data":{"tType":"line","state":[{"sVariable":"n","value":"1"}]}}},
-								//{ kind: 'trace', trace: {"index":18,"line":8,"data":{"tType":"line","state":[]}}},
-								//{ kind: 'trace', trace: {"index":19,"line":12,"data":{"tType":"line","state":[{"sVariable":"i","value":"4"}]}}},
-								//{ kind: 'trace', trace: {"index":20,"line":13,"data":{"tType":"line","state":[]}}}
-							//],
-							//[
-								//{ kind: 'trace', trace: {"index":21,"line":5,"data":{"tType":"line","state":[]}}}
-							//]
-						//]
-					//},
-					//{ kind: 'trace', trace: {"index":22,"line":15,"data":{"tType":"return","value":"4"}}}
-				//]]
-			//};
-		}
-	}
+	 */
 }
