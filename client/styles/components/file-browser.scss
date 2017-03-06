@@ -34,8 +34,11 @@
             font-style: italic;
         }
     }
+    .divider-spacing {
+        height: 1px;
+    }
     .file-list {
-        border: solid 1px #ccc;
+        border: solid 2px rgba(0,0,0,0.12);
         overflow-y: auto;
         overflow-x: auto;
     }

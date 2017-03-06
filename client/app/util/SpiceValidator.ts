@@ -76,7 +76,7 @@ export function fromJSON<T, C extends Constructor<T>>(json: any, target: C, key?
     const properties: Map<string, PropertyType> = target.prototype[propertiesKey]; // typescript does not yet emit metadata for interfaces
     // typescript is not quite clever enough to omit this null check
     if (!properties) {
-        throw new TypeError(`${target.name} has no deserializable properties`);
+        return json;
     }
 
     let object = new target();

@@ -7,9 +7,12 @@ import {SourceFile} from "../../models/SourceFile";
     template: `
 <div class="file-browser-component" [style.height.px]="elementHeightPx">
     <div class="small-padding width-100" fxLayout="row">
-        <md-icon class="input-icon">find_in_page</md-icon>
         <md-input-container fxFlex> 
-            <input mdInput placeholder="Custom Path" (change)="CustomPathChanged($event)"/>
+            <input mdInput placeholder="Path Lookup" (change)="CustomPathChanged($event)"/>
+        </md-input-container>
+        <md-icon class="input-icon">find_in_page</md-icon>
+        <md-input-container fxFlex="25"> 
+            <input mdInput placeholder="Filter Files" (keyup)="FilterNameKeyDown($event)"/>
         </md-input-container>
     </div>
     
@@ -20,7 +23,8 @@ import {SourceFile} from "../../models/SourceFile";
                 [fileDepth]="0" 
                 [selectedFileRef]="selectedFileRef" 
                 [customPath]="customPath"
-                [onSelected]="GetOnSelected()"></spice-file-browser-node>
+                [onSelected]="GetOnSelected()"
+                [filterNameChangeEmitter]="filterNameChangeEmitter"></spice-file-browser-node>
         </md-list>
     </div>
 </div>
@@ -38,7 +42,11 @@ export class FileBrowserComponent {
     @Output()
     public onFileSelected:EventEmitter<SourceFile>;
 
+    public filterNameChangeEmitter:EventEmitter<string>;
+
     public customPath:string;
+
+    public filterName:string; //TODO: Finish implementing this;
 
     constructor(public FSS:FileSystemService,
                 public element: ElementRef) {
@@ -48,6 +56,7 @@ export class FileBrowserComponent {
         this.customPath = '';
         this.elementHeightPx = 0;
         this.onFileSelected = new EventEmitter<SourceFile>();
+        this.filterNameChangeEmitter = new EventEmitter<string>();
     }
     public CustomPathChanged($event:Event) {
         this.loadFilterPath((<HTMLInputElement> $event.target).value);
@@ -59,6 +68,10 @@ export class FileBrowserComponent {
             self.selectedFileRef.file = file;
             self.onFileSelected.emit(file);
         };
+    }
+
+    public FilterNameKeyDown($event:KeyboardEvent) {
+        this.filterNameChangeEmitter.emit((<HTMLInputElement>$event.srcElement).value.toLowerCase());
     }
 
     private loadFilterPath(path:string) {
