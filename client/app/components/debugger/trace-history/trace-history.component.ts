@@ -25,8 +25,7 @@ export class TraceHistoryComponent {
 
     public executions:{ex: Execution, func: SourceFunction | null}[] = [];
 
-    constructor(private viewService:ViewService) {
-    }
+    constructor(private viewService:ViewService) {}
 
     public Toggle() {
         if(this.debugState && this.sidenav) {
@@ -78,10 +77,9 @@ export class TraceHistoryComponent {
 
     public ReplayTrace(e:{ex: Execution, func: SourceFunction | null}) {
         if(this.viewService.debuggerComponent) {
-            this.viewService.debuggerComponent.displayTrace(e.ex.id);
+            this.viewService.debuggerComponent.DisplayTrace(e.ex.id);
             this.viewService.activeView = 'debugger';
         }
-        console.log('Replay Trace', e);
     }
 
 }

@@ -53,7 +53,7 @@ export class ToolbarComponent {
                     case "break":
                         if (this.viewService.debuggerComponent) {
                             this.viewService.debuggerComponent.setParameters = {};
-                            this.viewService.debuggerComponent.displayTrace(t.data.nextExecution);
+                            this.viewService.debuggerComponent.DisplayTrace(t.data.nextExecution);
                             this.viewService.activeView = 'debugger';
                             if(this.debugState) {
 								this.debugState.getExecution(t.data.nextExecution).subscribe((ex: Execution) => { this.execution = ex; });
