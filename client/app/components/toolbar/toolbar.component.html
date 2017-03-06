@@ -1,14 +1,17 @@
 <md-toolbar class="toolbar center-text" color="primary">
     <span class="width-33"><h2>Spice Debugger</h2></span>
+    <span class="center-text">
+        <button color="primary" md-raised-button (click)="toggleDarkTheme()">Toggle Dark Theme</button>
+    </span>
     <span class="width-33 center-text">
         <md-button-toggle-group [(ngModel)]="viewService.activeView">
-            <md-button-toggle title="Launcher" [value]="'launcher'" [disabled]="viewService.activeView == 'launcher'">
+            <md-button-toggle class="md-raised" title="Launcher" [value]="'launcher'" [disabled]="viewService.activeView == 'launcher'">
                 <md-icon>launch</md-icon> Launcher
             </md-button-toggle>
-            <md-button-toggle title="Functions" [value]="'functions'" [disabled]="viewService.activeView == 'functions' || !viewService.functionsViewAvailable">
+            <md-button-toggle class="md-raised" title="Functions" [value]="'functions'" [disabled]="viewService.activeView == 'functions' || !viewService.functionsViewAvailable">
                 <md-icon>library_books</md-icon> Functions
             </md-button-toggle>
-            <md-button-toggle title="Debugger" [value]="'debugger'" [disabled]="viewService.activeView == 'debugger' || !viewService.debuggerViewAvailable">
+            <md-button-toggle class="md-raised" title="Debugger" [value]="'debugger'" [disabled]="viewService.activeView == 'debugger' || !viewService.debuggerViewAvailable">
                 <md-icon>bug_report</md-icon> Debugger
             </md-button-toggle>
         </md-button-toggle-group>

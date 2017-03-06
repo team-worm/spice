@@ -1,6 +1,6 @@
-import {Component, Input, ViewChild, ElementRef, OnInit} from "@angular/core";
-import {SourceFile} from "../../models/SourceFile";
-import {FileSystemService} from "../../services/file-system.service";
+import { Component, Input, ViewChild, ElementRef, OnInit } from "@angular/core";
+import { SourceFile } from "../../models/SourceFile";
+import { FileSystemService } from "../../services/file-system.service";
 @Component({
     selector: 'spice-file-browser-node',
     template: `
@@ -23,61 +23,61 @@ import {FileSystemService} from "../../services/file-system.service";
 </span>
 `
 })
-export class FileBrowserNodeComponent implements OnInit{
+export class FileBrowserNodeComponent implements OnInit {
     @Input()
-    public file:SourceFile | null;
+    public file: SourceFile | null;
     @Input()
-    public fileDepth:number;
+    public fileDepth: number;
     @Input()
     public selectedFileRef: {
-        file:SourceFile | null
+        file: SourceFile | null
     };
     @Input()
-    public onSelected: (file:SourceFile) => void;
+    public onSelected: (file: SourceFile) => void;
     @Input()
-    public customPath:string;
+    public customPath: string;
     public expanded: boolean;
 
-    @ViewChild('ListItemElement') DomElement:any;
+    @ViewChild('ListItemElement') DomElement: any;
 
-    constructor(private fSS:FileSystemService){
+    constructor(private fSS: FileSystemService) {
         this.expanded = false;
     }
 
-    ngOnInit():void  {
-        if(this.inCustomPath()) {
-            (<HTMLElement> this.DomElement._element.nativeElement).scrollIntoView({
+    ngOnInit(): void {
+        if (this.inCustomPath()) {
+            (<HTMLElement>this.DomElement._element.nativeElement).scrollIntoView({
                 behavior: "smooth",
                 block: "start"
             })
         }
-        this.DomElement._element.nativeElement.style.paddingLeft = (this.fileDepth*1.5) + "em";
+        this.DomElement._element.nativeElement.style.paddingLeft = (this.fileDepth * 1.5) + "em";
     }
 
-    public IsFolder():boolean {
+    public IsFolder(): boolean {
         return !!this.file && this.file.data.fType === 'directory';
     }
-    public FileHasContents():boolean {
+    public FileHasContents(): boolean {
         return !!this.file && this.file.data.fType === 'directory' && this.file.data.contents !== null;
     }
-    public IsExpanded():boolean {
-        if(this.inCustomPath()) {
+    public IsExpanded(): boolean {
+        if (this.inCustomPath()) {
             this.expanded = true;
         }
         return this.expanded
     }
-    public GetBackground():string {
-        return this.inCustomPath()? 'yellow' : ''; //TODO use styling classes.
+    public GetBackground(): string {
+        return this.inCustomPath() ? '#a8a8a8' : ''; //TODO use styling classes.
     }
-    public IconName():string {
-        if(!!this.file) {
-            if(this.file.data.fType === 'directory') {
-                if(this.IsExpanded()) {
+    public IconName(): string {
+        if (!!this.file) {
+            if (this.file.data.fType === 'directory') {
+                if (this.IsExpanded()) {
                     return 'folder_open';
                 } else {
                     return 'folder';
                 }
-            } else if(this.file.data.fType === 'file') {
+            } else if (this.file.data.fType === 'file') {
                 return 'insert_drive_file';
             } else {
                 return 'error_outline';
@@ -85,33 +85,33 @@ export class FileBrowserNodeComponent implements OnInit{
         }
         return '';
     }
-    public FileHead():string {
-        if(!!this.file) {
+    public FileHead(): string {
+        if (!!this.file) {
             return this.file.name;
         } else {
             return 'Loading...'
         }
     }
     public Clicked() {
-        if(!!this.file){
-            if(this.file.data.fType === 'directory' && !this.inCustomPath()) {
-                if(this.file.data.contents === null) {
-                    this.fSS.getFullFile(this.file).subscribe((sf:SourceFile)=>{
-                    }, (e:any)=> {
+        if (!!this.file) {
+            if (this.file.data.fType === 'directory' && !this.inCustomPath()) {
+                if (this.file.data.contents === null) {
+                    this.fSS.getFullFile(this.file).subscribe((sf: SourceFile) => {
+                    }, (e: any) => {
                         console.error('Error error getting file contents', e); //TODO professionalize
                     });
                 }
                 this.expanded = !this.expanded;
-            } else if(this.file.data.fType === 'file') {
+            } else if (this.file.data.fType === 'file') {
                 this.onSelected(this.file);
             }
         }
     }
-    public FileToString(f:SourceFile) {
+    public FileToString(f: SourceFile) {
         return f.path;
     }
 
-    private inCustomPath():boolean {
+    private inCustomPath(): boolean {
         return !!this.file && this.customPath.indexOf(this.file.path) >= 0;
     }
 }

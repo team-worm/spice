@@ -1,6 +1,6 @@
-import {Component, Output, EventEmitter, Input, ElementRef} from "@angular/core";
-import {FileSystemService} from "../../services/file-system.service";
-import {SourceFile} from "../../models/SourceFile";
+import { Component, Output, EventEmitter, Input, ElementRef } from "@angular/core";
+import { FileSystemService } from "../../services/file-system.service";
+import { SourceFile } from "../../models/SourceFile";
 
 @Component({
     selector: 'spice-file-browser',
@@ -9,7 +9,7 @@ import {SourceFile} from "../../models/SourceFile";
     <div class="small-padding width-100" fxLayout="row">
         <md-icon class="input-icon">find_in_page</md-icon>
         <md-input-container fxFlex> 
-            <input mdInput placeholder="Custom Path" (change)="CustomPathChanged($event)"/>
+            <input mdInput placeholder="Custom Path" value="c:/Users/tarik/Documents/visual_studio_2015/Projects/test/x64/Debug/x64/Debug/" (change)="CustomPathChanged($event)"/>
         </md-input-container>
     </div>
     
@@ -33,15 +33,15 @@ export class FileBrowserComponent {
     };
 
     @Input()
-    public elementHeightPx:number;
+    public elementHeightPx: number;
 
     @Output()
-    public onFileSelected:EventEmitter<SourceFile>;
+    public onFileSelected: EventEmitter<SourceFile>;
 
-    public customPath:string;
+    public customPath: string;
 
-    constructor(public FSS:FileSystemService,
-                public element: ElementRef) {
+    constructor(public FSS: FileSystemService,
+        public element: ElementRef) {
         this.selectedFileRef = {
             file: null
         };
@@ -49,22 +49,22 @@ export class FileBrowserComponent {
         this.elementHeightPx = 0;
         this.onFileSelected = new EventEmitter<SourceFile>();
     }
-    public CustomPathChanged($event:Event) {
-        this.loadFilterPath((<HTMLInputElement> $event.target).value);
+    public CustomPathChanged($event: Event) {
+        this.loadFilterPath((<HTMLInputElement>$event.target).value);
     }
 
-    public GetOnSelected(): (file:SourceFile) => void {
+    public GetOnSelected(): (file: SourceFile) => void {
         let self = this;
-        return (file:SourceFile) => {
+        return (file: SourceFile) => {
             self.selectedFileRef.file = file;
             self.onFileSelected.emit(file);
         };
     }
 
-    private loadFilterPath(path:string) {
+    private loadFilterPath(path: string) {
         this.customPath = path;
 
-        this.FSS.getUpToPath(this.customPath).subscribe((sf:SourceFile)=> {}, (err:any) => {
+        this.FSS.getUpToPath(this.customPath).subscribe((sf: SourceFile) => { }, (err: any) => {
             console.error('Error loading Custom Path.', err);
         });
     }
