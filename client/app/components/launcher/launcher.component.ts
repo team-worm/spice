@@ -151,6 +151,9 @@ export class LauncherComponent implements AfterContentChecked {
 		if (this.viewService.debuggerComponent) {
 			this.viewService.debuggerComponent.debugState = ds;
 		}
+		if (this.viewService.traceHistoryComponent) {
+		    this.viewService.traceHistoryComponent.debugState = ds;
+        }
 		this.viewService.activeView = 'functions';
 	}
 

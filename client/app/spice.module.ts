@@ -34,6 +34,7 @@ import { XHRBackend } from "@angular/http";
 import { MatchMaxHeightDirective } from "./directives/MatchMaxHeight.directive";
 import { TraceComponent } from "./components/debugger/trace.component";
 import { LineGraphComponent } from "./components/common/line-graph.component";
+import {TraceHistoryComponent} from "./components/debugger/trace-history/trace-history.component";
 
 @NgModule({
     imports: [MaterialModule.forRoot(), FormsModule, RouterModule, BrowserModule, HttpModule, FlexLayoutModule],
@@ -52,7 +53,8 @@ import { LineGraphComponent } from "./components/common/line-graph.component";
         ProcessListComponent,
         FilterByStringPipe,
         MatchMaxHeightDirective,
-        LineGraphComponent
+        LineGraphComponent,
+        TraceHistoryComponent
     ],
     providers: [
         //BEGIN MOCK PROVIDERS--Comment these out to disable backend mocking!

@@ -24,9 +24,9 @@ import {SourceFunction} from "../../models/SourceFunction";
          [selectedFileRef]="selectedFileRef" 
          [onSelected]="onSelected"
          [customPath]="customPath"
-         [filterNameChangeEmitter]="filterNameChangeEmitter"></spice-file-browser-node></span>
-    <span *ngIf="!FileHasContents()"><spice-file-browser-node *ngIf="!FileHasContents()" [fileDepth]="fileDepth + 1"></spice-file-browser-node></span>
-    <md-divider></md-divider>
+         [filterNameChangeEmitter]="filterNameChangeEmitter"></spice-file-browser-node>
+    </span>
+    <spice-file-browser-node *ngIf="!FileHasContents()" [fileDepth]="fileDepth + 1"></spice-file-browser-node>
 </span>
 `
 })

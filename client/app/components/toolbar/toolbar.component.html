@@ -5,12 +5,12 @@
         <span *ngIf="!!debugState" class="target-name">{{debugProcessName}}</span>
     </span>
     <span class="flex-pusher"></span>
-    <button md-button *ngIf="!execution" [disabled]="!debugState" (click)="ExecuteBinary()"><md-icon [color]="'accent'">play_arrow</md-icon> Execute Binary</button>
+    <button md-button *ngIf="!execution" [disabled]="!debugState || debugState.breakpoints.size === 0" (click)="ExecuteBinary()"><md-icon [color]="'accent'">play_arrow</md-icon> Execute Binary</button>
     <button md-button *ngIf="!!execution" [disabled]="!debugState" (click)="ExecuteBinary()"><md-icon [color]="'accent'">skip_next</md-icon> Continue</button>
     <button md-button [disabled]="!debugState || !execution" (click)="StopExecution()"><md-icon [color]="'accent'">stop</md-icon> Stop</button>
     <button md-button [disabled]="!debugState || !execution" (click)="KillAndDetach()"><md-icon [color]="'accent'">close</md-icon> Kill and Detach</button>
     <span class="left-divider">
-    <button md-button *ngIf="!debugState || debugState.breakpoints.size === 0" [disabled]="!debugState" (click)="GoToFunctionsView()">
+    <button md-button *ngIf="!debugState || debugState.breakpoints.size === 0" [disabled]="!debugState || IsInFunctionView()" (click)="GoToFunctionsView()">
         <md-icon>library_books</md-icon>
         Functions [{{!!debugState ? debugState.breakpoints.size : 0}}]
     </button>
@@ -18,9 +18,9 @@
         <md-icon>library_books</md-icon>
         Functions [{{!!debugState ? debugState.breakpoints.size : 0}}]
     </button>
-    <button md-button [disabled]="!debugState || debugState.executions.size === 0" (click)="GoToDebuggerView()">
+    <button md-button [disabled]="!debugState || debugState.executions.size === 0" (click)="ToggleTraceHistory()">
         <md-icon>bug_report</md-icon>
-        Debug Trace [{{!!debugState ? debugState.executions.size : 0}}]
+        Debug Traces [{{!!debugState ? debugState.executions.size : 0}}]
     </button>
     </span>
 </md-toolbar>

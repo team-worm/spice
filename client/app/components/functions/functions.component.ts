@@ -120,14 +120,6 @@ export class FunctionsComponent implements OnInit {
         this.selectedFunction = $event;
     }
 
-    public GetFullCardHeight(): number {
-
-        if (!this._functionsContentBody) {
-            return 50;
-        }
-        return (window.innerHeight - this._functionsContentBody.offsetTop) - 64;
-
-    }
 
     public refreshHeights(): void {
         if(!!this.lines) {
@@ -139,8 +131,17 @@ export class FunctionsComponent implements OnInit {
         return this.selectedFunction ? this.selectedFunction.getAsStringWithParameters(' ') : 'none';
     }
 
+    public GetFullCardHeight(): number {
+
+        if (!this._functionsContentBody) {
+            return 50;
+        }
+        return (window.innerHeight - this._functionsContentBody.offsetTop) - 130;
+
+    }
+
     public GetListHeight(): number {
-        return this.GetFullCardHeight() - 32;
+        return this.GetFullCardHeight() - 62;
     }
 
     public ExecuteFunctionWithCustomParams() {

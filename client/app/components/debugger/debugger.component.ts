@@ -112,7 +112,6 @@ export class DebuggerComponent {
 
 	public ExecuteFunction() {
 		if(this.debugState && this.sourceFunction) {
-			console.log(this.setParameters);
 			this.debugState.executeFunction(this.sourceFunction.address,this.setParameters)
                 .subscribe((ex:Execution)=>{
 					this.displayTrace(ex.id);

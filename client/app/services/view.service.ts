@@ -3,6 +3,7 @@ import {DebuggerComponent} from "../components/debugger/debugger.component";
 import { FunctionsComponent } from "../components/functions/functions.component";
 import {LauncherComponent} from "../components/launcher/launcher.component";
 import {ToolbarComponent} from "../components/toolbar/toolbar.component";
+import {TraceHistoryComponent} from "../components/debugger/trace-history/trace-history.component";
 
 @Injectable()
 export class ViewService {
@@ -15,6 +16,7 @@ export class ViewService {
     public launcherComponent: LauncherComponent | null;
     public functionsComponent: FunctionsComponent | null;
     public debuggerComponent: DebuggerComponent | null;
+    public traceHistoryComponent: TraceHistoryComponent | null;
 
     constructor() {
         this.views = ['launcher','functions','debugger'];
