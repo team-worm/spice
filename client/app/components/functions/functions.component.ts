@@ -50,15 +50,8 @@ export class FunctionsComponent implements OnInit {
         if (!this._functionsContentBody) {
             console.error('Error getting FunctionsContainer');
         }
-        this.http.get(`app/components/functions/standardFunctions.json`).subscribe((dat:Response)=> {
-            this.defaultFuncCollections.push({
-                collection: <SourceFunctionCollection>fromJSON(dat.json(), SourceFunctionCollection),
-                doFilter: true
-            });
-            this.filterListedFunctions();
-        },(err:any)=> {
-            console.log(err);
-        })
+        this.loadFunctionCollection(`app/components/functions/cRuntime.json`);
+        this.loadFunctionCollection(`app/components/functions/cStandardLib.json`);
     }
 
     public ToggleBreakpoint() {
@@ -194,6 +187,17 @@ export class FunctionsComponent implements OnInit {
         });
     }
 
+    private loadFunctionCollection(path:string) {
+        this.http.get(path).subscribe((dat:Response)=> {
+            this.defaultFuncCollections.push({
+                collection: <SourceFunctionCollection>fromJSON(dat.json(), SourceFunctionCollection),
+                doFilter: true
+            });
+            this.filterListedFunctions();
+        },(err:any)=> {
+            console.log(err);
+        })
+    }
     private removeBreakpoint(ds: DebuggerState, id: SourceFunctionId) {
         ds.removeBreakpoint(id).subscribe({
             next: () => {

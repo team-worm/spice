@@ -2,10 +2,12 @@
     <div fxLayout="row">
         <div fxFlex="30" >
         <md-card class="smallerMargin" [style.height.px]="GetFullCardHeight()">
-            <md-card-title>
+            <md-card-title class="smallBottomMargin">
                 Functions:
-                <button md-button [mdMenuTriggerFor]="functionFilterMenu" ><md-icon>filter_list</md-icon> Hidden Collections</button>
             </md-card-title>
+            <md-card-subtitle class="smallBottomMargin">
+                <b>Base Functions</b> | <button md-button [mdMenuTriggerFor]="functionFilterMenu" >Library Functions</button>
+            </md-card-subtitle>
             <spice-function-list
                     #FunctionsFunctionList
                     class="width-100"
@@ -28,7 +30,7 @@
                         <md-icon>bookmark</md-icon>Remove Breakpoint
                     </button>
                     <i>or</i>
-                    <button md-button [disabled]="!selectedFunction" (click)="ExecuteFunctionWithCustomParams()"><md-icon class="md-accent">play_circle_outline</md-icon>Run with Custom Parameters</button>
+                    <button md-button [disabled]="!selectedFunction || debugState.breakpoints.has(selectedFunction.address)" (click)="ExecuteFunctionWithCustomParams()"><md-icon class="md-accent">play_circle_outline</md-icon>Run with Custom Parameters</button>
                 </md-card-actions>
             </md-card>
             <md-card class="function-source-card smallerMargin">

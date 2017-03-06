@@ -9,8 +9,7 @@ import {SourceFunction} from "../../models/SourceFunction";
     class="file-system-node" 
     *ngIf="!filtered"
     (click)="Clicked()" 
-    [ngClass]="{'selected': !!file && selectedFileRef.file === file}"
-    [style.background]="GetBackground()"
+    [ngClass]="{'selected': !!file && selectedFileRef.file === file, 'searched': inCustomPath()}"
     [style.paddingLeft]="(this.fileDepth*1.5) + 'em'">
     <md-icon md-list-avatar class="file-icon" *ngIf="!!file" >{{IconName()}}</md-icon>
     <md-progress-spinner md-list-avatar *ngIf="!file" mode="indeterminate"></md-progress-spinner>
@@ -92,9 +91,6 @@ export class FileBrowserNodeComponent implements OnInit{
         }
         return this.expanded
     }
-    public GetBackground():string {
-        return this.inCustomPath()? 'yellow' : ''; //TODO use styling classes.
-    }
     public IconName():string {
         if(!!this.file) {
             if(this.file.data.fType === 'directory') {
@@ -136,10 +132,5 @@ export class FileBrowserNodeComponent implements OnInit{
 
     private inCustomPath():boolean {
         return !!this.file && this.customPath.indexOf(this.file.path) >= 0;
-    }
-    private setLeftOffset() {
-        if(this.DomElement) {
-            this.DomElement._element.nativeElement.style.paddingLeft = (this.fileDepth*1.5) + "em";
-        }
     }
 }

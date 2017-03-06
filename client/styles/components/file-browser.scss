@@ -15,13 +15,6 @@
             height: 20px !important;
         }
 
-        &.selected {
-            background: rgba(0,0,0,0.5) !important;
-        }
-        &:hover {
-            background: rgba(0,0,0,0.3);
-        }
-
         .file-icon {
             text-align: center;
             padding-top: 10px;
@@ -34,11 +27,11 @@
             font-style: italic;
         }
     }
+
     .divider-spacing {
         height: 1px;
     }
     .file-list {
-        border: solid 2px rgba(0,0,0,0.12);
         overflow-y: auto;
         overflow-x: auto;
     }

@@ -1,0 +1,27 @@
+@import '../../node_modules/@angular/material/core/theming/theming';
+
+@mixin file-browser-theme($theme) {
+    $primary: map-get($theme, primary);
+    $accent: map-get($theme, accent);
+    $foreground: map-get($theme, foreground);
+    $background: map-get($theme, background);
+
+    .file-browser-component {
+        md-list-item {
+            &.searched {
+                background: mat-color($accent, 100);
+            }
+            &.selected {
+                color: white;
+                background: mat-color($accent, 900) !important;
+                //background: rgba(0,0,0,0.5) !important;
+            }
+            &:hover {
+                background: rgba(0,0,0,0.3);
+            }
+        }
+        .file-list {
+            border: solid 2px rgba(0, 0, 0, 0.12);
+        }
+    }
+}

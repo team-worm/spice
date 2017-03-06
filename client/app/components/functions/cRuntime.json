@@ -77,7 +77,6 @@
         "mainCRTStartup",
         "post_pgo_initialization",
         "pre_c_initialization",
-        "pre_cpp_initialization",
-        "printf"
+        "pre_cpp_initialization"
     ]
 }

@@ -78,7 +78,8 @@ export class FileBrowserComponent {
         this.customPath = path;
 
         this.FSS.getUpToPath(this.customPath).subscribe((sf:SourceFile)=> {}, (err:any) => {
-            console.error('Error loading Custom Path.', err);
+            /* TODO: Determine if this is an error or not */
+            //console.error('Error loading Custom Path.', err);
         });
     }
 
