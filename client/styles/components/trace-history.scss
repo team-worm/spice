@@ -1,4 +1,22 @@
 .trace-history-sidenav{
-    padding: 10px;
-    width: 315px;
+    h2 {
+        margin: 10px;
+        md-icon {
+            font-size: 28px;
+            width: 28px;
+            height: 28px;
+            position: relative;
+            top: 6px;
+        }
+    }
+    md-list {
+        md-list-item {
+            border-bottom: 1px solid rgba(0,0,0,0.2);
+            &:hover {
+                cursor: pointer;
+                border: 2px solid rgba(0,0,0,0.2);
+            }
+        }
+    }
+    width: 335px;
 }
