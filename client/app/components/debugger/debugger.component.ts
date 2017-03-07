@@ -138,6 +138,8 @@ export class DebuggerComponent {
 	}
 
 	public SetGraphVariable(variableName: string): void {
+		if(this.sourceFunction)
+		console.log(this.sourceFunction.locals);
 		if(this.currentExecution !== null) {
 			this.graphData = [];
 			this.graphVariable = variableName;

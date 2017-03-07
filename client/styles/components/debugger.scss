@@ -5,6 +5,21 @@
 		text-decoration: underline;
 		font-weight: bold;
 	}
+	md-card {
+		md-card-title {
+			margin-bottom: 0 !important;
+		}
+	}
+	.source-card {
+		padding: 0 !important;
+	}
+	.variable-selector {
+		margin-top: 40px;
+		margin-bottom: 20px;
+	}
+	.line-graph {
+		border: 2px solid rgba(0,0,0,0.2)
+	}
 	.debugger-display {
 		.trace-col {
 			overflow-x: auto;

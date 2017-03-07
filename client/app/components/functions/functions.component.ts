@@ -74,6 +74,17 @@ export class FunctionsComponent implements OnInit {
         }
     }
 
+    public GetBreakpointStyle(line:number):string {
+        if (this.selectedFunction &&
+            this.debugState &&
+            this.debugState.breakpoints.has(this.selectedFunction.address) &&
+            this.selectedFunction.lineStart == line) {
+            return "#FF0000";
+        } else {
+            return "";
+        }
+    }
+
     public loadSourceFunctions() {
         let ds: DebuggerState|null;
         if (ds = this.debuggerService.getCurrentDebuggerState()) {
