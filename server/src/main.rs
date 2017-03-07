@@ -90,6 +90,15 @@ fn main() {
         debug(req, res, caps, child.clone());
     });
 
+    let child = child_thread.clone();
+    let cancel = child_cancel.clone();
+    router.post(r"/api/v1/debug/([0-9]*)/kill", move |req, res, caps| {
+        match debug_kill(caps, child.clone(), cancel.clone()) {
+            Ok(body) => send(req, res, &body),
+            Err(e) => send_error(req, res, e),
+        }.unwrap();
+    });
+
     // functions
 
     let child = child_thread.clone();
@@ -471,6 +480,20 @@ fn debug_attach_bin(caps: Captures, child: ChildThread, cancel: ChildCancel) -> 
 fn debug(req: Request, mut res: Response, _: Captures, _child: ChildThread) {
     *res.status_mut() = StatusCode::NotImplemented;
     send(req, res, b"").unwrap();
+}
+
+/// POST /debug/:id/kill
+fn debug_kill(_: Captures, child: ChildThread, cancel: ChildCancel) -> io::Result<Vec<u8>> {
+    let mut child_thread = child.lock().unwrap();
+    let mut child_cancel = cancel.lock().unwrap();
+    if let Some(child) = child_thread.take() {
+        child.tx.send(ServerMessage::Quit).unwrap();
+        child.thread.join().unwrap();
+
+        child_cancel.take().unwrap();
+    }
+
+    Ok(vec![])
 }
 
 /// GET /debug/:id/functions -- return a list of debuggable functions
