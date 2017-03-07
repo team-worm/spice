@@ -1,0 +1,20 @@
+.trace-history-sidenav{
+    h2 {
+        margin: 10px;
+        md-icon {
+            font-size: 28px;
+            width: 28px;
+            height: 28px;
+            position: relative;
+            top: 6px;
+        }
+    }
+    md-list {
+        md-list-item {
+            &:hover {
+                cursor: pointer;
+            }
+        }
+    }
+    width: 335px;
+}

@@ -47,50 +47,47 @@ export function Deserialize(options?: DeserializeOptions) {
     }
 }
 
-export function fromJSON<T, C extends Constructor<T>>(json: any, target: C): T {
-    const properties: Map<string, PropertyType> = target.prototype[propertiesKey];
+export function fromJSON<T, C extends Constructor<T>>(json: any, target: C, key?: string): T {
+    key = key || "";
+
+    let jsonType: Function | null;
+    switch (typeof json) {
+        case "boolean": jsonType = Boolean; break;
+        case "number": jsonType = Number; break;
+        case "string": jsonType = String; break;
+        case "object": jsonType = json ? json.constructor : null; break;
+        case "function": throw new TypeError(`JSON property ${key} is a function`);
+        default: throw new TypeError(`missing property ${key}`);
+    }
+
+    switch (jsonType) {
+    case Boolean:
+    case Number:
+    case String:
+        if (jsonType !== target && jsonType !== null) {
+            throw new TypeError(`${key} is a ${jsonType.name}; expected a ${target.name}`);
+        }
+        // fall through
+    case null:
+    case Array:
+        return json;
+    }
+
+    const properties: Map<string, PropertyType> = target.prototype[propertiesKey]; // typescript does not yet emit metadata for interfaces
+    // typescript is not quite clever enough to omit this null check
     if (!properties) {
-        throw new TypeError(`${target.name} has no deserializable properties`);
+        return json;
     }
 
     let object = new target();
     for (const [key, { constructor, element }] of properties) {
-        let jsonType: Function | null;
-        switch (typeof json[key]) {
-        case "boolean": jsonType = Boolean; break;
-        case "number": jsonType = Number; break;
-        case "string": jsonType = String; break;
-        case "object": jsonType = json[key] ? json[key].constructor : null; break;
-        case "function": throw new TypeError(`JSON property ${key} is a function`);
-        default: throw new TypeError(`missing property ${key}`);
-        }
-
-        switch (jsonType) {
-        case Boolean:
-        case Number:
-        case String:
-            // typescript is not quite clever enough to omit this null check
-            if (jsonType !== constructor && jsonType !== null) {
-                throw new TypeError(`${key} is a ${jsonType.name}; expected a ${constructor.name}`);
-            }
-            object[key] = json[key];
-            break;
-
-        case null:
-            object[key] = json[key];
-            break;
-
+        switch (constructor) {
         case Array:
             object[key] = json[key].map((e: any) => fromJSON(e, element as Constructor<any>));
             break;
 
         default:
-            // typescript does not yet emit metadata for interfaces
-            if (constructor == Object) {
-                object[key] = json[key];
-            } else {
-                object[key] = fromJSON(json[key], constructor);
-            }
+            object[key] = fromJSON(json[key], constructor, key);
             break;
         }
     }

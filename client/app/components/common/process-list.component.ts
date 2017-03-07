@@ -21,7 +21,10 @@ import { DebuggerService } from "../../services/debugger.service";
     </div>
     <div class="process-list" [style.height.px]="elementHeightPx - 60">
         <md-list dense>
-            <md-list-item *ngFor="let process of selectedSort.sortFunc() | filterByString:filterString:ProcessToString" class="process-list-item" (click)="ProcessClicked(process)">
+            <md-list-item *ngFor="let process of selectedSort.sortFunc() | filterByString:filterString:ProcessToString" 
+                class="process-list-item" 
+                [ngClass]="{'selected': selectedProcess === process}"
+                (click)="ProcessClicked(process)">
                 <md-icon md-list-avatar class="process-icon">settings_application</md-icon>
                 <p md-line class="process-header">{{process.name}}</p>
                 <p md-line class="process-subheader">ID: {{process.id}}</p>
@@ -51,6 +54,8 @@ export class ProcessListComponent implements OnInit {
         icon: string,
         sortFunc:()=>Process[],
     }[];
+
+    public selectedProcess:Process | null;
 
     constructor(private debuggerService: DebuggerService,
                 public element: ElementRef) {
@@ -90,7 +95,12 @@ export class ProcessListComponent implements OnInit {
 			);
 	}
 
+	public ResetSelectedProcess() {
+        this.selectedProcess = null;
+    }
+
     public ProcessClicked(process:Process) {
+        this.selectedProcess = process;
         this.onProcessSelected.emit(process);
     }
     public ProcessToString(process:Process) {

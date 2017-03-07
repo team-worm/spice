@@ -1,8 +1,29 @@
 #FunctionsContainer {
+    .smallBottomMargin {
+        margin-bottom: 4px;
+    }
     figure {
         display: block;
         position: static;
         align-items: stretch;
         justify-content: flex-start;
+    }
+    md-card {
+        &.function-source-card {
+            padding: 0 !important;
+        }
+        md-card-subtitle {
+            b {
+                font-size: 14px;
+                margin-right: 14px;
+            }
+        }
+        md-card-content {
+            padding: 16px !important;
+
+            md-progress-spinner {
+                height: 48px;
+            }
+        }
     }
 }
