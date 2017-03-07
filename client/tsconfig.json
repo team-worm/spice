@@ -14,5 +14,8 @@
     "skipLibCheck": true,
     "noImplicitAny": true,
     "suppressImplicitAnyIndexErrors": true
-  }
+  },
+  "files": [
+    "app/main.ts"
+  ]
 }

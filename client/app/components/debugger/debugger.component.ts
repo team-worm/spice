@@ -45,7 +45,7 @@ export class DebuggerComponent {
 		this.viewService.debuggerComponent = this;
 	}
 
-	public displayTrace(executionId: ExecutionId) {
+	public DisplayTrace(executionId: ExecutionId) {
 		this.currentExecution = executionId;
 		if(this.debugState) {
 			let ds: DebuggerState = this.debugState;
@@ -153,7 +153,7 @@ export class DebuggerComponent {
 		if(this.debugState && this.sourceFunction) {
 			this.debugState.executeFunction(this.sourceFunction.address,this.setParameters)
                 .subscribe((ex:Execution)=>{
-					this.displayTrace(ex.id);
+					this.DisplayTrace(ex.id);
 				}, (e:any) => {
 					console.error(e);
 				});

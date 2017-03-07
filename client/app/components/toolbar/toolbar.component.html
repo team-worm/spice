@@ -1,43 +1,28 @@
 <md-toolbar class="toolbar center-text" color="primary">
-    <span class="width-33"><h2>Spice Debugger</h2></span>
-    <span class="width-33 center-text">
-        <md-button-toggle-group [(ngModel)]="viewService.activeView">
-            <md-button-toggle title="Launcher" [value]="'launcher'" [disabled]="viewService.activeView == 'launcher'">
-                <md-icon>launch</md-icon> Launcher
-            </md-button-toggle>
-            <md-button-toggle title="Functions" [value]="'functions'" [disabled]="viewService.activeView == 'functions' || !viewService.functionsViewAvailable">
-                <md-icon>library_books</md-icon> Functions
-            </md-button-toggle>
-            <md-button-toggle title="Debugger" [value]="'debugger'" [disabled]="viewService.activeView == 'debugger' || !viewService.debuggerViewAvailable">
-                <md-icon>bug_report</md-icon> Debugger
-            </md-button-toggle>
-        </md-button-toggle-group>
-    </span>
-    <span class="width-33 right-align-text">
-            <button title="Help" md-mini-fab (click)="openHelpDialog()">
-                <md-icon>help_outline</md-icon>
-            </button>
-            <span class="spacer-sm"></span>
-            <button title="About Spice" md-mini-fab (click)="openAboutSpiceDialog()">
-                <md-icon>info_outline</md-icon>
-            </button>
-            <span class="spacer-sm"></span>
-            <a title="Star on GitHub" href="https://github.com/team-worm/spice" target="_blank" md-mini-fab>
-                <md-icon>star</md-icon>
-            </a>
-    </span>
-    <md-toolbar-row class="debug-state-row">
-        <span class="target-text">Target:</span>
+    <span class="title" (click)="openAboutSpiceDialog()"><h2>Spice Debugger</h2></span>
+    <span class="target-area">
         <span *ngIf="!debugState"  class="no-target">Not Attached</span>
         <span *ngIf="!!debugState" class="target-name">{{debugProcessName}}</span>
-        <span class="flex-pusher"></span>
-        <button md-button *ngIf="!debugState || debugState.breakpoints.size === 0" [disabled]="!debugState" (click)="GoToFunctionsView()">Breakpoints Set [{{!!debugState ? debugState.breakpoints.size : 0}}]</button>
-        <button md-button *ngIf="!!debugState && debugState.breakpoints.size > 0" [mdMenuTriggerFor]="breakpointMenu" (click)="GetBpFunctions()">Breakpoints Set [{{!!debugState ? debugState.breakpoints.size : 0}}]</button>
-        <button md-button *ngIf="!execution" [disabled]="!debugState" (click)="ExecuteBinary()"><md-icon class="md-accent">play_arrow</md-icon> Execute Binary</button>
-        <button md-button *ngIf="!!execution" [disabled]="!debugState" (click)="ExecuteBinary()"><md-icon class="md-accent">skip_next</md-icon> Continue</button>
-        <button md-button [disabled]="!debugState || !execution" (click)="StopExecution()"><md-icon class="md-accent">stop</md-icon> Stop</button>
-        <button md-button [disabled]="!debugState || !execution" (click)="KillAndDetach()"><md-icon class="md-accent">close</md-icon> Kill and Detach</button>
-    </md-toolbar-row>
+    </span>
+    <span class="flex-pusher"></span>
+    <button md-button *ngIf="!execution" [disabled]="!debugState" (click)="ExecuteBinary()"><md-icon [color]="'accent'">play_arrow</md-icon> Start</button>
+    <button md-button *ngIf="!!execution" [disabled]="!debugState" (click)="ExecuteBinary()"><md-icon [color]="'accent'">skip_next</md-icon> Continue</button>
+    <button md-button [disabled]="!debugState || !execution" (click)="StopExecution()"><md-icon [color]="'accent'">pause</md-icon> Pause</button>
+    <button md-button [disabled]="!debugState" (click)="KillAndDetach()"><md-icon [color]="'accent'">close</md-icon> Kill and Detach</button>
+    <span class="left-divider">
+    <button md-button *ngIf="!debugState || debugState.breakpoints.size === 0" [disabled]="!debugState || IsInFunctionView()" (click)="GoToFunctionsView()">
+        <md-icon>library_books</md-icon>
+        Functions [{{!!debugState ? debugState.breakpoints.size : 0}}]
+    </button>
+    <button md-button *ngIf="!!debugState && debugState.breakpoints.size > 0" [mdMenuTriggerFor]="breakpointMenu" (click)="GetBpFunctions()">
+        <md-icon>library_books</md-icon>
+        Functions [{{!!debugState ? debugState.breakpoints.size : 0}}]
+    </button>
+    <button md-button [disabled]="!debugState || debugState.executions.size === 0" (click)="ToggleTraceHistory()">
+        <md-icon>bug_report</md-icon>
+        Debug Traces [{{!!debugState ? debugState.executions.size : 0}}]
+    </button>
+    </span>
 </md-toolbar>
 
 <md-menu class="breakpointMenu" #breakpointMenu="mdMenu">

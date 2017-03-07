@@ -114,6 +114,8 @@ pub enum TraceData {
     },
     #[serde(rename = "exit")]
     Exit { code: u32 },
+    #[serde(rename = "cancel")]
+    Cancel,
     #[serde(rename = "crash")]
     Crash { stack: String },
     #[serde(rename = "error")]
