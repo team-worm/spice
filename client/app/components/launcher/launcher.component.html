@@ -1,28 +1,32 @@
 <div #Launcher id="LauncherContainer">
     <md-card class="smallMargin" [style.height.px]="launcherCardHeight">
-        <md-card-title>Launch from filesystem or existing process.</md-card-title>
-        <md-card-content>
-            <div fxLayout="row">
-                <button md-mini-fab [disabled]="!selectedFileOrProcess || attaching || !!debugState" (click)="Attach()"><md-icon>launch</md-icon></button>
-                <div fxFlex class="selected-info">
-                    <div class="selected-title">
-                        {{ GetSelectedName() }}
-                    </div>
-                    <div class="selected-subtitle">
-                        {{ GetSelectedInformation() }}
-                    </div>
-                </div>
-            </div>
-        </md-card-content>
-        <hr>
         <md-tab-group>
-            <md-tab label="Binary or Executable">
+            <md-tab label="Launch Binary">
                 <spice-file-browser #LauncherFileBrowser (onFileSelected)="OnFileSelected($event)" [elementHeightPx]="fileBrowserHeight"></spice-file-browser>
             </md-tab>
-            <md-tab label="Existing Process">
+            <md-tab label="Attach to Existing Process">
                 <spice-process-list #LauncherProcessList (onProcessSelected)="OnProcessSelected($event)" [elementHeightPx]="processListHeight"></spice-process-list>
             </md-tab>
         </md-tab-group>
+        <md-card-actions align="end">
+            <md-icon class="selection-icon">{{GetSelectedIcon()}}</md-icon>
+            <div fxFlex class="selection-null" *ngIf="!selectedFileOrProcess">
+                <i>Select a process or file above.</i>
+            </div>
+            <div fxFlex class="selection-info" *ngIf="!!selectedFileOrProcess">
+                <div class="selection-title">
+                    <b>{{ GetSelectedName() }}</b>
+                </div>
+                <div class="selection-subtitle">
+                    {{ GetSelectedInformation() }}
+                </div>
+            </div>
+            <button class="launch-attach-button" md-raised-button color="accent"
+                    [disabled]="!selectedFileOrProcess || attaching || !!debugState"
+                    (click)="Attach()">
+                {{GetLaunchAttachButtonText()}} <md-icon>launch</md-icon>
+            </button>
+        </md-card-actions>
     </md-card>
 </div>
 

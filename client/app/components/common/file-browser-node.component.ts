@@ -1,25 +1,32 @@
-import { Component, Input, ViewChild, ElementRef, OnInit } from "@angular/core";
+import {Component, Input, ViewChild, ElementRef, OnInit, Output, EventEmitter} from "@angular/core";
 import { SourceFile } from "../../models/SourceFile";
 import { FileSystemService } from "../../services/file-system.service";
+import {SourceFunction} from "../../models/SourceFunction";
 @Component({
     selector: 'spice-file-browser-node',
     template: `
-<md-list-item #ListItemElement (click)="Clicked()" class="file-system-node" [ngClass]="{'selected': !!file && selectedFileRef.file === file}" [style.background]="GetBackground()">
+<md-list-item #ListItemElement 
+    class="file-system-node" 
+    *ngIf="!filtered"
+    (click)="Clicked()" 
+    [ngClass]="{'selected': !!file && selectedFileRef.file === file, 'searched': inCustomPath()}"
+    [style.paddingLeft]="(this.fileDepth*1.5) + 'em'">
     <md-icon md-list-avatar class="file-icon" *ngIf="!!file" >{{IconName()}}</md-icon>
     <md-progress-spinner md-list-avatar *ngIf="!file" mode="indeterminate"></md-progress-spinner>
     <p md-line class="file-header">{{FileHead()}}</p>
 </md-list-item>
 <span *ngIf="IsFolder()" [style.display]="IsExpanded() ? 'inherit' : 'none'" >
-    <md-divider></md-divider>
+    <md-divider class="divider-spacing"></md-divider>
     <span *ngIf="FileHasContents()">
         <spice-file-browser-node *ngFor="let f of file.data.contents" 
          [file]="f" 
          [fileDepth]="fileDepth + 1" 
          [selectedFileRef]="selectedFileRef" 
          [onSelected]="onSelected"
-         [customPath]="customPath"></spice-file-browser-node></span>
-    <span *ngIf="!FileHasContents()"><spice-file-browser-node *ngIf="!FileHasContents()" [fileDepth]="fileDepth + 1"></spice-file-browser-node></span>
-    <md-divider></md-divider>
+         [customPath]="customPath"
+         [filterNameChangeEmitter]="filterNameChangeEmitter"></spice-file-browser-node>
+    </span>
+    <spice-file-browser-node *ngIf="!FileHasContents()" [fileDepth]="fileDepth + 1"></spice-file-browser-node>
 </span>
 `
 })
@@ -36,22 +43,40 @@ export class FileBrowserNodeComponent implements OnInit {
     public onSelected: (file: SourceFile) => void;
     @Input()
     public customPath: string;
+    @Input()
+    public filterNameChangeEmitter:EventEmitter<string>;
+
     public expanded: boolean;
+
+    public filtered:boolean; //True means hide.
 
     @ViewChild('ListItemElement') DomElement: any;
 
     constructor(private fSS: FileSystemService) {
         this.expanded = false;
+        this.filtered = false;
     }
 
     ngOnInit(): void {
         if (this.inCustomPath()) {
-            (<HTMLElement>this.DomElement._element.nativeElement).scrollIntoView({
-                behavior: "smooth",
-                block: "start"
-            })
+            if(this.file && this.file.data.fType === 'file') {
+                setTimeout(()=> {
+                    if(this.file) {
+                        this.onSelected(this.file);
+                    }
+
+                },50);
+
+            }
         }
-        this.DomElement._element.nativeElement.style.paddingLeft = (this.fileDepth * 1.5) + "em";
+
+        if(this.filterNameChangeEmitter) {
+            this.filterNameChangeEmitter.subscribe((filter:string)=> {
+                if(this.file) {
+                    this.filtered = this.file.name.toLowerCase().indexOf(filter) === -1;
+                }
+            });
+        }
     }
 
     public IsFolder(): boolean {
@@ -65,9 +90,6 @@ export class FileBrowserNodeComponent implements OnInit {
             this.expanded = true;
         }
         return this.expanded
-    }
-    public GetBackground(): string {
-        return this.inCustomPath() ? '#a8a8a8' : ''; //TODO use styling classes.
     }
     public IconName(): string {
         if (!!this.file) {
@@ -106,9 +128,6 @@ export class FileBrowserNodeComponent implements OnInit {
                 this.onSelected(this.file);
             }
         }
-    }
-    public FileToString(f: SourceFile) {
-        return f.path;
     }
 
     private inCustomPath(): boolean {

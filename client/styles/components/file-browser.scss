@@ -5,17 +5,11 @@
         line-height: 2;
     }
 
-    .file-system-node {
+    md-list-item {
         cursor: pointer;
-        &.selected {
-            background: rgba(0,0,0,0.5) !important;
-        }
-        &:hover {
-            background: rgba(0,0,0,0.3);
-        }
 
-        .md-list-item {
-            height: 26px !important;
+        .mat-list-item-content {
+            height: 30px !important;
         }
         md-progress-spinner {
             height: 20px !important;
@@ -33,8 +27,11 @@
             font-style: italic;
         }
     }
+
+    .divider-spacing {
+        height: 1px;
+    }
     .file-list {
-        border: solid 1px #ccc;
         overflow-y: auto;
         overflow-x: auto;
     }

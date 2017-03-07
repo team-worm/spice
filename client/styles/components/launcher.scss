@@ -1,25 +1,56 @@
 #LauncherContainer {
+    md-card {
+        padding: 0;
+
+        md-card-actions {
+            margin-left: 0;
+            margin-right: 8px;
+            button {
+                width: 200px;
+            }
+        }
+    }
+    md-tab-body {
+        padding-left: 10px;
+        padding-right: 10px;
+        overflow-y: hidden !important;
+    }
     .spanSpacerSmall {
         margin-left: 1em;
     }
     .bottomAlign {
         vertical-align: bottom;
     }
-    md-tab-body {
-        overflow-y: hidden !important;
-    }
     .launcherList {
         padding-top: 1em;
     }
-    .selected-info {
+    .launch-attach-button {
+        text-align: left;
+        md-icon {
+            padding-top: 6px;
+            float: right;
+        }
+    }
+    .selection-icon {
+        width: 40px;
+        height: 40px;
+        font-size: 40px;
+        padding-left: 12px;
+    }
+    .selection-null {
+        text-align: left;
+        padding-left: 1em;
+        padding-top: 12px;
+    }
+    .selection-info {
+        text-align: left;
         padding-left: 1em;
         padding-top: 4px;
 
-        .selected-title {
+        .selection-title {
             font-size:medium;
-            font-weight: bold;
         }
-        .selected-subtitle {
+        .selection-subtitle {
             font-size:smaller;
             font-style: italic;
         }

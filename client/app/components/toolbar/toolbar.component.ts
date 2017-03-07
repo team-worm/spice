@@ -1,8 +1,7 @@
 import { Component, Output, EventEmitter } from "@angular/core";
 import { Response } from "@angular/http";
-import { MdDialog, MdSnackBar } from "@angular/material";
+import {MdDialog, MdSnackBar, MdSidenav} from "@angular/material";
 import { AboutComponent } from "./about.component";
-import { HelpComponent } from "./help.component";
 import { ViewService } from "../../services/view.service";
 import { DebuggerState } from "../../models/DebuggerState";
 import { Execution } from "../../models/Execution";
@@ -31,10 +30,18 @@ export class ToolbarComponent {
         public debuggerService: DebuggerService,
         private snackBar: MdSnackBar) { }
 
+    public IsInFunctionView():boolean {
+        return this.viewService.activeView === 'functions';
+    }
     public GoToFunctionsView() {
         this.viewService.activeView = 'functions';
     }
-
+    public ToggleTraceHistory() {
+        if(this.viewService.traceHistoryComponent) {
+            this.viewService.traceHistoryComponent.Toggle();
+        }
+    }
+    
     public toggleDarkTheme() {
         this.isDarkTheme.emit(!this.dark);
         this.dark = !this.dark;
@@ -54,7 +61,7 @@ export class ToolbarComponent {
                         case "break":
                             if (this.viewService.debuggerComponent) {
                                 this.viewService.debuggerComponent.setParameters = {};
-                                this.viewService.debuggerComponent.displayTrace(t.data.nextExecution);
+                            this.viewService.debuggerComponent.DisplayTrace(t.data.nextExecution);
                                 this.viewService.activeView = 'debugger';
                                 if (this.debugState) {
                                     this.debugState.getExecution(t.data.nextExecution).subscribe((ex: Execution) => { this.execution = ex; });
@@ -83,7 +90,6 @@ export class ToolbarComponent {
             });
         }
     }
-
     public StopExecution() {
         if (this.debugState && this.execution) {
             this.debugState.stopExecution(this.execution.id)
@@ -101,7 +107,6 @@ export class ToolbarComponent {
                 });
         }
     }
-
     public OnExecutionStopped() {
         this.execution = null;
 
@@ -139,7 +144,6 @@ export class ToolbarComponent {
             this.viewService.activeView = 'launcher';
         }
     }
-
     public KillAndDetach() {
         if (this.debugState) {
             //TODO: When the api for kill+detach exists do something for this.
@@ -167,8 +171,5 @@ export class ToolbarComponent {
     }
     openAboutSpiceDialog() {
         this.dialog.open(AboutComponent);
-    }
-    openHelpDialog() {
-        this.dialog.open(HelpComponent);
     }
 }
