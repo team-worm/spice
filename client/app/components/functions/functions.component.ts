@@ -1,14 +1,14 @@
-import {Component, OnInit, ViewChild} from "@angular/core";
+import { Component, OnInit, ViewChild } from "@angular/core";
 import {Http, Response} from "@angular/http";
 import {MdSnackBar} from "@angular/material";
 import {SourceFunction, SourceFunctionId } from "../../models/SourceFunction";
-import {DebuggerService} from "../../services/debugger.service";
-import {DebuggerState} from "../../models/DebuggerState";
-import {Breakpoint} from "../../models/Breakpoint";
-import {ViewService} from "../../services/view.service";
-import {FileSystemService} from "../../services/file-system.service";
-import {MatchMaxHeightDirective} from "../../directives/MatchMaxHeight.directive";
-import {FunctionListComponent} from "../common/function-list.component";
+import { DebuggerService } from "../../services/debugger.service";
+import { DebuggerState } from "../../models/DebuggerState";
+import { Breakpoint } from "../../models/Breakpoint";
+import { ViewService } from "../../services/view.service";
+import { FileSystemService } from "../../services/file-system.service";
+import { MatchMaxHeightDirective } from "../../directives/MatchMaxHeight.directive";
+import { FunctionListComponent } from "../common/function-list.component";
 import {fromJSON} from "../../util/SpiceValidator";
 import {SourceFunctionCollection} from "../../models/SourceFunctionCollection";
 
@@ -19,7 +19,7 @@ import {SourceFunctionCollection} from "../../models/SourceFunctionCollection";
 })
 export class FunctionsComponent implements OnInit {
 
-    @ViewChild('FunctionsFunctionList') functionList:FunctionListComponent;
+    @ViewChild('FunctionsFunctionList') functionList: FunctionListComponent;
 
     public lines: string[] | null;
     public linesLoaded: boolean = true;
@@ -32,8 +32,8 @@ export class FunctionsComponent implements OnInit {
     private coreSourceFunctions: SourceFunction[];
 
     constructor(private debuggerService: DebuggerService,
-                private snackBar: MdSnackBar,
-                private viewService: ViewService,
+        private snackBar: MdSnackBar,
+        private viewService: ViewService,
                 private fileSystemService: FileSystemService,
                 private http: Http) {
         this.selectedFunction = null;
@@ -55,7 +55,7 @@ export class FunctionsComponent implements OnInit {
     }
 
     public ToggleBreakpoint() {
-        if(this.selectedFunction && this.debugState) {
+        if (this.selectedFunction && this.debugState) {
             if (this.debugState.breakpoints.has(this.selectedFunction.address)) {
                 this.removeBreakpoint(this.debugState, this.selectedFunction.address);
             } else {
@@ -79,7 +79,7 @@ export class FunctionsComponent implements OnInit {
         if (ds = this.debuggerService.getCurrentDebuggerState()) {
             this.debugState = ds;
             ds.getSourceFunctions().subscribe({
-                next: (sfMap: {[id: string]: SourceFunction}) => {
+                next: (sfMap: { [id: string]: SourceFunction }) => {
                     this.coreSourceFunctions = Object.keys(sfMap).map((key: string) => {
                         return sfMap[key]
                     });
@@ -102,7 +102,7 @@ export class FunctionsComponent implements OnInit {
     }
 
     public OnFunctionSelected($event: SourceFunction) {
-        if(this.functionList) {
+        if (this.functionList) {
             /* Redundantly sets the list in case OnFunctionSelected is called outside of this component. */
             this.functionList.selectedFunction = $event;
         }
@@ -113,17 +113,26 @@ export class FunctionsComponent implements OnInit {
             this.lines = contents.split('\n');
             this.linesLoaded = true;
             this.refreshHeights();
-        }, (error:Error)=> {
+        }, (error: Error) => {
             this.lines = [];
             this.linesLoaded = false;
         });
         this.selectedFunction = $event;
     }
 
+    public GetBreakpointStyle(i: number) {
+        if (this.selectedFunction &&
+            this.debugState &&
+            this.debugState.breakpoints.has(this.selectedFunction.address) &&
+            this.selectedFunction.lineStart == i) {
+            return "#FF0000";
+        }
+    }
+
 
     public refreshHeights(): void {
-        if(!!this.lines) {
-            this.lines.forEach((l,i) => MatchMaxHeightDirective.markDirty('functions-'+i.toString()));
+        if (!!this.lines) {
+            this.lines.forEach((l, i) => MatchMaxHeightDirective.markDirty('functions-' + i.toString()));
         }
     }
 
@@ -147,6 +156,8 @@ export class FunctionsComponent implements OnInit {
     public ExecuteFunctionWithCustomParams() {
         if (this.viewService.debuggerComponent) {
             this.viewService.debuggerComponent.setParameters = {};
+            this.viewService.debuggerComponent.ResetGraph();
+            this.viewService.debuggerComponent.lines = [];
             this.viewService.debuggerComponent.sourceFunction = this.selectedFunction;
             this.viewService.activeView = 'debugger';
         }
