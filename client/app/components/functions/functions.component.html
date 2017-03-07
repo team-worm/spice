@@ -19,6 +19,7 @@
         </div>
         <div fxFlex="70">
             <md-card class="smallerMargin">
+
                 <md-card-title>Selected Function: <i>{{GetSelectedFunctionAsString()}}</i></md-card-title>
                 <md-card-subtitle *ngIf="!selectedFunction">Select a function from the list to the left.</md-card-subtitle>
                 <md-card-subtitle *ngIf="!!selectedFunction">Line {{selectedFunction.lineStart}} of {{selectedFunction.sourcePath}}</md-card-subtitle>
@@ -40,7 +41,10 @@
                 <div class="source-code" *ngIf="!!lines && linesLoaded">
                     <div class="source-code-viewer" fxFlex fxLayout="row">
                         <div class="line-number-col" fxFlex="nogrow">
-                            <div class="row" [matchMaxHeight]="'functions-'+i" *ngFor="let line of lines; let i=index;">
+                            <div class="row"
+                                 [style.background-color]="GetBreakpointStyle(i+1)"
+                                 [matchMaxHeight]="'functions-'+i"
+                                 *ngFor="let line of lines; let i=index;">
                                 <span>{{i + 1}}</span>
                             </div>
                         </div>

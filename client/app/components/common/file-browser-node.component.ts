@@ -1,6 +1,6 @@
 import {Component, Input, ViewChild, ElementRef, OnInit, Output, EventEmitter} from "@angular/core";
-import {SourceFile} from "../../models/SourceFile";
-import {FileSystemService} from "../../services/file-system.service";
+import { SourceFile } from "../../models/SourceFile";
+import { FileSystemService } from "../../services/file-system.service";
 import {SourceFunction} from "../../models/SourceFunction";
 @Component({
     selector: 'spice-file-browser-node',
@@ -30,19 +30,19 @@ import {SourceFunction} from "../../models/SourceFunction";
 </span>
 `
 })
-export class FileBrowserNodeComponent implements OnInit{
+export class FileBrowserNodeComponent implements OnInit {
     @Input()
-    public file:SourceFile | null;
+    public file: SourceFile | null;
     @Input()
-    public fileDepth:number;
+    public fileDepth: number;
     @Input()
     public selectedFileRef: {
-        file:SourceFile | null
+        file: SourceFile | null
     };
     @Input()
-    public onSelected: (file:SourceFile) => void;
+    public onSelected: (file: SourceFile) => void;
     @Input()
-    public customPath:string;
+    public customPath: string;
     @Input()
     public filterNameChangeEmitter:EventEmitter<string>;
 
@@ -50,15 +50,15 @@ export class FileBrowserNodeComponent implements OnInit{
 
     public filtered:boolean; //True means hide.
 
-    @ViewChild('ListItemElement') DomElement:any;
+    @ViewChild('ListItemElement') DomElement: any;
 
-    constructor(private fSS:FileSystemService){
+    constructor(private fSS: FileSystemService) {
         this.expanded = false;
         this.filtered = false;
     }
 
-    ngOnInit():void  {
-        if(this.inCustomPath()) {
+    ngOnInit(): void {
+        if (this.inCustomPath()) {
             if(this.file && this.file.data.fType === 'file') {
                 setTimeout(()=> {
                     if(this.file) {
@@ -79,27 +79,27 @@ export class FileBrowserNodeComponent implements OnInit{
         }
     }
 
-    public IsFolder():boolean {
+    public IsFolder(): boolean {
         return !!this.file && this.file.data.fType === 'directory';
     }
-    public FileHasContents():boolean {
+    public FileHasContents(): boolean {
         return !!this.file && this.file.data.fType === 'directory' && this.file.data.contents !== null;
     }
-    public IsExpanded():boolean {
-        if(this.inCustomPath()) {
+    public IsExpanded(): boolean {
+        if (this.inCustomPath()) {
             this.expanded = true;
         }
         return this.expanded
     }
-    public IconName():string {
-        if(!!this.file) {
-            if(this.file.data.fType === 'directory') {
-                if(this.IsExpanded()) {
+    public IconName(): string {
+        if (!!this.file) {
+            if (this.file.data.fType === 'directory') {
+                if (this.IsExpanded()) {
                     return 'folder_open';
                 } else {
                     return 'folder';
                 }
-            } else if(this.file.data.fType === 'file') {
+            } else if (this.file.data.fType === 'file') {
                 return 'insert_drive_file';
             } else {
                 return 'error_outline';
@@ -107,30 +107,30 @@ export class FileBrowserNodeComponent implements OnInit{
         }
         return '';
     }
-    public FileHead():string {
-        if(!!this.file) {
+    public FileHead(): string {
+        if (!!this.file) {
             return this.file.name;
         } else {
             return 'Loading...'
         }
     }
     public Clicked() {
-        if(!!this.file){
-            if(this.file.data.fType === 'directory' && !this.inCustomPath()) {
-                if(this.file.data.contents === null) {
-                    this.fSS.getFullFile(this.file).subscribe((sf:SourceFile)=>{
-                    }, (e:any)=> {
+        if (!!this.file) {
+            if (this.file.data.fType === 'directory' && !this.inCustomPath()) {
+                if (this.file.data.contents === null) {
+                    this.fSS.getFullFile(this.file).subscribe((sf: SourceFile) => {
+                    }, (e: any) => {
                         console.error('Error error getting file contents', e); //TODO professionalize
                     });
                 }
                 this.expanded = !this.expanded;
-            } else if(this.file.data.fType === 'file') {
+            } else if (this.file.data.fType === 'file') {
                 this.onSelected(this.file);
             }
         }
     }
 
-    private inCustomPath():boolean {
+    private inCustomPath(): boolean {
         return !!this.file && this.customPath.indexOf(this.file.path) >= 0;
     }
 }

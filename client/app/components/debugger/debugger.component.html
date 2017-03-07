@@ -10,52 +10,52 @@
 							<input mdInput [(ngModel)]="setParameters[par.name]" placeholder="{{par.sType}} {{par.name}}">
 						</md-input-container>
 					</td>
-				</tr></table>
-		</md-card-content>
-		<md-card-actions>
+				</tr>
+			</table>
 			<button md-button [disabled]="!sourceFunction" (click)="ExecuteFunction()"><md-icon class="md-accent">play_circle_outline</md-icon>Run with Custom Parameters</button>
-		</md-card-actions>
+		</md-card-content>
 	</md-card>
-	<md-card class="smallerMargin">
-		<md-card-subtitle>Graph variable over time:</md-card-subtitle>
+	<md-card class="smallerMargin source-card">
 		<md-card-content>
-			<md-input-container class="width-100">
-				<input mdInput [(ngModel)]="graphVariableName" placeholder="Variable name">
-			</md-input-container>
-			<button md-button [disabled]="!graphVariableName" (click)="SetGraphVariable(graphVariableName)">Graph</button>
+			<div class="debugger-display source-code" fxFlex fxLayout="row">
+				<div class="source-code-viewer" fxFlex="40" fxLayout="row">
+					<div class="line-number-col" fxFlex="nogrow">
+						<div class="row" [matchMaxHeight]="'debugger-'+(sourceFunction.lineStart+i)" *ngFor="let line of lines; let i=index;">
+							<span>{{sourceFunction.lineStart + i}}</span>
+						</div>
+					</div>
+					<div class="source-code-col" fxFlex>
+						<div class="row" [matchMaxHeight]="'debugger-'+(sourceFunction.lineStart+i)" *ngFor="let line of lines; let i=index;">
+							<pre>{{line}}</pre>
+						</div>
+					</div>
+				</div>
+				<div class="trace-col" fxFlex>
+					<spice-trace-loop [loopData]="traceData"></spice-trace-loop>
+				</div>
+			</div>
 		</md-card-content>
 	</md-card>
 	<md-card class="smallerMargin">
-		<md-card-subtitle>Debug Trace</md-card-subtitle>
-		<md-card-content>
-			<div fxLayout="row">
-				<div class="debugger-display source-code" fxFlex="80" fxLayout="row">
-					<div class="source-code-viewer" fxFlex="40" fxLayout="row">
-						<div class="line-number-col" fxFlex="nogrow">
-							<div class="row" [matchMaxHeight]="'debugger-'+(sourceFunction.lineStart+i)" *ngFor="let line of lines; let i=index;">
-								<span>{{sourceFunction.lineStart + i}}</span>
-							</div>
-						</div>
-						<div class="source-code-col" fxFlex>
-							<div class="row" [matchMaxHeight]="'debugger-'+(sourceFunction.lineStart+i)" *ngFor="let line of lines; let i=index;">
-								<pre>{{line}}</pre>
-							</div>
-						</div>
-					</div>
-					<div class="trace-col" fxFlex>
-						<spice-trace-loop [loopData]="traceData"></spice-trace-loop>
-
-						<!--<div class="iteration-col" fxFlex *ngFor="let n of [].constructor(traceColCount); let colIndex=index;">-->
-							<!--<div class="row" [matchMaxHeight]="'debugger-'+i" *ngFor="let line of lines; let i=index;">-->
-								<!--<spice-trace *ngIf="line.traces[colIndex]" [trace]="line.traces[colIndex]" fxFlex></spice-trace>-->
-							<!--</div>-->
-						<!--</div>-->
-					</div>
+		<md-card-content fxLayout="row">
+			<div fxFlex="25">
+				<h2>Graph Function Variable</h2>
+				<div class="variable-selector">
+					<md-select placeholder="Variable" *ngIf="!!sourceFunction" [(ngModel)]="graphVariableName">
+						<md-option *ngFor="let sf of sourceFunction.locals.concat(sourceFunction.parameters)" [value]="sf.name">
+							{{sf.name}}
+						</md-option>
+					</md-select>
 				</div>
-				<div fxFlex="20">
-					<spice-line-graph #lineGraph [data]="graphData" [width]="300" [height]="300">
-					</spice-line-graph>
-				</div>
+				<!--<md-input-container class="width-100">-->
+					<!--<input mdInput [(ngModel)]="graphVariableName" placeholder="Variable name">-->
+				<!--</md-input-container>-->
+				<button md-raised-button [disabled]="!graphVariableName" (click)="SetGraphVariable(graphVariableName)"><md-icon>timeline</md-icon> Graph</button>
+			</div>
+			<span fxFlex></span>
+			<div fxFlex class="line-graph">
+				<spice-line-graph #lineGraph [data]="graphData" [width]="750" [height]="250">
+				</spice-line-graph>
 			</div>
 		</md-card-content>
 	</md-card>
