@@ -70,6 +70,10 @@ export class FileBrowserComponent {
         };
     }
 
+    public ResetSelectedFile() {
+        this.selectedFileRef.file = null;
+    }
+
     public FilterNameKeyDown($event:KeyboardEvent) {
         this.filterNameChangeEmitter.emit((<HTMLInputElement>$event.srcElement).value.toLowerCase());
     }
