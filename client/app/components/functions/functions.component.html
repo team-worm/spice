@@ -19,6 +19,7 @@
         </div>
         <div fxFlex="70">
             <md-card class="smallerMargin">
+
                 <md-card-title>Selected Function: <i>{{GetSelectedFunctionAsString()}}</i></md-card-title>
                 <md-card-subtitle *ngIf="!selectedFunction">Select a function from the list to the left.</md-card-subtitle>
                 <md-card-subtitle *ngIf="!!selectedFunction">Line {{selectedFunction.lineStart}} of {{selectedFunction.sourcePath}}</md-card-subtitle>
