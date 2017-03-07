@@ -97,12 +97,12 @@ export class DebuggerState {
 			});
 	}
 
-	public stopExecution(id: ExecutionId): Observable<Execution> {
-		return this.debuggerHttp.stopExecution(this.info.id, id)
-			.map(e => {
-				this.executions.set(e.id, Observable.of(e));
-				return e;
-			});
+	public pauseExecution(id: ExecutionId): Observable<null> {
+		return this.debuggerHttp.pauseExecution(this.info.id, id);
+	}
+
+	public killProcess():Observable<null> {
+		return this.debuggerHttp.killProcess(this.info.id);
 	}
 
 	public getTrace(id: ExecutionId): Observable<Trace> {

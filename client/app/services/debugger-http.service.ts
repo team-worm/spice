@@ -150,10 +150,14 @@ export class DebuggerHttpService {
 		}).publishReplay().refCount();
 	}
 
-	public stopExecution(id: DebugId, executionId: ExecutionId): Observable<Execution> {
+	public pauseExecution(id: DebugId, executionId: ExecutionId): Observable<null> {
 		return this.http.post(`http://${host}:${port}/api/v1/debug/${id}/executions/${executionId}/stop`, undefined)
-			.map(res => fromJSON(res.json(), Execution))
-			.catch(DebuggerHttpService.handleServerDataError('Execution'))
+			.map(res => null)
 			.publishLast().refCount();
+	}
+	public killProcess(id: DebugId): Observable<null> {
+		return this.http.post(`http://${host}:${port}/api/v1/debug/${id}/kill`, undefined)
+            .map(res => null)
+            .publishLast().refCount();
 	}
 }

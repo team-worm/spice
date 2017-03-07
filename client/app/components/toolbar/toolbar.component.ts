@@ -90,12 +90,23 @@ export class ToolbarComponent {
             });
         }
     }
-    public StopExecution() {
+    public KillProcess() {
+        if(this.debugState) {
+            this.debugState.killProcess().subscribe(()=>{
+                this.OnExecutionStopped();
+            },
+            (e:any)=> {
+                this.snackBar.open('Error Stopping Process', undefined, {
+                    duration: 3000
+                });
+            })
+        }
+    }
+    public PauseExecution() {
         if (this.debugState && this.execution) {
-            this.debugState.stopExecution(this.execution.id)
+            this.debugState.pauseExecution(this.execution.id)
                 .subscribe(
-                (ex: Execution) => {
-                    this.OnExecutionStopped();
+                () => {
                 },
                 (error: Response) => {
                     this.snackBar.open('Error stopping execution (' + error.status + '): ' + error.statusText, undefined, {
@@ -144,8 +155,9 @@ export class ToolbarComponent {
             this.viewService.activeView = 'launcher';
         }
     }
-    public KillAndDetach() {
+    public Detach() {
         if (this.debugState) {
+            this.KillProcess();
             //TODO: When the api for kill+detach exists do something for this.
             if (this.viewService.launcherComponent) {
                 this.viewService.launcherComponent.onDetach();

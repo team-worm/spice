@@ -10,11 +10,10 @@
 							<input mdInput [(ngModel)]="setParameters[par.name]" placeholder="{{par.sType}} {{par.name}}">
 						</md-input-container>
 					</td>
-				</tr></table>
-		</md-card-content>
-		<md-card-actions>
+				</tr>
+			</table>
 			<button md-button [disabled]="!sourceFunction" (click)="ExecuteFunction()"><md-icon class="md-accent">play_circle_outline</md-icon>Run with Custom Parameters</button>
-		</md-card-actions>
+		</md-card-content>
 	</md-card>
 	<md-card class="smallerMargin source-card">
 		<md-card-content>
@@ -43,7 +42,7 @@
 	</md-card>
 	<md-card class="smallerMargin">
 		<md-card-content fxLayout="row">
-			<div fxFlex="30">
+			<div fxFlex="25">
 				<h2>Graph Function Variable</h2>
 				<div class="variable-selector">
 					<md-select placeholder="Variable" *ngIf="!!sourceFunction" [(ngModel)]="graphVariableName">
@@ -59,7 +58,7 @@
 			</div>
 			<span fxFlex></span>
 			<div fxFlex class="line-graph">
-				<spice-line-graph #lineGraph [data]="graphData" [width]="800" [height]="300">
+				<spice-line-graph #lineGraph [data]="graphData" [width]="750" [height]="250">
 				</spice-line-graph>
 			</div>
 		</md-card-content>
