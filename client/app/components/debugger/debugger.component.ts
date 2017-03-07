@@ -101,6 +101,12 @@ export class DebuggerComponent {
 			//TODO: properly handle these
 			return;
 		}
+		if(trace.data.tType === 'crash') {
+			this.snackBar.open(`Program crashed: ${trace.data.stack}`, undefined, {
+				duration: 5000
+			});
+			return;
+		}
 
 		//This naive implementation doesn't properly handle "early exit" of loops (break, continue)/assumes loops have some kind of "loop closing" trace
 		//In order to handle early exists, we need to go back and reorganize previous loops
