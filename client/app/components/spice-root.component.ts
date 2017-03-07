@@ -10,12 +10,15 @@ import {TraceHistoryComponent} from "./debugger/trace-history/trace-history.comp
 @Component({
     selector: 'spice-root',
     template: `
-<md-sidenav-container [class.spicy-dark]="isDarkTheme">
-    <spice-launcher [hidden]="!IsInLauncher()"></spice-launcher>
-    <spice-configuration [hidden]="!IsInFunctions()"></spice-configuration>
-    <spice-debugger [hidden]="!IsInDebugger()"></spice-debugger>
-<md-sidenav #traceHistory [align]="'end'"><trace-history></trace-history></md-sidenav>
-</md-sidenav-container>
+<span [class.spicy-dark]="isDarkTheme">
+    <spice-toolbar ></spice-toolbar>
+    <md-sidenav-container>
+        <spice-launcher [hidden]="!IsInLauncher()"></spice-launcher>
+        <spice-configuration [hidden]="!IsInFunctions()"></spice-configuration>
+        <spice-debugger [hidden]="!IsInDebugger()"></spice-debugger>
+        <md-sidenav #traceHistory [align]="'end'"><trace-history></trace-history></md-sidenav>
+    </md-sidenav-container>
+</span>
 `,
 })
 export class SpiceRootComponent implements OnInit {
@@ -33,15 +36,17 @@ export class SpiceRootComponent implements OnInit {
     }
 
     ngOnInit() {
+        this.viewService.rootComponent = this;
         this.viewService.toolbarComponent = this.toolbarComponent;
         this.viewService.launcherComponent = this.launcherComponent;
         this.viewService.functionsComponent = this.functionsComponent;
         this.viewService.debuggerComponent = this.debuggerComponent;
         this.viewService.traceHistoryComponent = this.traceHistoryComponent;
         this.traceHistoryComponent.sidenav = this.traceHistory;
+    }
 
-    public onToggleTheme(isDark: boolean) {
-        this.isDarkTheme = isDark;
+    public SetTheme(theme:string) {
+        this.isDarkTheme = !this.isDarkTheme;
     }
 
     public IsInLauncher(): boolean {
