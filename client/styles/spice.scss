@@ -34,6 +34,7 @@ $text-color-error: rgb(220, 49, 32);
 @import 'components/file-browser';
 @import 'components/process-list';
 @import 'components/function-list';
+@import 'components/trace-history';
 
 html, body {
     height: 100%;

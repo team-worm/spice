@@ -2,11 +2,16 @@
     <div fxLayout="row">
         <div fxFlex="30" >
         <md-card class="smallerMargin" [style.height.px]="GetFullCardHeight()">
-            <md-card-subtitle>Functions</md-card-subtitle>
+            <md-card-title class="smallBottomMargin">
+                Functions:
+            </md-card-title>
+            <md-card-subtitle class="smallBottomMargin">
+                <b>Base Functions</b> | <button md-button [mdMenuTriggerFor]="functionFilterMenu" >Library Functions</button>
+            </md-card-subtitle>
             <spice-function-list
                     #FunctionsFunctionList
                     class="width-100"
-                    [sourceFunctions]="sourceFunctions"
+                    [sourceFunctions]="listedFunctions"
                     [debuggerState]="debugState"
                     [elementHeightPx]="GetListHeight()"
                     (onFunctionSelected)="OnFunctionSelected($event)"></spice-function-list>
@@ -28,11 +33,11 @@
                     <button md-button [disabled]="!selectedFunction" (click)="ExecuteFunctionWithCustomParams()"><md-icon class="md-accent">play_circle_outline</md-icon>Run with Custom Parameters</button>
                 </md-card-actions>
             </md-card>
-            <md-card class="smallerMargin">
-                <md-card-content *ngIf="!lines && linesLoaded">
+            <md-card class="function-source-card smallerMargin">
+                <md-card-content *ngIf="!selectedFunction">
                     Select a function from the list.
                 </md-card-content>
-                <md-card-content class="source-code" *ngIf="!!lines && linesLoaded">
+                <div class="source-code" *ngIf="!!lines && linesLoaded">
                     <div class="source-code-viewer" fxFlex fxLayout="row">
                         <div class="line-number-col" fxFlex="nogrow">
                             <div class="row" [matchMaxHeight]="'functions-'+i" *ngFor="let line of lines; let i=index;">
@@ -45,7 +50,7 @@
                             </div>
                         </div>
                     </div>
-                </md-card-content>
+                </div>
                 <md-card-content *ngIf="!!lines && !linesLoaded">
                     <i>Unable to load file contents.</i>
                 </md-card-content>
@@ -53,7 +58,13 @@
                     <md-progress-spinner mode="indeterminate"></md-progress-spinner>
                 </md-card-content>
             </md-card>
-
         </div>
     </div>
 </div>
+<md-menu #functionFilterMenu="mdMenu" positionY="100">
+    <button md-menu-item *ngFor="let filter of defaultFuncCollections" (click)="ToggleFilter(filter)">
+        <md-icon [color]="'accent'" *ngIf="!filter.doFilter">check</md-icon>
+        <md-icon [color]="'warn'" *ngIf="filter.doFilter">close</md-icon>
+        {{filter.collection.collectionName}}
+    </button>
+</md-menu>
