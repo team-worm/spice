@@ -147,7 +147,7 @@ export class FunctionsComponent implements OnInit {
     public ExecuteFunctionWithCustomParams() {
         if (this.viewService.debuggerComponent) {
             this.viewService.debuggerComponent.setParameters = {};
-            this.viewService.debuggerComponent.sourceFunction = this.selectedFunction;
+            this.viewService.debuggerComponent.setSourceFunction(this.selectedFunction!);
             this.viewService.activeView = 'debugger';
         }
     }

@@ -22,8 +22,6 @@ import { LoopData, TraceGroup } from "./trace-loop.component";
 export class DebuggerComponent {
 
 	public lines: string[] = [];
-	//public lastTraceLine: number = Number.POSITIVE_INFINITY;;
-	//public traceColCount: number = 0;
 	public traceData: LoopData = { kind: 'loop', startLine: 0, endLine: 0, iterations: []};
 	public lastTrace: Trace | null = null;
 	public traceLoopStack: LoopData[] = [];
@@ -45,6 +43,35 @@ export class DebuggerComponent {
 		this.viewService.debuggerComponent = this;
 	}
 
+	public setSourceFunction(sf: SourceFunction) {
+		this.sourceFunction = sf;
+		this.lines = [];
+		let o = this.fileSystemService.getFileContents(sf.sourcePath)
+			.map(fileContents => {
+				this.lines = fileContents.split('\n')
+					.filter((l,i) => this.sourceFunction && i>=(this.sourceFunction.lineStart-1) && i<(this.sourceFunction.lineStart-1 + this.sourceFunction.lineCount));
+				this.traceData = {
+					kind: 'loop',
+					startLine: sf.lineStart,
+					endLine: sf.lineStart + sf.lineCount,
+					iterations: [[]]
+				};
+				this.lastTrace = null;
+				this.traceLoopStack = [this.traceData];
+				this.lines.forEach((_, i) => {
+					MatchMaxHeightDirective.markDirty(`debugger-${sf.lineStart+i}`);
+				});
+			}).share();
+
+		o.subscribe(() => {},
+			(error:Response)=>{
+				this.snackBar.open(`Failed to display source code: ${error.status} (${error.text()})`, undefined, {
+					duration: 5000
+				});
+		});
+		return o;
+	}
+
 	public DisplayTrace(executionId: ExecutionId) {
 		this.currentExecution = executionId;
 		if(this.debugState) {
@@ -59,26 +86,10 @@ export class DebuggerComponent {
 					}
 					return Observable.forkJoin(
 						ds.getSourceFunction(ex.data.sFunction)
-                            .mergeMap((sf:SourceFunction) => {
-								this.sourceFunction = sf; return this.fileSystemService.getFileContents(sf.sourcePath)}),
+                            .mergeMap((sf:SourceFunction) => this.setSourceFunction(sf)),
 						Observable.of(ds.getTrace(executionId)));
 				})
                 .mergeMap(([fileContents, traces]) => {
-					this.lines = fileContents.split('\n')
-                        .filter((l,i) => this.sourceFunction && i>=(this.sourceFunction.lineStart-1) && i<(this.sourceFunction.lineStart-1 + this.sourceFunction.lineCount));
-					//this.lastTraceLine = Number.POSITIVE_INFINITY;
-					//this.traceColCount = 0;
-					this.traceData = {
-						kind: 'loop',
-						startLine: this.sourceFunction!.lineStart,
-						endLine: this.sourceFunction!.lineStart + this.sourceFunction!.lineCount,
-						iterations: [[]]
-					};
-					this.lastTrace = null;
-					this.traceLoopStack = [this.traceData];
-					this.lines.forEach((_, i) => {
-						MatchMaxHeightDirective.markDirty(`debugger-${this.sourceFunction!.lineStart+i}`);
-					});
 					return Observable.from(traces);
 				})
                 .subscribe({
