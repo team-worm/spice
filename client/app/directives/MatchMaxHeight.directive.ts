@@ -51,7 +51,7 @@ export class MatchMaxHeightDirective implements OnInit, OnChanges, OnDestroy {
 
 	public static markDirty(id: string): void {
 		if(MatchMaxHeightDirective.dirtyMap.size === 0) {
-			let dirtyUpdateSubscription = Observable.interval(dirtyUpdateInterval).subscribe(() => {
+			let dirtyUpdateSubscription = Observable.timer(0, dirtyUpdateInterval).subscribe(() => {
 				if(MatchMaxHeightDirective.dirtyMap.size === 0) {
 					dirtyUpdateSubscription.unsubscribe();
 					return;
@@ -69,7 +69,7 @@ export class MatchMaxHeightDirective implements OnInit, OnChanges, OnDestroy {
 			});
 		}
 
-		MatchMaxHeightDirective.dirtyMap.set(id, dirtyDuration);
+		MatchMaxHeightDirective.dirtyMap.set(id, dirtyDuration+dirtyUpdateInterval);
 	}
 
 	public static update(id: string): void {

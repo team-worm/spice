@@ -30,11 +30,12 @@ export class TraceLoopComponent {
 	public showAllIterations: boolean = false; //only show the last iteration if false
 	//treat this group as a standalone "iteration"
 	@Input() public loopData: LoopData;
+	@Input() public oddStartLine: boolean = true; //set by the parent component and propegated down nesting as needed
 	constructor() {
 	}
 
-	public setShowAllIterations(b: boolean): void {
-		this.showAllIterations = b;
+	public toggleShowAllIterations(): void {
+		this.showAllIterations = !this.showAllIterations;
 	}
 
 	public getTraceGroupAtLine(iteration: IterationData, lineNum: number): TraceGroup | null {

@@ -31,7 +31,7 @@
 					</div>
 				</div>
 				<div class="trace-col" fxFlex>
-					<spice-trace-loop [loopData]="traceData"></spice-trace-loop>
+					<spice-trace-loop [loopData]="traceData" [oddStartLine]="traceData.startLine%2===1"></spice-trace-loop>
 				</div>
 			</div>
 		</md-card-content>
