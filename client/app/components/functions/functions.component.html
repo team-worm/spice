@@ -30,7 +30,7 @@
                         <md-icon>bookmark</md-icon>Remove Breakpoint
                     </button>
                     <i>or</i>
-                    <button md-button [disabled]="!selectedFunction || debugState.breakpoints.has(selectedFunction.address)" (click)="ExecuteFunctionWithCustomParams()"><md-icon class="md-accent">play_circle_outline</md-icon>Run with Custom Parameters</button>
+                    <button md-button [disabled]="!selectedFunction" (click)="ExecuteFunctionWithCustomParams()"><md-icon class="md-accent">play_circle_outline</md-icon>Run with Custom Parameters</button>
                 </md-card-actions>
             </md-card>
             <md-card class="function-source-card smallerMargin">

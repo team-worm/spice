@@ -167,6 +167,7 @@ export class LauncherComponent implements AfterContentChecked {
 		if (this.viewService.toolbarComponent) {
 			this.viewService.toolbarComponent.debugState = null;
 			this.viewService.toolbarComponent.debugProcessName = '';
+			this.viewService.toolbarComponent.execution = null;
 		}
 		if (this.viewService.debuggerComponent) {
 			this.viewService.debuggerComponent.debugState = null;
