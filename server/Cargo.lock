@@ -4,6 +4,7 @@ version = "0.1.0"
 dependencies = [
  "debug 0.1.0",
  "hyper 0.10.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kernel32-sys 0.2.2 (git+https://github.com/team-worm/winapi-rs)",
  "mime_guess 1.8.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "reroute 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 0.9.6 (registry+https://github.com/rust-lang/crates.io-index)",
