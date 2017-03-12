@@ -20,7 +20,6 @@ use std::io::{Write};
 use std::path::Path;
 use std::ffi::OsStr;
 use std::collections::HashMap;
-use std::error::Error;
 
 use hyper::status::StatusCode;
 use hyper::server::{Server, Request, Response, Streaming};
@@ -296,7 +295,7 @@ fn send(mut req: Request, mut res: Response, body: &[u8]) -> io::Result<()> {
 fn send_error(req: Request, mut res: Response, error: io::Error) -> io::Result<()> {
     *res.status_mut() = status_from_error(error.kind());
 
-    let message = api::Error { message: error.description().into() };
+    let message = api::Error { message: format!("{}", error) };
     send(req, res, &serde_json::to_vec(&message).unwrap())
 }
 
