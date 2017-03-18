@@ -4,6 +4,7 @@
 @import 'components/_file-browser-theme';
 @import 'components/_trace-history-theme';
 @import 'components/_process-list-theme';
+@import 'components/_launcher-theme';
 @import '_spice-theme';
 
 // Include the base styles for Angular Material core. We include this here so that you only
@@ -14,24 +15,25 @@
 // (imported above). For each palette, you can optionally specify a default, lighter, and darker
 // hue.
 
-$candy-app-primary: mat-palette($mat-deep-orange);
-$candy-app-accent: mat-palette($mat-green, 500, 300, 700);
+$desert-spice-primary: mat-palette($mat-deep-orange);
+$desert-spice-accent: mat-palette($mat-green, 500, 300, 700);
 
 // The warn palette is optional (defaults to red).
-$candy-app-warn: mat-palette($mat-red);
+$desert-spice-warn: mat-palette($mat-red);
 
 // Create the theme object (a Sass map containing all of the palettes).
-$candy-app-theme: mat-light-theme($candy-app-primary, $candy-app-accent, $candy-app-warn);
+$desert-spice-theme: mat-light-theme($desert-spice-primary, $desert-spice-accent, $desert-spice-warn);
 
 // Include theme styles for core and each component used in your app.
 // Alternatively, you can import and @include the theme mixins for each component
 // that you are using.
-@include angular-material-theme($candy-app-theme);
-@include debugger-theme($candy-app-theme);
-@include spice-theme($candy-app-theme);
-@include file-browser-theme($candy-app-theme);
-@include trace-history-theme($candy-app-theme);
-@include process-list-theme($candy-app-theme);
+@include angular-material-theme($desert-spice-theme);
+@include debugger-theme($desert-spice-theme);
+@include spice-theme($desert-spice-theme);
+@include file-browser-theme($desert-spice-theme);
+@include trace-history-theme($desert-spice-theme);
+@include process-list-theme($desert-spice-theme);
+@include launcher-theme($desert-spice-theme);
 
 .spicy-dark {
   $dark-primary: mat-palette($mat-indigo, 700, 500, 900);
@@ -43,4 +45,8 @@ $candy-app-theme: mat-light-theme($candy-app-primary, $candy-app-accent, $candy-
   @include angular-material-theme($dark-theme);
   @include debugger-theme($dark-theme);
   @include spice-theme($dark-theme);
+  @include file-browser-theme($dark-theme);
+  @include trace-history-theme($dark-theme);
+  @include process-list-theme($dark-theme);
+  @include launcher-theme($dark-theme);
 }

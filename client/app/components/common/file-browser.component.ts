@@ -20,7 +20,7 @@ import { SourceFile } from "../../models/SourceFile";
         <md-list dense>
             <spice-file-browser-node 
                 [file]="FSS.filesystem" 
-                [fileDepth]="0" 
+                [fileDepth]="-1" 
                 [selectedFileRef]="selectedFileRef" 
                 [customPath]="customPath"
                 [onSelected]="GetOnSelected()"

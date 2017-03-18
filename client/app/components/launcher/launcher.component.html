@@ -21,7 +21,8 @@
                     {{ GetSelectedInformation() }}
                 </div>
             </div>
-            <button class="launch-attach-button" md-raised-button color="accent"
+            <button class="launch-attach-button" md-raised-button
+                    [ngClass]="{'launch-attach-button-enabled':!(!selectedFileOrProcess || attaching || !!debugState)}"
                     [disabled]="!selectedFileOrProcess || attaching || !!debugState"
                     (click)="Attach()">
                 {{GetLaunchAttachButtonText()}} <md-icon>launch</md-icon>
