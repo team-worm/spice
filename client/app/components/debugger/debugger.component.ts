@@ -76,11 +76,12 @@ export class DebuggerComponent {
 		this.currentExecution = executionId;
 		if(this.debugState) {
 			let ds: DebuggerState = this.debugState;
-			if(this.graphVariable !== '') {
-				this.SetGraphVariable(this.graphVariable);
-			}
 			ds.getExecution(executionId)
                 .mergeMap((ex: Execution) => {
+                	//we don't reset the graph until we have called getExecution, otherwise the trace executes before getExecution, which then returns 404
+					if(this.graphVariable !== '') {
+						this.SetGraphVariable(this.graphVariable);
+					}
 					if(ex.data.eType !== 'function') {
 						return Observable.throw(new Error(`DebuggerComponent: cannot display execution traces with type ${ex.data.eType}`));
 					}
@@ -194,8 +195,6 @@ export class DebuggerComponent {
 	}
 
 	public SetGraphVariable(variableName: string): void {
-		if(this.sourceFunction)
-		console.log(this.sourceFunction.locals);
 		if(this.currentExecution !== null) {
 			this.graphData = [];
 			this.graphVariable = variableName;
