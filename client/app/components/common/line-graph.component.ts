@@ -62,6 +62,7 @@ export class LineGraphComponent implements OnInit, AfterViewInit, OnChanges, OnD
 		root.html('');
 
 		this.svg = root.append('svg')
+			.attr('class', 'line-graph')
 			.attr('width', this.width + this.margin.left + this.margin.right)
 			.attr('height', this.height + this.margin.top + this.margin.bottom)
 			.append('g')
@@ -100,10 +101,7 @@ export class LineGraphComponent implements OnInit, AfterViewInit, OnChanges, OnD
 				//.attr('r', 3)
 
 		this.svg.append('path')
-			.attr('class', 'line')
-			.style('fill', 'none') //TODO: move these styles into css
-			.style('stroke', '#ff5722')
-			.style('stroke-width', '1.5');
+			.attr('class', 'line');
 
 		let path = this.svg.selectAll('path').datum(this.data);
 			path

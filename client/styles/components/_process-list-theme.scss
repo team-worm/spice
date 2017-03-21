@@ -13,11 +13,12 @@
 
         .process-list-item {
             &.selected {
-                color: white;
-                background: mat-color($accent, 900) !important;
+                color: mat-color($primary, default-contrast) !important;
+                background: mat-color($primary) !important;
             }
             &:hover {
-                background: mat-color($accent, 100);
+                color: mat-color($primary, lighter-contrast);
+                background: mat-color($primary, lighter);
             }
         }
     }

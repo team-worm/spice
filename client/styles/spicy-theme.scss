@@ -6,6 +6,7 @@
 @import 'components/_process-list-theme';
 @import 'components/_trace-loop-theme';
 @import 'components/_launcher-theme';
+@import 'components/_line-graph-theme';
 @import '_spice-theme';
 
 // Include the base styles for Angular Material core. We include this here so that you only
@@ -16,9 +17,8 @@
 // (imported above). For each palette, you can optionally specify a default, lighter, and darker
 // hue.
 
-$desert-spice-primary: mat-palette($mat-deep-orange);
-$desert-spice-accent: mat-palette($mat-green, 500, 300, 700);
-
+$desert-spice-primary: mat-palette($mat-deep-orange, 500, 50, 700);
+$desert-spice-accent: mat-palette($mat-green, A200, A100, A400);
 // The warn palette is optional (defaults to red).
 $desert-spice-warn: mat-palette($mat-red);
 
@@ -36,19 +36,30 @@ $desert-spice-theme: mat-light-theme($desert-spice-primary, $desert-spice-accent
 @include process-list-theme($desert-spice-theme);
 @include launcher-theme($desert-spice-theme);
 @include trace-loop-theme($desert-spice-theme);
+@include line-graph-theme($desert-spice-theme);
 
 .spicy-dark {
-  $dark-primary: mat-palette($mat-indigo, 700, 500, 900);
-  $dark-accent:  mat-palette($mat-light-green, A200, A100, A400);
-  $dark-warn:    mat-palette($mat-deep-orange);
+	$dark-primary-palette-1: mat-palette($mat-orange, 300, 500, 100);
+	$dark-primary-palette-2: mat-palette($mat-indigo);
+ $dark-primary: map_merge($dark-primary-palette-1, (
+    /*lighter: #232e40,*/
+	lighter: #655a4a,
+    lighter-contrast: white
+  ));
 
-  $dark-theme: mat-dark-theme($dark-primary, $dark-accent, $dark-warn);
+  /*$dark-primary: mat-palette($mat-orange, 300, 900, 100);*/
+  $dark-accent:  mat-palette($mat-deep-orange, A200, A100, 400);
+  $dark-warn:    mat-palette($mat-red);
 
-  @include angular-material-theme($dark-theme);
-  @include debugger-theme($dark-theme);
-  @include spice-theme($dark-theme);
-  @include file-browser-theme($dark-theme);
-  @include trace-history-theme($dark-theme);
-  @include process-list-theme($dark-theme);
-  @include launcher-theme($dark-theme);
+  $moonlight-spice-theme: mat-dark-theme($dark-primary, $dark-accent, $dark-warn);
+
+  @include angular-material-theme($moonlight-spice-theme);
+  @include debugger-theme($moonlight-spice-theme);
+  @include spice-theme($moonlight-spice-theme);
+  @include file-browser-theme($moonlight-spice-theme);
+  @include trace-history-theme($moonlight-spice-theme);
+  @include process-list-theme($moonlight-spice-theme);
+  @include launcher-theme($moonlight-spice-theme);
+  @include trace-loop-theme($moonlight-spice-theme);
+  @include line-graph-theme($moonlight-spice-theme);
 }

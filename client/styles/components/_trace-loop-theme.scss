@@ -8,25 +8,25 @@
 
 	.trace-loop {
 		background: map-get($background, background);
-		border-right: 1px solid mat-color($primary, 700);
+		border-right: 1px solid mat-color($primary);
 		.trace {
 			box-sizing: border-box;
 		}
 		.trace.first {
-			border-top: 1px solid mat-color($primary, 700);
+			border-top: 1px solid mat-color($primary);
 		}
 		.trace.last {
-			border-bottom: 1px solid mat-color($primary, 700);
+			border-bottom: 1px solid mat-color($primary);
 		}
 
 		.expand-loop-button {
-			border-top: 1px solid mat-color($accent);
-			border-right: 1px solid mat-color($accent);
-			border-bottom: 1px solid mat-color($accent);
-			background: mat-color($accent, 200);
+			border-top: 1px solid mat-color($accent, darker);
+			border-right: 1px solid mat-color($accent, darker);
+			border-bottom: 1px solid mat-color($accent, darker);
+			background: mat-color($accent);
 
 			&:hover {
-				background: mat-color($accent, 100);
+				background: mat-color($accent, lighter);
 			}
 
 			.expand-icon {
@@ -41,7 +41,7 @@
 			/*width: 100%;*/
 		}
 		.iteration {
-			border-right: 1px solid mat-color($primary, 700);
+			border-right: 1px solid mat-color($primary, default);
 		}
 	}
 }

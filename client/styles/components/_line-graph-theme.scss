@@ -1,0 +1,26 @@
+@import '../../node_modules/@angular/material/core/theming/theming';
+
+@mixin line-graph-theme($theme) {
+	$primary: map-get($theme, primary);
+	$accent: map-get($theme, accent);
+	$foreground: map-get($theme, foreground);
+	$background: map-get($theme, background);
+
+	.line-graph {
+		.line {
+			fill: none;
+			stroke: mat-color($primary);
+		}
+		.axis {
+			line {
+				stroke: mat-color($foreground, text);
+			}
+			text {
+				fill: mat-color($foreground, text);
+			}
+			path {
+				stroke: mat-color($foreground, text);
+			}
+		}
+	}
+}
