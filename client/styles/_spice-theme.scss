@@ -17,11 +17,15 @@
             background: mat-color($primary, lighter);
 		}
         .line-number-col {
-            border-left: 2px solid mat-color($primary, 700);
-            border-right: 2px solid mat-color($primary, 700);
+            border-left: 2px solid mat-color($primary);
+            border-right: 2px solid mat-color($primary);
         }
         .source-code-col {
-            border-right: 4px solid mat-color($primary, 700);
+            border-right: 4px solid mat-color($primary);
         }
+    	.row.breakpoint {
+    		color: mat-color($accent, default-contrast);
+    		background: mat-color($accent);
+		}
     }
 }

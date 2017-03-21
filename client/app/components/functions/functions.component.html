@@ -42,7 +42,7 @@
                     <div class="source-code-viewer" fxFlex fxLayout="row">
                         <div class="line-number-col" fxFlex="nogrow">
                             <div class="row"
-                                 [style.background-color]="GetBreakpointStyle(i+1)"
+								 [ngClass]="{breakpoint: HasBreakpoint(i+1) | async}"
                                  [matchMaxHeight]="'functions-'+i"
                                  *ngFor="let line of lines; let i=index;">
                                 <span>{{i + 1}}</span>

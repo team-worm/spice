@@ -12,12 +12,13 @@
                 background: rgba(0,0,0,0.3);
             }
             &.selected {
-                color: white;
-                background: mat-color($accent, 900) !important;
+                color: mat-color($primary, default-contrast) !important;
+                background: mat-color($primary) !important;
                 //background: rgba(0,0,0,0.5) !important;
             }
             &:hover {
-                background: mat-color($accent, 100);
+                color: mat-color($primary, lighter-contrast);
+                background: mat-color($primary, lighter);
             }
         }
         .file-list {

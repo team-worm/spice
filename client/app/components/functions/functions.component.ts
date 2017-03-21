@@ -11,6 +11,7 @@ import {MatchMaxHeightDirective} from "../../directives/MatchMaxHeight.directive
 import {FunctionListComponent} from "../common/function-list.component";
 import {fromJSON} from "../../util/SpiceValidator";
 import {SourceFunctionCollection} from "../../models/SourceFunctionCollection";
+import { Observable } from "rxjs/Observable";
 
 @Component({
     moduleId: module.id,
@@ -74,16 +75,15 @@ export class FunctionsComponent implements OnInit {
         }
     }
 
-    public GetBreakpointStyle(line:number):string {
-        if (this.selectedFunction &&
-            this.debugState &&
-            this.debugState.breakpoints.has(this.selectedFunction.address) &&
-            this.selectedFunction.lineStart == line) {
-            return "#FF0000";
-        } else {
-            return "";
-        }
-    }
+    public HasBreakpoint(line:number):Observable<boolean> {
+    	if(!this.debugState) {
+    		return Observable.of(false);
+		}
+		return Observable.merge<boolean>(...[...this.debugState.breakpoints.keys()].map(key => {
+			return this.debugState!.getSourceFunction(key)
+				.switchMap(sf => Observable.of(!!(this.selectedFunction && this.selectedFunction.sourcePath === sf.sourcePath && sf.lineStart == line)));
+			})).filter((b:boolean) => b).take(1).defaultIfEmpty(false);
+	}
 
     public loadSourceFunctions() {
         let ds: DebuggerState|null;
