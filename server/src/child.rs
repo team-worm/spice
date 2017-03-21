@@ -139,7 +139,6 @@ struct DebugState {
     threads: HashMap<winapi::DWORD, RawHandle>,
     execution: Option<ExecutionState>,
     event: Option<debug::Event>,
-    attached: bool,
     last_call: Option<usize>,
 }
 
@@ -177,7 +176,6 @@ fn run(
         threads: HashMap::new(),
         execution: None,
         event: None,
-        attached: false,
         last_call: None,
     };
 
@@ -195,7 +193,21 @@ fn run(
     } else {
         panic!("got another debug event before CreateProcess");
     }
-    state.event = Some(event);
+    event.continue_event(true)?;
+
+    loop {
+        let mut event = debug::Event::wait_event()?;
+        state.event = Some(event);
+
+        match trace_default(&target, &mut state, &tx, &cancel, None, &mut true, true)? {
+            None => (),
+            Some(TraceEvent::Attach) => break,
+            Some(_) => panic!("got a TraceEvent before attach"),
+        }
+
+        event = state.event.take().unwrap();
+        event.continue_event(true)?;
+    }
 
     let mut breakpoint_added = false;
     loop {
@@ -413,7 +425,7 @@ fn trace_process(
         let mut event = debug::Event::wait_event()?;
         state.event = Some(event);
 
-        let trace_event = trace_default(target, state, tx, &cancel, None, &mut true)?;
+        let trace_event = trace_default(target, state, tx, &cancel, None, &mut true, false)?;
 
         if let Some(TraceEvent::Call(ex @ ExecutionState::Function { .. })) = trace_event {
             let address = match ex {
@@ -493,6 +505,7 @@ fn call_function(
 }
 
 enum TraceEvent {
+    Attach,
     Call(ExecutionState),
     Exception,
     Cancel,
@@ -528,8 +541,7 @@ fn trace_function(
             // per-line breakpoints
 
             Exception { first_chance: true, code: winapi::EXCEPTION_BREAKPOINT, address } if
-                state.attached && state.threads[&event.thread_id] == thread &&
-                trace.contains_key(&address)
+                state.threads[&event.thread_id] == thread && trace.contains_key(&address)
             => {
                 let breakpoint = trace[&address].borrow_mut().take().unwrap();
 
@@ -574,8 +586,7 @@ fn trace_function(
             }
 
             Exception { first_chance: true, code: winapi::EXCEPTION_SINGLE_STEP, .. } if
-                state.attached && state.threads[&event.thread_id] == thread &&
-                last_breakpoint.is_some()
+                state.threads[&event.thread_id] == thread && last_breakpoint.is_some()
             => {
                 let address = last_breakpoint.take().unwrap();
 
@@ -593,8 +604,7 @@ fn trace_function(
             // function return breakpoint
 
             Exception { first_chance: true, code: winapi::EXCEPTION_BREAKPOINT, address } if
-                state.attached && state.threads[&event.thread_id] == thread &&
-                address == exit && ret.is_some()
+                state.threads[&event.thread_id] == thread && address == exit && ret.is_some()
             => {
                 let breakpoint = ret.take().unwrap();
 
@@ -630,8 +640,7 @@ fn trace_function(
             }
 
             Exception { first_chance: true, code: winapi::EXCEPTION_SINGLE_STEP, .. } if
-                state.attached && state.threads[&event.thread_id] == thread &&
-                ret.is_none()
+                state.threads[&event.thread_id] == thread && ret.is_none()
             => {
                 state.event = Some(event);
                 let mut context = debug::get_thread_context(thread, winapi::CONTEXT_FULL)?;
@@ -650,7 +659,7 @@ fn trace_function(
                 state.event = Some(event);
 
                 let mut trace_event = trace_default(
-                    target, state, tx, &cancel, Some(thread), &mut attached
+                    target, state, tx, &cancel, Some(thread), &mut attached, false
                 )?;
 
                 if let Some(TraceEvent::Call(ex @ ExecutionState::Function { .. })) = trace_event {
@@ -701,10 +710,10 @@ fn trace_function(
 fn trace_default(
     target: &TargetState, state: &mut DebugState,
     tx: &SyncSender<DebugMessage>, cancel: &AtomicBool,
-    current_thread: Option<RawHandle>, capture_calls: &mut bool
+    current_thread: Option<RawHandle>, capture_calls: &mut bool, startup: bool
 ) -> io::Result<Option<TraceEvent>> {
     let TargetState { ref child, ref symbols, ref breakpoints, .. } = *target;
-    let DebugState { ref mut threads, ref mut attached, .. } = *state;
+    let DebugState { ref mut threads, .. } = *state;
 
     let event = state.event.as_ref().unwrap();
 
@@ -724,16 +733,14 @@ fn trace_default(
         }
         UnloadDll { base } => { let _ = symbols.unload_module(base); }
 
-        Exception { first_chance: true, code: winapi::EXCEPTION_BREAKPOINT, .. } if
-            !*attached
-        => {
-            *attached = true;
+        Exception { first_chance: true, code: winapi::EXCEPTION_BREAKPOINT, .. } if startup => {
+            return Ok(Some(TraceEvent::Attach));
         }
 
         // function call breakpoints
 
         Exception { first_chance: true, code: winapi::EXCEPTION_BREAKPOINT, address } if
-            *attached && current_thread.map(|t| threads[&event.thread_id] == t).unwrap_or(true) &&
+            current_thread.map(|t| threads[&event.thread_id] == t).unwrap_or(true) &&
             breakpoints.contains_key(&address) && *capture_calls
         => {
             let thread = threads[&event.thread_id];
@@ -762,7 +769,7 @@ fn trace_default(
         }
 
         Exception { first_chance: true, code: winapi::EXCEPTION_BREAKPOINT, address } if
-            *attached && current_thread.map(|t| threads[&event.thread_id] == t).unwrap_or(true) &&
+            current_thread.map(|t| threads[&event.thread_id] == t).unwrap_or(true) &&
             breakpoints.contains_key(&address)
         => {
             let thread = threads[&event.thread_id];
@@ -782,7 +789,7 @@ fn trace_default(
         }
 
         Exception { first_chance: true, code: winapi::EXCEPTION_SINGLE_STEP, .. } if
-            *attached && current_thread.map(|t| threads[&event.thread_id] == t).unwrap_or(true) &&
+            current_thread.map(|t| threads[&event.thread_id] == t).unwrap_or(true) &&
             state.last_call.is_some()
         => {
             let thread = threads[&event.thread_id];
@@ -799,7 +806,7 @@ fn trace_default(
         }
 
         Exception { first_chance: true, code: winapi::EXCEPTION_BREAKPOINT, address } if
-            *attached && breakpoints.contains_key(&address)
+            breakpoints.contains_key(&address)
         => {
             let message = "unsupported concurrent execution of breakpointed function";
             return Err(io::Error::new(io::ErrorKind::Other, message));
@@ -808,7 +815,7 @@ fn trace_default(
         // cancellation
 
         Exception { first_chance: true, code: winapi::EXCEPTION_BREAKPOINT, .. } if
-            *attached && cancel.load(Ordering::Relaxed)
+            cancel.load(Ordering::Relaxed)
         => {
             cancel.store(false, Ordering::Relaxed);
             tx.send(DebugMessage::Trace(DebugTrace::Cancel)).unwrap();
@@ -822,8 +829,8 @@ fn trace_default(
         }
 
         // TODO: collect stack trace
-        Exception { first_chance: false, code, .. } => {
-            let message = format!("unhandled exception 0x{:x}", code);
+        Exception { first_chance: false, code, address } => {
+            let message = format!("unhandled exception 0x{:x} at 0x{:x}", code, address);
             tx.send(DebugMessage::Trace(DebugTrace::Crash(message))).unwrap();
             return Ok(Some(TraceEvent::Terminate));
         }

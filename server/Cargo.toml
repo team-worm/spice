@@ -16,3 +16,4 @@ serde_derive = "0.9.6"
 serde_json = "0.9"
 debug = { path = "debug" }
 winapi = { git = "https://github.com/team-worm/winapi-rs" }
+kernel32-sys = { git = "https://github.com/team-worm/winapi-rs" }

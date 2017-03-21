@@ -7,7 +7,7 @@ import {SourceFunction} from "../../models/SourceFunction";
     template: `
 <md-list-item #ListItemElement 
     class="file-system-node" 
-    *ngIf="!filtered"
+    *ngIf="!filtered && !IsRootContainer()"
     (click)="Clicked()" 
     [ngClass]="{'selected': !!file && selectedFileRef.file === file, 'searched': inCustomPath()}"
     [style.paddingLeft]="(this.fileDepth*1.5) + 'em'">
@@ -128,6 +128,10 @@ export class FileBrowserNodeComponent implements OnInit {
                 this.onSelected(this.file);
             }
         }
+    }
+
+    public IsRootContainer():boolean {
+        return this.file === this.fSS.filesystem;
     }
 
     private inCustomPath(): boolean {

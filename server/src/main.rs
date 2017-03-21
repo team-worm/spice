@@ -11,6 +11,7 @@ extern crate serde_json;
 
 extern crate debug;
 extern crate winapi;
+extern crate kernel32;
 
 use std::{io, fs};
 use std::sync::{Mutex, Arc};
@@ -19,7 +20,6 @@ use std::io::{Write};
 use std::path::Path;
 use std::ffi::OsStr;
 use std::collections::HashMap;
-use std::error::Error;
 
 use hyper::status::StatusCode;
 use hyper::server::{Server, Request, Response, Streaming};
@@ -295,7 +295,7 @@ fn send(mut req: Request, mut res: Response, body: &[u8]) -> io::Result<()> {
 fn send_error(req: Request, mut res: Response, error: io::Error) -> io::Result<()> {
     *res.status_mut() = status_from_error(error.kind());
 
-    let message = api::Error { message: error.description().into() };
+    let message = api::Error { message: format!("{}", error) };
     send(req, res, &serde_json::to_vec(&message).unwrap())
 }
 
@@ -327,6 +327,28 @@ fn filesystem(caps: Captures) -> io::Result<Vec<u8>> {
     let caps = caps.unwrap();
     let path = url::percent_encoding::percent_decode(caps[1].as_bytes());
     let path = path.decode_utf8_lossy().into_owned();
+
+    if path.is_empty() {
+        let drives = unsafe { kernel32::GetLogicalDrives() };
+
+        let mut contents = vec![];
+        for drive in (0..26).filter(|i| (drives & (1u32 << i)) != 0).map(|i| b'A' + i) {
+            let path = format!("{}:/", drive as char);
+            let name = format!("{}:", drive as char);
+            let data = api::FileData::Directory { contents: None };
+
+            contents.push(api::File { name, path, data });
+        }
+        let data = api::FileData::Directory { contents: Some(contents) };
+
+        let message = api::File {
+            name: "".into(),
+            path: "".into(),
+            data: data,
+        };
+        return Ok(serde_json::to_vec(&message).unwrap());
+    }
+
     let path = Path::new(&path);
     if !path.exists() {
         return Err(io::Error::from(io::ErrorKind::NotFound));

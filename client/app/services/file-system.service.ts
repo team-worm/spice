@@ -15,18 +15,27 @@ export class FileSystemService {
     private _filesystem:SourceFile;
 
     constructor(private http: Http) {
-        this._filesystem = { // TODO: check if on windows or linux or whatever.
-            name: 'c:/',
-            path: 'c:/',
+        this.resetFilesystem();
+    }
+
+    get filesystem(): SourceFile {
+        return this._filesystem;
+    }
+
+    public resetFilesystem() {
+        this._filesystem = {
+            name: '',
+            path: '',
             data: {
                 fType: "directory",
                 contents: null
             }
         };
-    }
-
-    get filesystem(): SourceFile | null {
-        return this._filesystem;
+        this.http.get(`http://${host}:${port}/api/v1/filesystem/`)
+            .subscribe((res: any) => {
+                let retSf = res.json() as SourceFile;
+                this._filesystem = retSf;
+            });
     }
 
     public getUpToPath(path:string): Observable<SourceFile> {
@@ -37,7 +46,17 @@ export class FileSystemService {
             }
             let parts:string[] = path.split('/');
             let partsToLoad:string[] = [];
-            let sf: SourceFile | undefined = this._filesystem;
+            let sf: SourceFile | undefined = undefined;
+
+            /* Get correct drive */
+            if(this._filesystem.data.fType === 'directory' && this._filesystem.data.contents) {
+                let drives:SourceFile[] = this._filesystem.data.contents;
+                sf = drives.find((sf:SourceFile) => {
+                    return sf.name === parts[0];
+                })
+
+            }
+
 
             for(let i = 1; i < parts.length; i++) {
 
