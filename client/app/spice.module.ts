@@ -34,6 +34,7 @@ import { XHRBackend } from "@angular/http";
 import { MatchMaxHeightDirective } from "./directives/MatchMaxHeight.directive";
 import { TraceComponent } from "./components/debugger/trace.component";
 import { LineGraphComponent } from "./components/common/line-graph.component";
+import { TraceLoopComponent } from "./components/debugger/trace-loop.component";
 import {TraceHistoryComponent} from "./components/debugger/trace-history/trace-history.component";
 
 @NgModule({
@@ -47,6 +48,7 @@ import {TraceHistoryComponent} from "./components/debugger/trace-history/trace-h
         FunctionsComponent,
         DebuggerComponent,
         TraceComponent,
+        TraceLoopComponent,
         FileBrowserComponent,
         FileBrowserNodeComponent,
         FunctionListComponent,

@@ -9,6 +9,13 @@
         .row:nth-of-type(odd) {
             background: mat-color($primary, lighter);
         }
+
+        .row.trace {
+			background: map-get($background, card);
+        }
+        .row.odd {
+            background: mat-color($primary, lighter);
+		}
         .line-number-col {
             border-left: 2px solid mat-color($primary, 700);
             border-right: 2px solid mat-color($primary, 700);

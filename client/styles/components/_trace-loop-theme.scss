@@ -1,0 +1,47 @@
+@import '../../node_modules/@angular/material/core/theming/theming';
+
+@mixin trace-loop-theme($theme) {
+    $primary: map-get($theme, primary);
+    $accent: map-get($theme, accent);
+    $foreground: map-get($theme, foreground);
+    $background: map-get($theme, background);
+
+	.trace-loop {
+		background: map-get($background, background);
+		border-right: 1px solid mat-color($primary, 700);
+		.trace {
+			box-sizing: border-box;
+		}
+		.trace.first {
+			border-top: 1px solid mat-color($primary, 700);
+		}
+		.trace.last {
+			border-bottom: 1px solid mat-color($primary, 700);
+		}
+
+		.expand-loop-button {
+			border-top: 1px solid mat-color($accent);
+			border-right: 1px solid mat-color($accent);
+			border-bottom: 1px solid mat-color($accent);
+			background: mat-color($accent, 200);
+
+			&:hover {
+				background: mat-color($accent, 100);
+			}
+
+			.expand-icon {
+				padding-right: 5px;
+				padding-left: 5px;
+				font-weight: bold;
+			}
+
+		}
+
+		.iteration-wrap {
+			/*width: 100%;*/
+		}
+		.iteration {
+			border-right: 1px solid mat-color($primary, 700);
+		}
+	}
+}

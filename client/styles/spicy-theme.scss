@@ -4,6 +4,7 @@
 @import 'components/_file-browser-theme';
 @import 'components/_trace-history-theme';
 @import 'components/_process-list-theme';
+@import 'components/_trace-loop-theme';
 @import 'components/_launcher-theme';
 @import '_spice-theme';
 
@@ -34,6 +35,7 @@ $desert-spice-theme: mat-light-theme($desert-spice-primary, $desert-spice-accent
 @include trace-history-theme($desert-spice-theme);
 @include process-list-theme($desert-spice-theme);
 @include launcher-theme($desert-spice-theme);
+@include trace-loop-theme($desert-spice-theme);
 
 .spicy-dark {
   $dark-primary: mat-palette($mat-indigo, 700, 500, 900);
