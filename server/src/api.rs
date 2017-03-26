@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 #[derive(Deserialize)]
 pub struct Launch {
     /// Command line arguments
@@ -8,8 +10,7 @@ pub struct Launch {
 
 #[derive(Deserialize)]
 pub struct Call {
-    // TODO: convert this to typed values
-    pub parameters: Vec<i32>,
+    pub arguments: HashMap<usize, Value>,
 }
 
 #[derive(Serialize)]
@@ -59,10 +60,20 @@ pub struct Function {
 pub struct Variable {
     pub name: String,
     #[serde(rename = "sType")]
-    pub source_type: Type,
+    pub type_index: u32,
+    pub address: usize,
 }
 
-pub type Type = String;
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum Value {
+    Null,
+    Boolean(bool),
+    Integer(i64),
+    Number(f64),
+    Array(Vec<Value>),
+    Struct(HashMap<u32, Value>),
+}
 
 #[derive(Serialize)]
 pub struct Breakpoint {
@@ -99,14 +110,14 @@ pub struct Trace {
 #[serde(tag = "tType")]
 pub enum TraceData {
     #[serde(rename = "line")]
-    Line { state: Vec<TraceState> },
+    Line { state: HashMap<usize, Value> },
     #[serde(rename = "call")]
     Call {
         #[serde(rename = "sFunction")]
         function: usize,
     },
     #[serde(rename = "return")]
-    Return { value: String },
+    Return { value: Value, data: HashMap<usize, Value> },
     #[serde(rename = "break")]
     Break {
         #[serde(rename = "nextExecution")]
@@ -120,13 +131,6 @@ pub enum TraceData {
     Crash { stack: String },
     #[serde(rename = "error")]
     Error { error: Error },
-}
-
-#[derive(Serialize)]
-pub struct TraceState {
-    #[serde(rename = "sVariable")]
-    pub variable: String,
-    pub value: String,
 }
 
 #[derive(Serialize)]

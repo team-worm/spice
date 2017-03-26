@@ -1,3 +1,5 @@
+#![feature(try_from)]
+
 extern crate hyper;
 extern crate unicase;
 extern crate reroute;
@@ -30,6 +32,7 @@ use child::{ServerMessage, DebugMessage, DebugTrace};
 
 mod child;
 mod trace;
+mod value;
 mod api;
 
 type ChildThread = Arc<Mutex<Option<child::Thread>>>;
@@ -563,14 +566,16 @@ impl From<child::Function> for api::Function {
             parameters, locals
         } = function;
 
-        let parameters = parameters.into_iter().map(|(name, _address)| api::Variable {
+        let parameters = parameters.into_iter().map(|(name, type_index, address)| api::Variable {
             name: name.to_string_lossy().into(),
-            source_type: String::from("int"),
+            type_index: type_index,
+            address: address,
         }).collect();
 
-        let locals = locals.into_iter().map(|(name, _address)| api::Variable {
+        let locals = locals.into_iter().map(|(name, type_index, address)| api::Variable {
             name: name.to_string_lossy().into(),
-            source_type: String::from("int"),
+            type_index: type_index,
+            address: address,
         }).collect();
 
         api::Function {
@@ -674,7 +679,7 @@ fn debug_function_execute(caps: Captures, body: api::Call, child: ChildThread) -
         .map_err(|e| io::Error::new(io::ErrorKind::NotConnected, e))?;
     let address = caps[2].parse::<usize>()
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
-    let arguments = body.parameters;
+    let arguments = body.arguments;
 
     let mut child = child.lock().unwrap();
     let child = child.as_mut()
@@ -775,14 +780,11 @@ fn trace_stream(res: &mut Response<Streaming>, child: &mut child::Thread) -> io:
                 let index = next_index;
                 next_index += 1;
 
-                let mut state = vec![];
+                let mut state = HashMap::new();
                 for &(ref name, ref value) in locals.iter() {
                     let prev_value = prev_locals.get(name);
                     if prev_value.map(|prev_value| value != prev_value).unwrap_or(true) {
-                        state.push(api::TraceState {
-                            variable: name.clone(),
-                            value: value.clone()
-                        });
+                        state.insert(name.clone(), value.clone());
                     }
                 }
                 prev_locals.extend(locals.into_iter());
@@ -801,7 +803,7 @@ fn trace_stream(res: &mut Response<Streaming>, child: &mut child::Thread) -> io:
                 api::Trace { index, line, data }
             }
 
-            DebugMessage::Trace(DebugTrace::Return(line, value)) => {
+            DebugMessage::Trace(DebugTrace::Return(line, value, data)) => {
                 let index = next_index;
                 next_index += 1;
 
@@ -811,7 +813,7 @@ fn trace_stream(res: &mut Response<Streaming>, child: &mut child::Thread) -> io:
                     child.execution = None;
                 }
 
-                let data = api::TraceData::Return { value };
+                let data = api::TraceData::Return { value, data };
                 api::Trace { index, line, data }
             }
 

@@ -2,6 +2,7 @@ use std::{io, mem};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{sync_channel, SyncSender, Receiver};
+use std::convert::TryInto;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -9,9 +10,12 @@ use std::ffi::OsString;
 use std::thread::{self, JoinHandle};
 use std::os::windows::io::RawHandle;
 
-use debug;
 use winapi;
+use debug;
+
 use trace::*;
+use value;
+use api;
 
 pub struct Thread {
     pub thread: JoinHandle<()>,
@@ -46,14 +50,14 @@ pub struct Function {
     pub source_path: PathBuf,
     pub line_start: u32,
     pub line_count: u32,
-    pub parameters: Vec<(OsString, usize)>,
-    pub locals: Vec<(OsString, usize)>,
+    pub parameters: Vec<(OsString, u32, usize)>,
+    pub locals: Vec<(OsString, u32, usize)>,
 }
 
 pub enum DebugTrace {
-    Line(u32, Vec<(String, String)>),
+    Line(u32, Vec<(usize, api::Value)>),
     Call(u32, usize),
-    Return(u32, String),
+    Return(u32, api::Value, HashMap<usize, api::Value>),
 
     Breakpoint(usize),
     Exit(u32),
@@ -69,7 +73,7 @@ pub enum ServerMessage {
     SetBreakpoint { address: usize },
     ClearBreakpoint { address: usize },
     Continue,
-    CallFunction { address: usize, arguments: Vec<i32> },
+    CallFunction { address: usize, arguments: HashMap<usize, api::Value> },
     Trace,
     Quit,
 }
@@ -335,7 +339,7 @@ fn describe_function(target: &TargetState, address: usize) -> io::Result<Functio
     let mut parameters = vec![];
     symbols.enumerate_locals(address, |symbol, _| {
         if symbol.flags & winapi::SYMFLAG_PARAMETER != 0 {
-            parameters.push((symbol.name.clone(), symbol.address));
+            parameters.push((symbol.name.clone(), symbol.type_index, symbol.address));
         }
         true
     })?;
@@ -345,12 +349,14 @@ fn describe_function(target: &TargetState, address: usize) -> io::Result<Functio
         symbols.enumerate_locals(line.address, |symbol, _| {
             if symbol.flags & winapi::SYMFLAG_PARAMETER == 0 {
                 let name = symbol.name.clone();
-                locals.entry(name).or_insert(symbol.address);
+                locals.entry(name).or_insert((symbol.type_index, symbol.address));
             }
             true
         })?;
     }
-    let locals = locals.into_iter().collect();
+    let locals = locals.into_iter()
+        .map(|(name, (address, type_index))| (name, address, type_index))
+        .collect();
 
     Ok(Function {
         address: address,
@@ -466,7 +472,7 @@ fn trace_process(
 
 fn call_function(
     target: &mut TargetState, state: &mut DebugState,
-    thread: RawHandle, address: usize, arguments: Vec<i32>
+    thread: RawHandle, address: usize, arguments: HashMap<usize, api::Value>
 ) -> io::Result<()> {
     let mut event = state.event.take()
         .ok_or(io::Error::new(io::ErrorKind::AlreadyExists, "process already running"))?;
@@ -486,10 +492,8 @@ fn call_function(
     let exit = context.instruction_pointer();
 
     // set up the call
-    let arg_type = debug::Type::Base { base: debug::Primitive::Int { signed: true }, size: 4 };
-    let args: Vec<_> = arguments.into_iter()
-        .map(|arg| debug::Value::new(arg, arg_type.clone()))
-        .collect();
+    // TODO: filter out indirect values here? or possibly in Call::setup
+    let args = arguments;
     let call = debug::Call::setup(&target.child, &target.symbols, &mut context, &function, args)?;
 
     let stack = context.stack_pointer() + mem::size_of::<usize>();
@@ -502,6 +506,14 @@ fn call_function(
 
     event.continue_event(true)?;
     Ok(())
+}
+
+impl debug::IntoValue for api::Value {
+    fn into_value(
+        self, data_type: debug::Type, module: usize, symbols: &debug::SymbolHandler
+    ) -> io::Result<debug::Value> {
+        value::write(self, data_type, module, symbols).try_into()
+    }
 }
 
 enum TraceEvent {
@@ -571,8 +583,8 @@ fn trace_function(
                             return true;
                         }
 
-                        let name = symbol.name.to_string_lossy().into();
-                        locals.push((name, format!("{}", value.display(symbols))));
+                        let value = value::parse(&value, symbols).into();
+                        locals.push((symbol.address, value));
                     }
 
                     true
@@ -623,8 +635,10 @@ fn trace_function(
                 if context.stack_pointer() == stack {
                     // collect the return value
                     let (value, restore) = call.teardown(child, &context, symbols)?;
-                    let value = format!("{}", value.display(symbols));
-                    tx.send(DebugMessage::Trace(DebugTrace::Return(last_line, value))).unwrap();
+                    let value = value::parse(&value, symbols).into();
+                    let data = HashMap::new();
+                    let trace = DebugTrace::Return(last_line, value, data);
+                    tx.send(DebugMessage::Trace(trace)).unwrap();
 
                     if let Some(context) = restore {
                         debug::set_thread_context(thread, &context)?;
