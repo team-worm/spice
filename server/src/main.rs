@@ -120,6 +120,16 @@ fn main() {
         }.unwrap();
     });
 
+    // types
+
+    let child = child_thread.clone();
+    router.get(r"/api/v1/debug/([0-9]*)/types\?ids=([0-9]+(?:,[0-9]+)*)", move |req, res, caps| {
+        match debug_types(caps, child.clone()) {
+            Ok(body) => send(req, res, &body),
+            Err(e) => send_error(req, res, e),
+        }.unwrap();
+    });
+
     // breakpoints
 
     let child = child_thread.clone();
@@ -528,13 +538,11 @@ fn debug_functions(_: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
         .ok_or(io::Error::from(io::ErrorKind::NotConnected))?;
 
     child.tx.send(ServerMessage::ListFunctions).unwrap();
-    let functions = match child.rx.recv().unwrap() {
+    let message = match child.rx.recv().unwrap() {
         DebugMessage::Functions(functions) => functions,
         DebugMessage::Error(e) => return Err(e),
         _ => unreachable!(),
     };
-
-    let message: Vec<_> = functions.into_iter().map(api::Function::from).collect();
     Ok(serde_json::to_vec(&message).unwrap())
 }
 
@@ -549,45 +557,31 @@ fn debug_function(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
         .ok_or(io::Error::from(io::ErrorKind::NotConnected))?;
 
     child.tx.send(ServerMessage::DescribeFunction { address }).unwrap();
-    let function = match child.rx.recv().unwrap() {
+    let message = match child.rx.recv().unwrap() {
         DebugMessage::Function(function) => function,
         DebugMessage::Error(e) => return Err(e),
         _ => unreachable!()
     };
-
-    let message = api::Function::from(function);
     Ok(serde_json::to_vec(&message).unwrap())
 }
 
-impl From<child::Function> for api::Function {
-    fn from(function: child::Function) -> api::Function {
-        let child::Function {
-            address, name, source_path, line_start, line_count,
-            parameters, locals
-        } = function;
+/// GET /debug/:id/types?ids=:id,:id,:id,...
+fn debug_types(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
+    let caps = caps.unwrap();
+    let types: Result<Vec<u32>, _> = caps[2].split(',').map(str::parse).collect();
+    let types = types.map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
 
-        let parameters = parameters.into_iter().map(|(name, type_index, address)| api::Variable {
-            name: name.to_string_lossy().into(),
-            type_index: type_index,
-            address: address,
-        }).collect();
+    let child = child.lock().unwrap();
+    let child = child.as_ref()
+        .ok_or(io::Error::from(io::ErrorKind::NotConnected))?;
 
-        let locals = locals.into_iter().map(|(name, type_index, address)| api::Variable {
-            name: name.to_string_lossy().into(),
-            type_index: type_index,
-            address: address,
-        }).collect();
-
-        api::Function {
-            address,
-            name: name.to_string_lossy().into(),
-            source_path: source_path.to_string_lossy().into(),
-            line_start: line_start,
-            line_count: line_count,
-            parameters,
-            locals,
-        }
-    }
+    child.tx.send(ServerMessage::ListTypes { types }).unwrap();
+    let message = match child.rx.recv().unwrap() {
+        DebugMessage::Types(types) => types,
+        DebugMessage::Error(e) => return Err(e),
+        _ => unreachable!(),
+    };
+    Ok(serde_json::to_vec(&message).unwrap())
 }
 
 /// GET /debug/:id/breakpoints

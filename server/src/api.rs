@@ -64,6 +64,56 @@ pub struct Variable {
     pub address: usize,
 }
 
+#[derive(Serialize)]
+#[serde(tag = "tType")]
+pub enum Type {
+    #[serde(rename = "primitive")]
+    Base { base: Primitive, size: usize },
+    #[serde(rename = "pointer")]
+    Pointer {
+        #[serde(rename = "sType")]
+        type_index: u32,
+    },
+    #[serde(rename = "array")]
+    Array {
+        #[serde(rename = "sType")]
+        type_index: u32,
+        count: usize,
+    },
+    #[serde(rename = "function")]
+    Function {
+        #[serde(rename = "callingConvention")]
+        calling_convention: u32,
+        #[serde(rename = "sType")]
+        type_index: u32,
+        parameters: Vec<u32>,
+    },
+    #[serde(rename = "struct")]
+    Struct { name: String, size: usize, fields: Vec<Field> },
+}
+
+#[derive(Serialize)]
+pub enum Primitive {
+    #[serde(rename = "void")]
+    Void,
+    #[serde(rename = "bool")]
+    Bool,
+    #[serde(rename = "int")]
+    Int,
+    #[serde(rename = "uint")]
+    Uint,
+    #[serde(rename = "float")]
+    Float,
+}
+
+#[derive(Serialize)]
+pub struct Field {
+    pub name: String,
+    #[serde(rename = "sType")]
+    pub type_index: u32,
+    pub offset: u32,
+}
+
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Value {
