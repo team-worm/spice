@@ -1,3 +1,4 @@
+///<reference path="components/common/type-display.component.ts"/>
 import 'hammerjs';
 import './rxjs-extensions';
 
@@ -26,6 +27,7 @@ import {FileBrowserNodeComponent} from "./components/common/file-browser-node.co
 import {FunctionListComponent} from "./components/common/function-list.component";
 import {ProcessListComponent} from "./components/common/process-list.component";
 import {FilterByStringPipe} from "./pipes/filter-by-string.pipe";
+import {TypeDisplayComponent} from "./components/common/type-display.component";
 
 import { MockBackend } from "@angular/http/testing";
 import { Http, BaseRequestOptions, RequestOptions, ConnectionBackend } from "@angular/http";
@@ -52,6 +54,7 @@ import {TraceHistoryComponent} from "./components/debugger/trace-history/trace-h
         FileBrowserComponent,
         FileBrowserNodeComponent,
         FunctionListComponent,
+        TypeDisplayComponent,
         ProcessListComponent,
         FilterByStringPipe,
         MatchMaxHeightDirective,
