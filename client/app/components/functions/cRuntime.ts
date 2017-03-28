@@ -1,4 +1,4 @@
-{
+export default {
     "collectionName": "CRT Library",
     "functionNames": [
         "NtCurrentTeb",
@@ -64,10 +64,8 @@
         "_matherr",
         "_onexit",
         "_should_initialize_environment",
-        "_vfprintf_l",
         "`__scrt_common_main_seh'::`1'::filt$0",
         "at_quick_exit",
-        "atexit",
         "capture_current_context",
         "capture_previous_context",
         "find_pe_section",

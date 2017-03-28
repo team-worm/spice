@@ -13,6 +13,9 @@ import {fromJSON} from "../../util/SpiceValidator";
 import {SourceFunctionCollection} from "../../models/SourceFunctionCollection";
 import { Observable } from "rxjs/Observable";
 
+import cRuntime from "./cRuntime";
+import cStandardLib from "./cStandardLib";
+
 @Component({
     moduleId: module.id,
     selector: 'spice-configuration',
@@ -51,8 +54,15 @@ export class FunctionsComponent implements OnInit {
         if (!this._functionsContentBody) {
             console.error('Error getting FunctionsContainer');
         }
-        this.loadFunctionCollection(`app/components/functions/cRuntime.json`);
-        this.loadFunctionCollection(`app/components/functions/cStandardLib.json`);
+
+        this.defaultFuncCollections.push({
+            collection: fromJSON(cRuntime, SourceFunctionCollection) as SourceFunctionCollection,
+            doFilter: true,
+        }, {
+            collection: fromJSON(cStandardLib, SourceFunctionCollection) as SourceFunctionCollection,
+            doFilter: true,
+        });
+        this.filterListedFunctions();
     }
 
     public ToggleBreakpoint() {
@@ -199,17 +209,6 @@ export class FunctionsComponent implements OnInit {
         });
     }
 
-    private loadFunctionCollection(path:string) {
-        this.http.get(path).subscribe((dat:Response)=> {
-            this.defaultFuncCollections.push({
-                collection: <SourceFunctionCollection>fromJSON(dat.json(), SourceFunctionCollection),
-                doFilter: true
-            });
-            this.filterListedFunctions();
-        },(err:any)=> {
-            console.log(err);
-        })
-    }
     private removeBreakpoint(ds: DebuggerState, id: SourceFunctionId) {
         ds.removeBreakpoint(id).subscribe({
             next: () => {
