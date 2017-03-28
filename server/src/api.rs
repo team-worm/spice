@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 #[derive(Deserialize)]
 pub struct Launch {
     /// Command line arguments
@@ -8,8 +10,7 @@ pub struct Launch {
 
 #[derive(Deserialize)]
 pub struct Call {
-    // TODO: convert this to typed values
-    pub parameters: Vec<i32>,
+    pub arguments: HashMap<usize, Value>,
 }
 
 #[derive(Serialize)]
@@ -59,10 +60,70 @@ pub struct Function {
 pub struct Variable {
     pub name: String,
     #[serde(rename = "sType")]
-    pub source_type: Type,
+    pub type_index: u32,
+    pub address: usize,
 }
 
-pub type Type = String;
+#[derive(Serialize)]
+#[serde(tag = "tType")]
+pub enum Type {
+    #[serde(rename = "primitive")]
+    Base { base: Primitive, size: usize },
+    #[serde(rename = "pointer")]
+    Pointer {
+        #[serde(rename = "sType")]
+        type_index: u32,
+    },
+    #[serde(rename = "array")]
+    Array {
+        #[serde(rename = "sType")]
+        type_index: u32,
+        count: usize,
+    },
+    #[serde(rename = "function")]
+    Function {
+        #[serde(rename = "callingConvention")]
+        calling_convention: u32,
+        #[serde(rename = "sType")]
+        type_index: u32,
+        parameters: Vec<u32>,
+    },
+    #[serde(rename = "struct")]
+    Struct { name: String, size: usize, fields: Vec<Field> },
+}
+
+#[derive(Serialize)]
+pub enum Primitive {
+    #[serde(rename = "void")]
+    Void,
+    #[serde(rename = "bool")]
+    Bool,
+    #[serde(rename = "int")]
+    Int,
+    #[serde(rename = "uint")]
+    Uint,
+    #[serde(rename = "float")]
+    Float,
+}
+
+#[derive(Serialize)]
+pub struct Field {
+    pub name: String,
+    #[serde(rename = "sType")]
+    pub type_index: u32,
+    pub offset: u32,
+}
+
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum Value {
+    Null,
+    Boolean(bool),
+    Integer(i64),
+    Number(f64),
+    Array(Vec<Value>),
+    Struct(HashMap<u32, Value>),
+}
 
 #[derive(Serialize)]
 pub struct Breakpoint {
@@ -99,14 +160,14 @@ pub struct Trace {
 #[serde(tag = "tType")]
 pub enum TraceData {
     #[serde(rename = "line")]
-    Line { state: Vec<TraceState> },
+    Line { state: HashMap<usize, Value> },
     #[serde(rename = "call")]
     Call {
         #[serde(rename = "sFunction")]
         function: usize,
     },
     #[serde(rename = "return")]
-    Return { value: String },
+    Return { value: Value, data: HashMap<usize, Value> },
     #[serde(rename = "break")]
     Break {
         #[serde(rename = "nextExecution")]
@@ -120,13 +181,6 @@ pub enum TraceData {
     Crash { stack: String },
     #[serde(rename = "error")]
     Error { error: Error },
-}
-
-#[derive(Serialize)]
-pub struct TraceState {
-    #[serde(rename = "sVariable")]
-    pub variable: String,
-    pub value: String,
 }
 
 #[derive(Serialize)]

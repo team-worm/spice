@@ -60,6 +60,8 @@ pub trait AsBytes: Sized {
     }
 }
 
+impl AsBytes for bool {}
+
 impl AsBytes for usize {}
 impl AsBytes for u64 {}
 impl AsBytes for u32 {}
@@ -71,6 +73,9 @@ impl AsBytes for i64 {}
 impl AsBytes for i32 {}
 impl AsBytes for i16 {}
 impl AsBytes for i8 {}
+
+impl AsBytes for f32 {}
+impl AsBytes for f64 {}
 
 impl<'a> AsBytes for &'a Value {
     fn as_bytes(&self) -> &[u8] {

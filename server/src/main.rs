@@ -1,3 +1,5 @@
+#![feature(try_from)]
+
 extern crate hyper;
 extern crate unicase;
 extern crate reroute;
@@ -30,6 +32,7 @@ use child::{ServerMessage, DebugMessage, DebugTrace};
 
 mod child;
 mod trace;
+mod value;
 mod api;
 
 type ChildThread = Arc<Mutex<Option<child::Thread>>>;
@@ -112,6 +115,16 @@ fn main() {
     let child = child_thread.clone();
     router.get(r"/api/v1/debug/([0-9]*)/functions/(.*)", move |req, res, caps| {
         match debug_function(caps, child.clone()) {
+            Ok(body) => send(req, res, &body),
+            Err(e) => send_error(req, res, e),
+        }.unwrap();
+    });
+
+    // types
+
+    let child = child_thread.clone();
+    router.get(r"/api/v1/debug/([0-9]*)/types\?ids=([0-9]+(?:,[0-9]+)*)", move |req, res, caps| {
+        match debug_types(caps, child.clone()) {
             Ok(body) => send(req, res, &body),
             Err(e) => send_error(req, res, e),
         }.unwrap();
@@ -525,13 +538,11 @@ fn debug_functions(_: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
         .ok_or(io::Error::from(io::ErrorKind::NotConnected))?;
 
     child.tx.send(ServerMessage::ListFunctions).unwrap();
-    let functions = match child.rx.recv().unwrap() {
+    let message = match child.rx.recv().unwrap() {
         DebugMessage::Functions(functions) => functions,
         DebugMessage::Error(e) => return Err(e),
         _ => unreachable!(),
     };
-
-    let message: Vec<_> = functions.into_iter().map(api::Function::from).collect();
     Ok(serde_json::to_vec(&message).unwrap())
 }
 
@@ -546,43 +557,31 @@ fn debug_function(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
         .ok_or(io::Error::from(io::ErrorKind::NotConnected))?;
 
     child.tx.send(ServerMessage::DescribeFunction { address }).unwrap();
-    let function = match child.rx.recv().unwrap() {
+    let message = match child.rx.recv().unwrap() {
         DebugMessage::Function(function) => function,
         DebugMessage::Error(e) => return Err(e),
         _ => unreachable!()
     };
-
-    let message = api::Function::from(function);
     Ok(serde_json::to_vec(&message).unwrap())
 }
 
-impl From<child::Function> for api::Function {
-    fn from(function: child::Function) -> api::Function {
-        let child::Function {
-            address, name, source_path, line_start, line_count,
-            parameters, locals
-        } = function;
+/// GET /debug/:id/types?ids=:id,:id,:id,...
+fn debug_types(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
+    let caps = caps.unwrap();
+    let types: Result<Vec<u32>, _> = caps[2].split(',').map(str::parse).collect();
+    let types = types.map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
 
-        let parameters = parameters.into_iter().map(|(name, _address)| api::Variable {
-            name: name.to_string_lossy().into(),
-            source_type: String::from("int"),
-        }).collect();
+    let child = child.lock().unwrap();
+    let child = child.as_ref()
+        .ok_or(io::Error::from(io::ErrorKind::NotConnected))?;
 
-        let locals = locals.into_iter().map(|(name, _address)| api::Variable {
-            name: name.to_string_lossy().into(),
-            source_type: String::from("int"),
-        }).collect();
-
-        api::Function {
-            address,
-            name: name.to_string_lossy().into(),
-            source_path: source_path.to_string_lossy().into(),
-            line_start: line_start,
-            line_count: line_count,
-            parameters,
-            locals,
-        }
-    }
+    child.tx.send(ServerMessage::ListTypes { types }).unwrap();
+    let message = match child.rx.recv().unwrap() {
+        DebugMessage::Types(types) => types,
+        DebugMessage::Error(e) => return Err(e),
+        _ => unreachable!(),
+    };
+    Ok(serde_json::to_vec(&message).unwrap())
 }
 
 /// GET /debug/:id/breakpoints
@@ -674,7 +673,7 @@ fn debug_function_execute(caps: Captures, body: api::Call, child: ChildThread) -
         .map_err(|e| io::Error::new(io::ErrorKind::NotConnected, e))?;
     let address = caps[2].parse::<usize>()
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
-    let arguments = body.parameters;
+    let arguments = body.arguments;
 
     let mut child = child.lock().unwrap();
     let child = child.as_mut()
@@ -775,14 +774,11 @@ fn trace_stream(res: &mut Response<Streaming>, child: &mut child::Thread) -> io:
                 let index = next_index;
                 next_index += 1;
 
-                let mut state = vec![];
+                let mut state = HashMap::new();
                 for &(ref name, ref value) in locals.iter() {
                     let prev_value = prev_locals.get(name);
                     if prev_value.map(|prev_value| value != prev_value).unwrap_or(true) {
-                        state.push(api::TraceState {
-                            variable: name.clone(),
-                            value: value.clone()
-                        });
+                        state.insert(name.clone(), value.clone());
                     }
                 }
                 prev_locals.extend(locals.into_iter());
@@ -801,7 +797,7 @@ fn trace_stream(res: &mut Response<Streaming>, child: &mut child::Thread) -> io:
                 api::Trace { index, line, data }
             }
 
-            DebugMessage::Trace(DebugTrace::Return(line, value)) => {
+            DebugMessage::Trace(DebugTrace::Return(line, value, data)) => {
                 let index = next_index;
                 next_index += 1;
 
@@ -811,7 +807,7 @@ fn trace_stream(res: &mut Response<Streaming>, child: &mut child::Thread) -> io:
                     child.execution = None;
                 }
 
-                let data = api::TraceData::Return { value };
+                let data = api::TraceData::Return { value, data };
                 api::Trace { index, line, data }
             }
 

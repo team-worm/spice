@@ -2,16 +2,19 @@ use std::{io, mem};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{sync_channel, SyncSender, Receiver};
+use std::convert::TryInto;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::ffi::OsString;
 use std::thread::{self, JoinHandle};
 use std::os::windows::io::RawHandle;
 
-use debug;
 use winapi;
+use debug;
+
 use trace::*;
+use value;
+use api;
 
 pub struct Thread {
     pub thread: JoinHandle<()>,
@@ -30,8 +33,9 @@ pub enum Execution {
 /// messages the debug event loop sends to the server
 pub enum DebugMessage {
     Attached(debug::Cancel),
-    Functions(Vec<Function>),
-    Function(Function),
+    Functions(Vec<api::Function>),
+    Function(api::Function),
+    Types(HashMap<u32, api::Type>),
     Breakpoints(Vec<usize>),
     Breakpoint,
     BreakpointRemoved,
@@ -40,20 +44,10 @@ pub enum DebugMessage {
     Error(io::Error),
 }
 
-pub struct Function {
-    pub address: usize,
-    pub name: OsString,
-    pub source_path: PathBuf,
-    pub line_start: u32,
-    pub line_count: u32,
-    pub parameters: Vec<(OsString, usize)>,
-    pub locals: Vec<(OsString, usize)>,
-}
-
 pub enum DebugTrace {
-    Line(u32, Vec<(String, String)>),
+    Line(u32, Vec<(usize, api::Value)>),
     Call(u32, usize),
-    Return(u32, String),
+    Return(u32, api::Value, HashMap<usize, api::Value>),
 
     Breakpoint(usize),
     Exit(u32),
@@ -65,11 +59,12 @@ pub enum DebugTrace {
 pub enum ServerMessage {
     ListFunctions,
     DescribeFunction { address: usize },
+    ListTypes { types: Vec<u32> },
     ListBreakpoints,
     SetBreakpoint { address: usize },
     ClearBreakpoint { address: usize },
     Continue,
-    CallFunction { address: usize, arguments: Vec<i32> },
+    CallFunction { address: usize, arguments: HashMap<usize, api::Value> },
     Trace,
     Quit,
 }
@@ -130,6 +125,7 @@ impl Thread {
 struct TargetState {
     child: debug::Child,
     symbols: debug::SymbolHandler,
+    module: usize,
 
     breakpoints: BreakpointSet,
     traces: HashMap<usize, BreakpointSet>,
@@ -167,6 +163,7 @@ fn run(
     let mut target = TargetState {
         child: child,
         symbols: symbols,
+        module: 0,
 
         breakpoints: BreakpointSet::new(),
         traces: HashMap::new(),
@@ -183,6 +180,7 @@ fn run(
 
     let event = debug::Event::wait_event()?;
     if let debug::EventInfo::CreateProcess { ref file, main_thread, base, .. } = event.info {
+        target.module = base;
         let _ = file.as_ref()
             .ok_or(io::Error::new(io::ErrorKind::Other, "no file handle for CreateProcess"))
             .and_then(|file| target.symbols.load_module(file, base));
@@ -222,6 +220,13 @@ fn run(
             ServerMessage::DescribeFunction { address } => {
                 let message = describe_function(&target, address)
                     .map(DebugMessage::Function)
+                    .unwrap_or_else(DebugMessage::Error);
+                tx.send(message).unwrap();
+            }
+
+            ServerMessage::ListTypes { types } => {
+                let message = list_types(&target, types)
+                    .map(DebugMessage::Types)
                     .unwrap_or_else(DebugMessage::Error);
                 tx.send(message).unwrap();
             }
@@ -304,7 +309,7 @@ fn run(
     Ok(())
 }
 
-fn list_functions(target: &TargetState) -> io::Result<Vec<Function>> {
+fn list_functions(target: &TargetState) -> io::Result<Vec<api::Function>> {
     let TargetState { ref symbols, .. } = *target;
 
     let mut functions = vec![];
@@ -320,7 +325,7 @@ fn list_functions(target: &TargetState) -> io::Result<Vec<Function>> {
     Ok((functions))
 }
 
-fn describe_function(target: &TargetState, address: usize) -> io::Result<Function> {
+fn describe_function(target: &TargetState, address: usize) -> io::Result<api::Function> {
     let TargetState { ref symbols, .. } = *target;
 
     let (function, _) = symbols.symbol_from_address(address)?;
@@ -335,7 +340,10 @@ fn describe_function(target: &TargetState, address: usize) -> io::Result<Functio
     let mut parameters = vec![];
     symbols.enumerate_locals(address, |symbol, _| {
         if symbol.flags & winapi::SYMFLAG_PARAMETER != 0 {
-            parameters.push((symbol.name.clone(), symbol.address));
+            let name = symbol.name.to_string_lossy().into();
+            let type_index = symbol.type_index;
+            let address = symbol.address;
+            parameters.push(api::Variable { name, type_index, address });
         }
         true
     })?;
@@ -345,17 +353,22 @@ fn describe_function(target: &TargetState, address: usize) -> io::Result<Functio
         symbols.enumerate_locals(line.address, |symbol, _| {
             if symbol.flags & winapi::SYMFLAG_PARAMETER == 0 {
                 let name = symbol.name.clone();
-                locals.entry(name).or_insert(symbol.address);
+                locals.entry(name).or_insert((symbol.type_index, symbol.address));
             }
             true
         })?;
     }
-    let locals = locals.into_iter().collect();
+    let locals = locals.into_iter()
+        .map(|(name, (type_index, address))| {
+            let name = name.to_string_lossy().into();
+            api::Variable { name, type_index, address }
+        })
+        .collect();
 
-    Ok(Function {
+    Ok(api::Function {
         address: address,
-        name: name.clone(),
-        source_path: PathBuf::from(&start.file),
+        name: name.to_string_lossy().into(),
+        source_path: start.file.to_string_lossy().into(),
         line_start: start.line,
         line_count: end.line - start.line + 1,
         parameters: parameters,
@@ -363,8 +376,59 @@ fn describe_function(target: &TargetState, address: usize) -> io::Result<Functio
     })
 }
 
+fn list_types(target: &TargetState, types: Vec<u32>) -> io::Result<HashMap<u32, api::Type>> {
+    let TargetState { ref symbols, module, .. } = *target;
+
+    let types: io::Result<_> = types.into_iter()
+        .map(|type_index| {
+            let data_type = match symbols.type_from_index(module, type_index)? {
+                debug::Type::Base { base, size } => {
+                    let base = match base {
+                        debug::Primitive::Void => api::Primitive::Void,
+                        debug::Primitive::Bool => api::Primitive::Bool,
+                        debug::Primitive::Int { signed: true } => api::Primitive::Int,
+                        debug::Primitive::Int { signed: false } => api::Primitive::Uint,
+                        debug::Primitive::Float => api::Primitive::Float,
+                    };
+
+                    api::Type::Base { base, size }
+                }
+
+                debug::Type::Pointer { type_index } => api::Type::Pointer { type_index },
+
+                debug::Type::Array { type_index, count } => api::Type::Array { type_index, count },
+
+                debug::Type::Function { calling_convention, type_index, args } =>
+                    api::Type::Function { calling_convention, type_index, parameters: args },
+
+                debug::Type::Struct { name, size, fields } => {
+                    let fields = fields.into_iter()
+                        .map(|debug::Field { name, type_index, offset }| {
+                            api::Field {
+                                name: name.to_string_lossy().into(),
+                                type_index,
+                                offset,
+                            }
+                        })
+                        .collect();
+
+                    api::Type::Struct {
+                        name: name.to_string_lossy().into(),
+                        size,
+                        fields,
+                    }
+                }
+            };
+
+            Ok((type_index, data_type))
+        })
+        .collect();
+
+    Ok(types?)
+}
+
 fn set_breakpoint(target: &mut TargetState, address: usize) -> io::Result<()> {
-    let TargetState { ref child, ref symbols, ref mut breakpoints, ref mut traces } = *target;
+    let TargetState { ref child, ref symbols, ref mut breakpoints, ref mut traces, .. } = *target;
 
     let (function, offset) = symbols.symbol_from_address(address)?;
     if offset > 0 {
@@ -466,7 +530,7 @@ fn trace_process(
 
 fn call_function(
     target: &mut TargetState, state: &mut DebugState,
-    thread: RawHandle, address: usize, arguments: Vec<i32>
+    thread: RawHandle, address: usize, arguments: HashMap<usize, api::Value>
 ) -> io::Result<()> {
     let mut event = state.event.take()
         .ok_or(io::Error::new(io::ErrorKind::AlreadyExists, "process already running"))?;
@@ -486,10 +550,8 @@ fn call_function(
     let exit = context.instruction_pointer();
 
     // set up the call
-    let arg_type = debug::Type::Base { base: debug::Primitive::Int { signed: true }, size: 4 };
-    let args: Vec<_> = arguments.into_iter()
-        .map(|arg| debug::Value::new(arg, arg_type.clone()))
-        .collect();
+    // TODO: filter out indirect values here? or possibly in Call::setup
+    let args = arguments;
     let call = debug::Call::setup(&target.child, &target.symbols, &mut context, &function, args)?;
 
     let stack = context.stack_pointer() + mem::size_of::<usize>();
@@ -502,6 +564,14 @@ fn call_function(
 
     event.continue_event(true)?;
     Ok(())
+}
+
+impl debug::IntoValue for api::Value {
+    fn into_value(
+        self, data_type: debug::Type, module: usize, symbols: &debug::SymbolHandler
+    ) -> io::Result<debug::Value> {
+        value::write(self, data_type, module, symbols).try_into()
+    }
 }
 
 enum TraceEvent {
@@ -571,8 +641,8 @@ fn trace_function(
                             return true;
                         }
 
-                        let name = symbol.name.to_string_lossy().into();
-                        locals.push((name, format!("{}", value.display(symbols))));
+                        let value = value::parse(&value, symbols).into();
+                        locals.push((symbol.address, value));
                     }
 
                     true
@@ -623,8 +693,10 @@ fn trace_function(
                 if context.stack_pointer() == stack {
                     // collect the return value
                     let (value, restore) = call.teardown(child, &context, symbols)?;
-                    let value = format!("{}", value.display(symbols));
-                    tx.send(DebugMessage::Trace(DebugTrace::Return(last_line, value))).unwrap();
+                    let value = value::parse(&value, symbols).into();
+                    let data = HashMap::new();
+                    let trace = DebugTrace::Return(last_line, value, data);
+                    tx.send(DebugMessage::Trace(trace)).unwrap();
 
                     if let Some(context) = restore {
                         debug::set_thread_context(thread, &context)?;
