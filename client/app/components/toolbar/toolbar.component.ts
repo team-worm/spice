@@ -1,6 +1,6 @@
 import { Component, Output, EventEmitter } from "@angular/core";
 import { Response } from "@angular/http";
-import {MdDialog, MdSnackBar, MdSidenav} from "@angular/material";
+import { MdDialog, MdSnackBar, MdSidenav } from "@angular/material";
 import { AboutComponent } from "./about.component";
 import { ViewService } from "../../services/view.service";
 import { DebuggerState } from "../../models/DebuggerState";
@@ -30,18 +30,18 @@ export class ToolbarComponent {
         public debuggerService: DebuggerService,
         private snackBar: MdSnackBar) { }
 
-    public IsInFunctionView():boolean {
+    public IsInFunctionView(): boolean {
         return this.viewService.activeView === 'functions';
     }
     public GoToFunctionsView() {
         this.viewService.activeView = 'functions';
     }
     public ToggleTraceHistory() {
-        if(this.viewService.traceHistoryComponent) {
+        if (this.viewService.traceHistoryComponent) {
             this.viewService.traceHistoryComponent.Toggle();
         }
     }
-    
+
     public toggleDarkTheme() {
         this.isDarkTheme.emit(!this.dark);
         this.dark = !this.dark;
@@ -61,7 +61,7 @@ export class ToolbarComponent {
                         case "break":
                             if (this.viewService.debuggerComponent) {
                                 this.viewService.debuggerComponent.setParameters = {};
-                            this.viewService.debuggerComponent.DisplayTrace(t.data.nextExecution);
+                                this.viewService.debuggerComponent.DisplayTrace(t.data.nextExecution);
                                 this.viewService.activeView = 'debugger';
                                 if (this.debugState) {
                                     this.debugState.getExecution(t.data.nextExecution).subscribe((ex: Execution) => { this.execution = ex; });
@@ -91,15 +91,16 @@ export class ToolbarComponent {
         }
     }
     public KillProcess() {
-        if(this.debugState) {
-            this.debugState.killProcess().subscribe(()=>{
+        if (this.debugState) {
+            this.PauseExecution();
+            this.debugState.killProcess().subscribe(() => {
                 this.OnExecutionStopped();
             },
-            (e:any)=> {
-                this.snackBar.open('Error Stopping Process', undefined, {
-                    duration: 3000
-                });
-            })
+                (e: any) => {
+                    this.snackBar.open('Error Stopping Process', undefined, {
+                        duration: 3000
+                    });
+                })
         }
     }
     public PauseExecution() {
