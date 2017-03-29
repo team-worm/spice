@@ -76,7 +76,7 @@ impl Thread {
                 .env_clear()
                 .debug()?;
 
-            run(child, debug_tx, server_rx, cancel)
+            run(child, debug_tx, server_rx, cancel, true)
         })
     }
 
@@ -84,7 +84,7 @@ impl Thread {
         Thread::spawn(move |debug_tx, server_rx, cancel| {
             let child = debug::Child::attach(pid)?;
 
-            run(child, debug_tx, server_rx, cancel)
+            run(child, debug_tx, server_rx, cancel, false)
         })
     }
 
@@ -153,7 +153,7 @@ enum ExecutionState {
 
 fn run(
     child: debug::Child, tx: SyncSender<DebugMessage>, rx: Receiver<ServerMessage>,
-    cancel: Arc<AtomicBool>
+    cancel: Arc<AtomicBool>, launch: bool
 ) -> io::Result<()> {
     let options = debug::SymbolHandler::get_options();
     debug::SymbolHandler::set_options(winapi::SYMOPT_DEBUG | winapi::SYMOPT_LOAD_LINES | options);
@@ -178,34 +178,57 @@ fn run(
 
     let mut last_thread;
 
-    let event = debug::Event::wait_event()?;
-    if let debug::EventInfo::CreateProcess { ref file, main_thread, base, .. } = event.info {
-        target.module = base;
+    let mut event = debug::Event::wait_event()?;
+    let start_address = if let debug::EventInfo::CreateProcess {
+        ref file, main_thread, base, start_address, ..
+    } = event.info {
         let _ = file.as_ref()
             .ok_or(io::Error::new(io::ErrorKind::Other, "no file handle for CreateProcess"))
             .and_then(|file| target.symbols.load_module(file, base));
 
+        target.module = base;
+
         last_thread = main_thread;
         state.threads.insert(event.thread_id, main_thread);
-        tx.send(DebugMessage::Attached(target.child.get_cancel())).unwrap();
+
+        start_address
     } else {
         panic!("got another debug event before CreateProcess");
-    }
-    event.continue_event(true)?;
+    };
 
+    let breakpoint = if launch { Some(target.child.set_breakpoint(start_address)?) } else { None };
+    let thread;
     loop {
-        let mut event = debug::Event::wait_event()?;
+        event.continue_event(true)?;
+
+        event = debug::Event::wait_event()?;
         state.event = Some(event);
 
         match trace_default(&target, &mut state, &tx, &cancel, None, &mut true, true)? {
-            None => (),
-            Some(TraceEvent::Attach) => break,
+            Some(TraceEvent::Attach(attach_thread, address)) => {
+                if breakpoint.as_ref().map(|_| address == start_address).unwrap_or(true) {
+                    thread = attach_thread;
+                    break;
+                }
+            }
+
             Some(_) => panic!("got a TraceEvent before attach"),
+            None => (),
         }
 
         event = state.event.take().unwrap();
-        event.continue_event(true)?;
     }
+
+    if let Some(breakpoint) = breakpoint {
+        let mut context = debug::get_thread_context(thread, winapi::CONTEXT_FULL)?;
+
+        target.child.remove_breakpoint(breakpoint)?;
+        context.set_instruction_pointer(start_address);
+
+        debug::set_thread_context(thread, &context)?;
+    }
+
+    tx.send(DebugMessage::Attached(target.child.get_cancel())).unwrap();
 
     let mut breakpoint_added = false;
     loop {
@@ -575,7 +598,7 @@ impl debug::IntoValue for api::Value {
 }
 
 enum TraceEvent {
-    Attach,
+    Attach(RawHandle, usize),
     Call(ExecutionState),
     Exception,
     Cancel,
@@ -805,8 +828,11 @@ fn trace_default(
         }
         UnloadDll { base } => { let _ = symbols.unload_module(base); }
 
-        Exception { first_chance: true, code: winapi::EXCEPTION_BREAKPOINT, .. } if startup => {
-            return Ok(Some(TraceEvent::Attach));
+        Exception { first_chance: true, code: winapi::EXCEPTION_BREAKPOINT, address } if
+            startup
+        => {
+            let thread = threads[&event.thread_id];
+            return Ok(Some(TraceEvent::Attach(thread, address)));
         }
 
         // function call breakpoints
