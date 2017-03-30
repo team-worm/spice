@@ -7,4 +7,7 @@ export class SourceVariable {
 
     @Deserialize()
     sType: SourceType;
+
+    @Deserialize()
+    address: number;
 }
