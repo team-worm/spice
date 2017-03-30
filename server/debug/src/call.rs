@@ -1,5 +1,4 @@
 use std::{mem, io};
-use std::collections::HashMap;
 
 use winapi;
 
@@ -10,12 +9,6 @@ pub struct Call {
     context: Option<Context>,
 }
 
-pub trait IntoValue {
-    fn into_value(
-        self, data_type: Type, module: usize, symbols: &SymbolHandler
-    ) -> io::Result<Value>;
-}
-
 impl Call {
     pub fn capture(symbols: &SymbolHandler, function: &Symbol) -> io::Result<Call> {
         let (module, return_type, _) = get_function_types(symbols, function)?;
@@ -24,20 +17,13 @@ impl Call {
         Ok(Call { return_type, context: None })
     }
 
-    pub fn setup<A: IntoValue>(
+    pub fn setup(
         child: &Child, symbols: &SymbolHandler,
-        context: &mut Context, function: &Symbol, mut arg_values: HashMap<usize, A>
+        context: &mut Context, function: &Symbol, args: Vec<Value>
     ) -> io::Result<Call> {
         let (module, return_type, arg_types) = get_function_types(symbols, function)?;
-        let mut arg_offsets = vec![];
-        symbols.enumerate_locals(function.address, |symbol, _| {
-            if symbol.flags & winapi::SYMFLAG_PARAMETER != 0 {
-                arg_offsets.push(symbol.address);
-            }
-            true
-        })?;
 
-        let mut args = Iterator::zip(arg_offsets.into_iter(), arg_types.into_iter());
+        let mut args = Iterator::zip(args.iter(), arg_types.into_iter());
         let mut new_context = context.clone();
 
         let return_type = symbols.type_from_index(module, return_type)?;
@@ -50,9 +36,6 @@ impl Call {
             context.Rcx = stack_pointer as winapi::DWORD64;
         } else if let Some((arg, arg_type)) = args.next() {
             let arg_type = symbols.type_from_index(module, arg_type)?;
-            let arg = arg_values.remove(&arg)
-                .ok_or(io::Error::from(io::ErrorKind::InvalidInput))?
-                .into_value(arg_type.clone(), module, symbols)?;
             let (value, float) = write_value(&arg, &arg_type, child, &mut new_context)?;
 
             let context = new_context.as_raw_mut();
@@ -65,9 +48,6 @@ impl Call {
 
         if let Some((arg, arg_type)) = args.next() {
             let arg_type = symbols.type_from_index(module, arg_type)?;
-            let arg = arg_values.remove(&arg)
-                .ok_or(io::Error::from(io::ErrorKind::InvalidInput))?
-                .into_value(arg_type.clone(), module, symbols)?;
             let (value, float) = write_value(&arg, &arg_type, child, &mut new_context)?;
 
             let context = new_context.as_raw_mut();
@@ -80,9 +60,6 @@ impl Call {
 
         if let Some((arg, arg_type)) = args.next() {
             let arg_type = symbols.type_from_index(module, arg_type)?;
-            let arg = arg_values.remove(&arg)
-                .ok_or(io::Error::from(io::ErrorKind::InvalidInput))?
-                .into_value(arg_type.clone(), module, symbols)?;
             let (value, float) = write_value(&arg, &arg_type, child, &mut new_context)?;
 
             let context = new_context.as_raw_mut();
@@ -95,9 +72,6 @@ impl Call {
 
         if let Some((arg, arg_type)) = args.next() {
             let arg_type = symbols.type_from_index(module, arg_type)?;
-            let arg = arg_values.remove(&arg)
-                .ok_or(io::Error::from(io::ErrorKind::InvalidInput))?
-                .into_value(arg_type.clone(), module, symbols)?;
             let (value, float) = write_value(&arg, &arg_type, child, &mut new_context)?;
 
             let context = new_context.as_raw_mut();
@@ -112,9 +86,6 @@ impl Call {
         let mut values = vec![];
         for (arg, arg_type) in args {
             let arg_type = symbols.type_from_index(module, arg_type)?;
-            let arg = arg_values.remove(&arg)
-                .ok_or(io::Error::from(io::ErrorKind::InvalidInput))?
-                .into_value(arg_type.clone(), module, symbols)?;
             let (value, _) = write_value(&arg, &arg_type, child, &mut new_context)?;
             values.push(value);
         }
