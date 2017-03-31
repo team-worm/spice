@@ -36,6 +36,9 @@ import { TraceLoopComponent } from "./components/debugger/trace-loop.component";
 import {TraceHistoryComponent} from "./components/debugger/trace-history/trace-history.component";
 import {StructTypeDisplay} from "./components/common/variable-display/struct-type-display.component";
 import {PrimitiveTypeDisplay} from "./components/common/variable-display/primitive-type-display.component";
+import {ArrayTypeDisplay} from "./components/common/variable-display/array-type-display.component";
+import {PointerTypeDisplay} from "./components/common/variable-display/pointer-type-display.component";
+import {FunctionTypeDisplay} from "./components/common/variable-display/function-type-display.component";
 
 @NgModule({
     imports: [MaterialModule.forRoot(), FormsModule, RouterModule, BrowserModule, HttpModule, FlexLayoutModule],
@@ -59,7 +62,10 @@ import {PrimitiveTypeDisplay} from "./components/common/variable-display/primiti
         TraceHistoryComponent,
         VariableDisplayComponent,
         StructTypeDisplay,
-        PrimitiveTypeDisplay
+        PrimitiveTypeDisplay,
+        ArrayTypeDisplay,
+        PointerTypeDisplay,
+        FunctionTypeDisplay
     ],
     providers: [
         //BEGIN MOCK PROVIDERS--Comment these out to disable backend mocking!

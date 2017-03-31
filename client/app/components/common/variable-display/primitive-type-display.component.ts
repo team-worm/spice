@@ -2,21 +2,22 @@ import {Component, Input, OnInit} from "@angular/core";
 @Component({
     selector: 'spice-primitive-type-display',
     template: `
-        <md-input-container class="primitive" *ngIf="type.base != 'void'">
+        
+        <md-input-container class="primitive" *ngIf="typeOfInput() === 'number'">
             <input mdInput 
-                placeholder="{{variable.name}} ({{type.base}}_{{8*type.size}})" 
+                placeholder="{{type.base}}" 
                 [disabled]="!editable" 
                 value="" 
                 type="{{inputType()}}" 
                 min="{{inputMin()}}"
                 max="{{inputMax()}}">
         </md-input-container>
-        <md-input-container class="primitive" *ngIf="type.base === 'void'">
-            <input mdInput
-                   placeholder="{{variable.name}} ({{type.base}})"
-                   [disabled]="true"
-                   value="NULL">
-        </md-input-container>
+        <div class="primitive" *ngIf="typeOfInput() === 'boolean'">
+            <md-slide-toggle [disabled]="!editable"></md-slide-toggle> 
+        </div>
+        <div class="primitive null" *ngIf="typeOfInput() === 'none'">
+            NULL
+        </div>
         
     `
 })
@@ -35,21 +36,27 @@ export class PrimitiveTypeDisplay implements OnInit{
 
     constructor(){
 
-        this.variable = {
-            name:"Third",
-            sType:2,
-            offset:8
-        };
-        this.type = { //TODO: Remove Me
-            tType: "primitive",
-            base: "bool",
-            size: 1
-        }
     }
 
     public ngOnInit() {
         //TODO Type Validation
     }
+
+    public typeOfInput():string {
+        switch(this.type.base) {
+            case 'void':
+                return 'none';
+            case 'bool':
+                return 'boolean';
+            case 'int':
+            case 'uint':
+            case 'float':
+                return 'number';
+            default:
+                return 'none'
+        }
+    }
+
     public inputMax():number|string {
         let size:number = this.type.size;
         let max:number = (Math.pow(2,8*size) - 2) / 2;

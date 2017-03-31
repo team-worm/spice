@@ -12,9 +12,24 @@
     }
   }
   .primitive {
-    width: 100px;
+    &.null {
+      font-weight: 600;
+      font-style: italic;
+      margin: 8px;
+
+    }
+    margin-left: 10px;
+    width: 210px;
   }
   .struct {
-
+    table {
+      td:first-child {
+        width: 1%;
+        white-space: nowrap;
+        border-right: 1px dimgray solid;
+      }
+      width: 100%;
+      border: 1px black solid;
+    }
   }
 }
