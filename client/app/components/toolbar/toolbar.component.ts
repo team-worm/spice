@@ -48,60 +48,18 @@ export class ToolbarComponent {
     }
 
     public ExecuteBinary() {
-        if (this.debugState) {
-            this.debugState.executeBinary('', '')
-                .mergeMap((ex: Execution) => {
-                    if (!this.debugState) {
-                        return Observable.throw(new Error('Null debug state'));
-                    }
-                    this.execution = ex;
-                    return this.debugState.getTrace(ex.id);
-                }).map((t: Trace) => {
-                    switch (t.data.tType) {
-                        case "break":
-                            if (this.viewService.debuggerComponent) {
-                                this.viewService.debuggerComponent.setParameters = {};
-                            this.viewService.debuggerComponent.DisplayTrace(t.data.nextExecution);
-                                this.viewService.activeView = 'debugger';
-                                if (this.debugState) {
-                                    this.debugState.getExecution(t.data.nextExecution).subscribe((ex: Execution) => { this.execution = ex; });
-                                }
-                            }
-                            break;
+    	this.debuggerService.continueExecution('', '');
+    }
+	public KillProcess() {
+		this.debuggerService.killProcess().subscribe(
+			() => {},
+			(e:any)=> {
+				this.snackBar.open('Error Stopping Process', undefined, {
+					duration: 3000
+				});
+			});
+	}
 
-                        case "exit":
-                            this.OnExecutionStopped();
-                            break;
-                    }
-                    return t;
-                }).subscribe({
-                    next: (t) => { },
-                    complete: () => { },
-                    error: (error: any) => {
-                        console.log(error);
-                        this.snackBar.open('Error getting Source Functions', undefined, {
-                            duration: 3000
-                        });
-                    }
-                });
-        } else {
-            this.snackBar.open('No breakpoint set.', undefined, {
-                duration: 3000
-            });
-        }
-    }
-    public KillProcess() {
-        if(this.debugState) {
-            this.debugState.killProcess().subscribe(()=>{
-                this.OnExecutionStopped();
-            },
-            (e:any)=> {
-                this.snackBar.open('Error Stopping Process', undefined, {
-                    duration: 3000
-                });
-            })
-        }
-    }
     public PauseExecution() {
         if (this.debugState && this.execution) {
             this.debugState.pauseExecution(this.execution.id)

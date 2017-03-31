@@ -1,9 +1,9 @@
 import { Component, ViewChild } from "@angular/core";
 import { DebuggerState } from "../../models/DebuggerState";
-import { Execution, ExecutionId } from "../../models/Execution";
+import { Execution, ExecutionId, FunctionData } from "../../models/Execution";
 import { Trace, TraceState } from "../../models/Trace";
 import { Observable } from "rxjs/Observable";
-import { SourceFunction } from "../../models/SourceFunction";
+import { SourceFunction, SourceFunctionId } from "../../models/SourceFunction";
 import { MatchMaxHeightDirective } from "../../directives/MatchMaxHeight.directive";
 import { Response } from "@angular/http";
 import { ViewService } from "../../services/view.service";
@@ -13,6 +13,7 @@ import { LineGraphComponent, DataXY } from "../common/line-graph.component";
 import { SourceVariable } from "../../models/SourceVariable";
 import { Subscriber } from "rxjs/Subscriber";
 import { LoopData, TraceGroup } from "./trace-loop.component";
+import { DebuggerService, ExecutionEvent } from "../../services/debugger.service";
 
 @Component({
     moduleId: module.id,
@@ -35,18 +36,20 @@ export class DebuggerComponent {
 	//public graphVariable: SourceVariable | null = null; //TODO: update this when we don't just use variable name in trace (and corresponding html)
 	public graphVariable: string = "";
 	public graphVariableName: string = "";
-	public currentExecution: ExecutionId | null = null;
+	public currentExecution: Execution | null = null;
 
-	constructor(private fileSystemService: FileSystemService,
+	constructor(private debuggerService: DebuggerService,
+				private fileSystemService: FileSystemService,
 				private viewService: ViewService,
 				private snackBar: MdSnackBar) {
 		this.viewService.debuggerComponent = this;
+		this.debuggerService.getEventStream(['execution']).subscribe(this.onExecution);
 	}
 
-	public setSourceFunction(sf: SourceFunction) {
+	public setSourceFunction(sf: SourceFunction): Observable<null> {
 		this.sourceFunction = sf;
 		this.lines = [];
-		let o = this.fileSystemService.getFileContents(sf.sourcePath)
+		return this.fileSystemService.getFileContents(sf.sourcePath)
 			.map(fileContents => {
 				this.lines = fileContents.split('\n')
 					.filter((l,i) => this.sourceFunction && i>=(this.sourceFunction.lineStart-1) && i<(this.sourceFunction.lineStart-1 + this.sourceFunction.lineCount));
@@ -61,51 +64,30 @@ export class DebuggerComponent {
 				this.lines.forEach((_, i) => {
 					MatchMaxHeightDirective.markDirty(`debugger-${sf.lineStart+i}`);
 				});
-			}).share();
-
-		o.subscribe(() => {},
-			(error:Response)=>{
-				this.snackBar.open(`Failed to display source code: ${error.status} (${error.text()})`, undefined, {
-					duration: 5000
-				});
-		});
-		return o;
+				return null;
+			});
 	}
 
 	public DisplayTrace(executionId: ExecutionId) {
-		this.currentExecution = executionId;
-		if(this.debugState) {
-			let ds: DebuggerState = this.debugState;
-			ds.getExecution(executionId)
-                .mergeMap((ex: Execution) => {
-                	//we don't reset the graph until we have called getExecution, otherwise the trace executes before getExecution, which then returns 404
-					if(this.graphVariable !== '') {
-						this.SetGraphVariable(this.graphVariable);
-					}
-					if(ex.data.eType !== 'function') {
-						return Observable.throw(new Error(`DebuggerComponent: cannot display execution traces with type ${ex.data.eType}`));
-					}
-					return Observable.forkJoin(
-						ds.getSourceFunction(ex.data.sFunction)
-                            .mergeMap((sf:SourceFunction) => this.setSourceFunction(sf)),
-						Observable.of(ds.getTrace(executionId)));
-				})
-                .mergeMap(([fileContents, traces]) => {
-					return Observable.from(traces);
-				})
-                .subscribe({
-					next: (t: Trace)=>{
-						this.addTrace(t);
-					},
-					complete: ()=>{},
-					error: (error:Response)=>{
-						console.error(error);
-					}
-				});
-		}
-		else {
-			console.error('Not attached');
-		}
+		this.debuggerService.currentDebuggerState!.ensureExecutions([executionId])
+			.mergeMap((executionMap: Map<ExecutionId, Execution>) => {
+				let ex = executionMap.get(executionId)!;
+				if(ex.data.eType === 'process') {
+					throw new Error('Cannot display process execution');
+				}
+				this.currentExecution = ex;
+				return this.debuggerService.currentDebuggerState!.ensureSourceFunctions([ex.data.sFunction]);
+			}).mergeMap((sfMap: Map<SourceFunctionId, SourceFunction>) => {
+				let sf = sfMap.get((this.currentExecution!.data as FunctionData).sFunction)!;
+				return Observable.forkJoin(
+					this.setSourceFunction(sf),
+					this.debuggerService.currentDebuggerState!.ensureTrace(executionId));
+			}).mergeMap(([fileContents, trace]: [null, Observable<Trace>]) => {
+				return trace;
+			}).subscribe(
+				(t: Trace) => { this.addTrace(t) },
+				(error: any) => { console.error(error) }
+		);
 	}
 
 	public addTrace(trace: Trace) {
@@ -195,6 +177,7 @@ export class DebuggerComponent {
 	}
 
 	public SetGraphVariable(variableName: string): void {
+		/*
 		if(this.currentExecution !== null) {
 			this.graphData = [];
 			this.graphVariable = variableName;
@@ -221,6 +204,14 @@ export class DebuggerComponent {
 			else {
 				console.error('Not attached');
 			}
+		}
+		*/
+	}
+
+	public onExecution(event: ExecutionEvent) {
+		this.setParameters = {};
+		if(event.reason === 'break') {
+			this.DisplayTrace(event.execution.id);
 		}
 	}
 }

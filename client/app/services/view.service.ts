@@ -5,6 +5,7 @@ import {LauncherComponent} from "../components/launcher/launcher.component";
 import {ToolbarComponent} from "../components/toolbar/toolbar.component";
 import {TraceHistoryComponent} from "../components/debugger/trace-history/trace-history.component";
 import {SpiceRootComponent} from "../components/spice-root.component";
+import { AttachEvent, DetachEvent, ExecutionEvent, DebuggerService } from "./debugger.service";
 
 @Injectable()
 export class ViewService {
@@ -20,7 +21,7 @@ export class ViewService {
     public debuggerComponent: DebuggerComponent | null;
     public traceHistoryComponent: TraceHistoryComponent | null;
 
-    constructor() {
+    constructor(private debuggerService: DebuggerService) {
         this.views = ['launcher','functions','debugger'];
 		this._activeView = this.views[0];
     }
@@ -61,5 +62,17 @@ export class ViewService {
         return (this.launcherComponent && this.launcherComponent.debugState); //TODO: make return vary based on app state.
     }
 
+    public onAttach(event: AttachEvent) {
+		this.activeView = 'functions';
+	}
 
+	public onExecution(event: ExecutionEvent) {
+		if(event.reason === 'break') {
+			this.activeView = 'debugger';
+		}
+	}
+
+    public onDetach(event: DetachEvent) {
+    	this.activeView = 'launcher';
+	}
 }

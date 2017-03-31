@@ -84,7 +84,7 @@ export class DebuggerHttpService {
 	public executeFunction(id: DebugId, sFunction: SourceFunctionId, parameters: {[id: string]: any}): Observable<Execution> {
 		return this.http.post(
 			`http://${host}:${port}/api/v1/debug/${id}/functions/${sFunction}/execute`,
-			{parameters: Object.keys(parameters).map(k => parseInt(parameters[k]))}
+			{arguments: Object.keys(parameters).map(k => parseInt(parameters[k]))}
 		)
 			.map(res => fromJSON(res.json(), Execution))
 			.catch(DebuggerHttpService.handleServerDataError('Execution'))
@@ -146,11 +146,13 @@ export class DebuggerHttpService {
 				} catch(e) {
 					observer.error(DebuggerHttpService.handleServerDataError('Trace')(e));
 				}
+			}).fail((thrown: any, statusCode: number, body: any, jsonBody: any) => {
+				observer.error(new Error(`GetTrace failed: ${thrown || {status: statusCode}}`));
 			});
 		}).publishReplay().refCount();
 	}
 
-	public pauseExecution(id: DebugId, executionId: ExecutionId): Observable<null> {
+	public stopExecution(id: DebugId, executionId: ExecutionId): Observable<null> {
 		return this.http.post(`http://${host}:${port}/api/v1/debug/${id}/executions/${executionId}/stop`, undefined)
 			.map(res => null)
 			.publishLast().refCount();

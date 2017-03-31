@@ -32,6 +32,7 @@ export class TraceHistoryComponent {
             if(this.sidenav.opened) {
                 this.sidenav.close();
             } else {
+            	/*
                 this.executions = [];
 
                 for(let k of this.debugState.executions.keys()) {
@@ -52,7 +53,7 @@ export class TraceHistoryComponent {
 
                     })
                 }
-
+*/
                 this.sidenav.open();
             }
 
