@@ -7,6 +7,9 @@
             <md-tab label="Attach to Existing Process">
                 <spice-process-list #LauncherProcessList (onProcessSelected)="OnProcessSelected($event)" [elementHeightPx]="processListHeight"></spice-process-list>
             </md-tab>
+            <md-tab label="Variable Box Test"> <!-- TODO: DELETE ME -->
+                <spice-variable-display></spice-variable-display>
+            </md-tab>
         </md-tab-group>
         <md-card-actions align="end">
             <md-icon class="selection-icon">{{GetSelectedIcon()}}</md-icon>

@@ -108,6 +108,7 @@ export class LauncherComponent implements AfterContentChecked {
         this.debuggerService.attachBinary(f.path).subscribe(
             (ds: DebuggerState) => { this.onAttach(ds, launchedFile.name); },
             (error: Response) => {
+                console.error(error);
                 this.attaching = false;
                 this.snackBar.open('Error Launching ' + launchedFile.name + ' (' + error.status + '): ' + error.statusText, undefined, {
                     duration: 3000
