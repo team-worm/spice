@@ -4,7 +4,7 @@ import {Component, Input} from "@angular/core";
     template: `
         <div class="struct">
             <div class="variable-header">
-                <span class="variable-name">{{variable.name}}</span>:
+                <span class="variable-name" *ngIf="!!variable">{{variable.name}}:</span>
                 <span class="variable-subname">{{type.name}}</span>
             </div>
             <table>
@@ -13,7 +13,9 @@ import {Component, Input} from "@angular/core";
                     <td>
                         <spice-struct-type-display
                                 *ngSwitchCase="'struct'"
-                                [types]="types"></spice-struct-type-display>
+                                [type]="types[f.sType]"
+                                [types]="types"
+                                [editable]="editable"></spice-struct-type-display>
                         <spice-primitive-type-display
                                 *ngSwitchCase="'primitive'"
                                 [variable]="f"
@@ -27,6 +29,20 @@ import {Component, Input} from "@angular/core";
                                 [value]="value"
                                 [editable]="editable"
                                 [types]="types"></spice-array-type-display>
+                        <spice-pointer-type-display
+                                *ngSwitchCase="'pointer'"
+                                [variable]="variable"
+                                [type]="types[f.sType]"
+                                [value]="value"
+                                [editable]="editable"
+                                [types]="types"></spice-pointer-type-display>
+                        <spice-function-type-display
+                                *ngSwitchCase="'function'"
+                                [variable]="variable"
+                                [type]="types[f.sType]"
+                                [value]="value"
+                                [editable]="editable"
+                                [types]="types"></spice-function-type-display>
                     </td>
                 </tr>
             </table>
@@ -52,6 +68,9 @@ export class StructTypeDisplay{
     /* END Delete Mes*/
 
     constructor(){
+        this.variable = null;
     }
+
+
 
 }

@@ -25,6 +25,20 @@ import {Component, Input} from "@angular/core";
                         [value]="value"
                         [editable]="editable"
                         [types]="types"></spice-array-type-display>
+                <spice-pointer-type-display
+                        *ngSwitchCase="'pointer'"
+                        [variable]="variable"
+                        [type]="getType()"
+                        [value]="value"
+                        [editable]="editable"
+                        [types]="types"></spice-pointer-type-display>
+                <spice-function-type-display
+                        *ngSwitchCase="'function'"
+                        [variable]="variable"
+                        [type]="getType()"
+                        [value]="value"
+                        [editable]="editable"
+                        [types]="types"></spice-function-type-display>
             </div>
             
         </form>
@@ -56,36 +70,51 @@ export class VariableDisplayComponent {
                 name:"StuffStruct",
                 size:12,
                 fields: [
-                {
-                    name:"VoidVar",
-                    sType:2,
-                    offset:0
-                },
-                {
-                    name:"BoolVar",
-                    sType:3,
-                    offset:4
-                },
-                {
-                    name:"Int32Var",
-                    sType:4,
-                    offset:8
-                },
-                {
-                    name:"UInt32Var",
-                    sType:5,
-                    offset:8
-                },
-                {
-                    name:"FloatVar",
-                    sType:6,
-                    offset:8
-                },
-                {
-                    name:"ArrayO'Nums",
-                    sType:7,
-                    offset:0
-                }
+                    {
+                        name:"VoidVar",
+                        sType:2,
+                        offset:0
+                    },
+                    {
+                        name:"BoolVar",
+                        sType:3,
+                        offset:4
+                    },
+                    {
+                        name:"Int32Var",
+                        sType:4,
+                        offset:8
+                    },
+                    {
+                        name:"UInt32Var",
+                        sType:5,
+                        offset:8
+                    },
+                    {
+                        name:"FloatVar",
+                        sType:6,
+                        offset:8
+                    },
+                    {
+                        name:"ArrayO'Nums",
+                        sType:7,
+                        offset:0
+                    },
+                    {
+                        name:"JunkFunc",
+                        sType:9,
+                        offset:0
+                    },
+                    {
+                        name:"PntrToStruct",
+                        sType:8,
+                        offset:0
+                    },
+                    {
+                        name:"NestyStruct",
+                        sType:10,
+                        offset:0
+                    }
             ]
             },
             2: {
@@ -117,6 +146,38 @@ export class VariableDisplayComponent {
                 tType:"array",
                 sType:4,
                 count:10
+            },
+            8: {
+                tType:"pointer",
+                sType:1
+            },
+            9: {
+                tType:"function",
+                callingConvention:0,
+                sType:1,
+                parameters:[8,3]
+            },
+            10: {
+                tType:"struct",
+                name:"SimpleStruct",
+                size:12,
+                fields: [
+                    {
+                        name:"A",
+                        sType:3,
+                        offset:0
+                    },
+                    {
+                        name:"B",
+                        sType:3,
+                        offset:0
+                    },
+                    {
+                        name:"C",
+                        sType:3,
+                        offset:0
+                    }
+                ]
             }
         };
 

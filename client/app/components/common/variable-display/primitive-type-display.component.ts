@@ -3,7 +3,7 @@ import {Component, Input, OnInit} from "@angular/core";
     selector: 'spice-primitive-type-display',
     template: `
         
-        <md-input-container class="primitive" *ngIf="typeOfInput() === 'number'">
+        <md-input-container class="primitive input" *ngIf="typeOfInput() === 'number'">
             <input mdInput 
                 placeholder="{{type.base}}" 
                 [disabled]="!editable" 
@@ -12,7 +12,7 @@ import {Component, Input, OnInit} from "@angular/core";
                 min="{{inputMin()}}"
                 max="{{inputMax()}}">
         </md-input-container>
-        <div class="primitive" *ngIf="typeOfInput() === 'boolean'">
+        <div class="primitive bool" *ngIf="typeOfInput() === 'boolean'">
             <md-slide-toggle [disabled]="!editable"></md-slide-toggle> 
         </div>
         <div class="primitive null" *ngIf="typeOfInput() === 'none'">

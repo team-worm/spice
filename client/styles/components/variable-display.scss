@@ -15,21 +15,54 @@
     &.null {
       font-weight: 600;
       font-style: italic;
-      margin: 8px;
+      margin-top: 8px;
+      margin-bottom: 8px;
 
+    }
+    &.bool {
+      margin-top: 8px !important;
+      margin-bottom: 8px !important;
+      .mat-slide-toggle {
+        margin: 0;
+      }
+    }
+    &.input {
+      margin: 16px 0 0 8px;
+      .mat-input-wrapper {
+        margin: 0;
+      }
     }
     margin-left: 10px;
     width: 210px;
   }
   .struct {
+    margin: 8px;
     table {
       td:first-child {
         width: 1%;
         white-space: nowrap;
         border-right: 1px dimgray solid;
       }
+      td {
+        border-bottom: 1px dimgray solid;
+      }
       width: 100%;
       border: 1px black solid;
+    }
+  }
+  .function {
+    md-icon {
+      font-size: 18px;
+      vertical-align: sub;
+    }
+    .edit-warning {
+      color: red;
+      font-style: italic;
+      font-size: 12px;
+      vertical-align: text-top;
+    }
+    span {
+      font-weight: 500;
     }
   }
 }
