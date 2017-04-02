@@ -1,89 +1,118 @@
 use std::io;
 use std::convert::{TryFrom, TryInto};
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use debug::{self, SymbolHandler};
 use api;
 
-pub struct Parse<'a, 'b, 'c>(&'a [u8], &'b debug::Type, &'c SymbolHandler, usize);
-
-pub fn parse<'a, 'b>(value: &'a debug::Value, symbols: &'b SymbolHandler) -> Parse<'a, 'a, 'b> {
-    Parse(&value.data, &value.data_type, symbols, value.module)
+pub fn parse(
+    value: &debug::Value, symbols: &SymbolHandler,
+    pointers: &mut VecDeque<(usize, u32)>
+) -> api::Value {
+    parse_bytes(&value.data, &value.data_type, symbols, value.module, pointers)
 }
 
-impl<'a, 'b, 'c> From<Parse<'a, 'b, 'c>> for api::Value {
-    fn from(value: Parse) -> api::Value {
-        let Parse(data, data_type, symbols, module) = value;
+fn parse_bytes(
+    data: &[u8], data_type: &debug::Type, symbols: &SymbolHandler, module: usize,
+    pointers: &mut VecDeque<(usize, u32)>
+) -> api::Value {
+    let value = data.as_ptr();
 
-        let value = data.as_ptr();
-
-        use debug::Type::*;
-        match *data_type {
-            Base { base, size } => {
-                use debug::Primitive::*;
-                match base {
-                    Void => api::Value::Null,
-                    Bool => api::Value::Boolean(unsafe { *(value as *const bool) }),
-                    Int { signed: true } => match size {
-                        1 => api::Value::Integer(unsafe { *(value as *const i8) } as i64),
-                        2 => api::Value::Integer(unsafe { *(value as *const i16) } as i64),
-                        4 => api::Value::Integer(unsafe { *(value as *const i32) } as i64),
-                        8 => api::Value::Integer(unsafe { *(value as *const i64) } as i64),
-                        _ => unreachable!(),
-                    },
-                    Int { signed: false } => match size {
-                        1 => api::Value::Integer(unsafe { *(value as *const u8) } as i64),
-                        2 => api::Value::Integer(unsafe { *(value as *const u16) } as i64),
-                        4 => api::Value::Integer(unsafe { *(value as *const u32) } as i64),
-                        8 => api::Value::Integer(unsafe { *(value as *const u64) } as i64),
-                        _ => unreachable!(),
-                    },
-                    Float => match size {
-                        4 => api::Value::Number(unsafe { *(value as *const f32) } as f64),
-                        8 => api::Value::Number(unsafe { *(value as *const f64) } as f64),
-                        _ => unreachable!(),
-                    },
-                }
+    use debug::Type::*;
+    match *data_type {
+        Base { base, size } => {
+            use debug::Primitive::*;
+            match base {
+                Void => api::Value::Null,
+                Bool => api::Value::Boolean(unsafe { *(value as *const bool) }),
+                Int { signed: true } => match size {
+                    1 => api::Value::Integer(unsafe { *(value as *const i8) } as i64),
+                    2 => api::Value::Integer(unsafe { *(value as *const i16) } as i64),
+                    4 => api::Value::Integer(unsafe { *(value as *const i32) } as i64),
+                    8 => api::Value::Integer(unsafe { *(value as *const i64) } as i64),
+                    _ => unreachable!(),
+                },
+                Int { signed: false } => match size {
+                    1 => api::Value::Integer(unsafe { *(value as *const u8) } as i64),
+                    2 => api::Value::Integer(unsafe { *(value as *const u16) } as i64),
+                    4 => api::Value::Integer(unsafe { *(value as *const u32) } as i64),
+                    8 => api::Value::Integer(unsafe { *(value as *const u64) } as i64),
+                    _ => unreachable!(),
+                },
+                Float => match size {
+                    4 => api::Value::Number(unsafe { *(value as *const f32) } as f64),
+                    8 => api::Value::Number(unsafe { *(value as *const f64) } as f64),
+                    _ => unreachable!(),
+                },
             }
-
-            Pointer { .. } => {
-                api::Value::Integer(unsafe { *(value as *const u64) } as i64)
-            }
-
-            Array { type_index, count } => {
-                let element_type = symbols.type_from_index(module, type_index)
-                    .expect("corrupt element type");
-                let size = element_type.size(symbols, module);
-
-                let mut values = vec![];
-                for offset in (0..count).map(|i| i * size) {
-                    let data = &data[offset..offset+size];
-
-                    let value = Parse(data, &element_type, symbols, module).into();
-                    values.push(value);
-                }
-
-                api::Value::Array(values)
-            }
-
-            Struct { ref fields, .. } => {
-                let mut values = HashMap::new();
-                for &debug::Field { type_index, offset, .. } in fields {
-                    let field_type = symbols.type_from_index(module, type_index)
-                        .expect("corrupt field type");
-
-                    let offset = offset as usize;
-                    let size = field_type.size(symbols, module);
-                    let data = &data[offset..offset + size];
-
-                    let value = Parse(data, &field_type, symbols, module).into();
-                    values.insert(offset as u32, value);
-                }
-
-                api::Value::Struct(values)
-            }
-
-            _ => api::Value::Null,
         }
+
+        Pointer { type_index } => {
+            let address = unsafe { *(value as *const usize) };
+            pointers.push_back((address, type_index));
+
+            api::Value::Integer(address as i64)
+        }
+
+        Array { type_index, count } => {
+            let element_type = symbols.type_from_index(module, type_index)
+                .expect("corrupt element type");
+            let size = element_type.size(symbols, module);
+
+            let mut values = vec![];
+            for offset in (0..count).map(|i| i * size) {
+                let data = &data[offset..offset+size];
+
+                let value = parse_bytes(data, &element_type, symbols, module, pointers);
+                values.push(value);
+            }
+
+            api::Value::Array(values)
+        }
+
+        Struct { ref fields, .. } => {
+            let mut values = HashMap::new();
+            for &debug::Field { type_index, offset, .. } in fields {
+                let field_type = symbols.type_from_index(module, type_index)
+                    .expect("corrupt field type");
+
+                let offset = offset as usize;
+                let size = field_type.size(symbols, module);
+                let data = &data[offset..offset + size];
+
+                let value = parse_bytes(data, &field_type, symbols, module, pointers);
+                values.insert(offset as u32, value);
+            }
+
+            api::Value::Struct(values)
+        }
+
+        _ => api::Value::Null,
+    }
+}
+
+pub fn trace_pointers(
+    child: &debug::Child, symbols: &debug::SymbolHandler, module: usize, base: usize,
+    pointers: &mut VecDeque<(usize, u32)>, values: &mut HashMap<usize, api::Value>
+) {
+    while let Some((address, type_index)) = pointers.pop_front() {
+        let offset = address - base;
+        if values.contains_key(&address) || values.contains_key(&offset) {
+            continue;
+        }
+
+        let value = match debug::Value::read_pointer(
+            child, symbols, address, module, type_index
+        ) {
+            Ok(value) => value,
+            _ => continue,
+        };
+
+        if value.data[0] == 0xcc {
+            continue;
+        }
+
+        let value = parse(&value, symbols, pointers);
+        values.insert(address, value);
     }
 }
 

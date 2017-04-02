@@ -775,7 +775,7 @@ fn trace_stream(res: &mut Response<Streaming>, child: &mut child::Thread) -> io:
                 next_index += 1;
 
                 let mut state = HashMap::new();
-                for &(ref name, ref value) in locals.iter() {
+                for (name, value) in locals.iter() {
                     let prev_value = prev_locals.get(name);
                     if prev_value.map(|prev_value| value != prev_value).unwrap_or(true) {
                         state.insert(name.clone(), value.clone());

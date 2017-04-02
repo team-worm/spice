@@ -14,7 +14,18 @@ impl Value {
         Value { data: data.as_bytes().into(), data_type: data_type, module: 0 }
     }
 
-    pub fn read(
+    pub fn read_pointer(
+        child: &Child, symbols: &SymbolHandler, address: usize, module: usize, type_index: u32
+    ) -> io::Result<Value> {
+        let data_type = symbols.type_from_index(module, type_index)?;
+
+        let mut data = vec![0u8; data_type.size(symbols, module)];
+        child.read_memory(address, &mut data)?;
+
+        Ok(Value { data, data_type, module })
+    }
+
+    pub fn read_symbol(
         child: &Child, context: &Context, symbols: &SymbolHandler, symbol: &Symbol
     ) -> io::Result<Value> {
         let context = context.as_raw();
@@ -40,10 +51,10 @@ impl Value {
             symbol.address
         };
 
-        let mut buffer = vec![0u8; symbol.size];
-        child.read_memory(address, &mut buffer)?;
+        let mut data = vec![0u8; symbol.size];
+        child.read_memory(address, &mut data)?;
 
-        Ok(Value { data: buffer, data_type: data_type, module: module })
+        Ok(Value { data, data_type, module })
     }
 
     pub fn read_return(
@@ -57,7 +68,7 @@ impl Value {
             _ => false,
         };
 
-        let mut buffer = vec![0u8; data_size];
+        let mut data = vec![0u8; data_size];
         match data_type {
             Type::Base { .. } | Type::Pointer { .. } | Type::Struct { .. } if data_size <= 8 => {
                 let source = if !float {
@@ -65,11 +76,11 @@ impl Value {
                 } else {
                     &context.FltSave.XmmRegisters[0].Low as *const _ as *const u8
                 };
-                unsafe { ptr::copy(source, buffer.as_mut_ptr(), buffer.len()) };
+                unsafe { ptr::copy(source, data.as_mut_ptr(), data.len()) };
             }
 
             Type::Struct { .. } if data_size > 8 => {
-                child.read_memory(context.Rax as usize, &mut buffer)?;
+                child.read_memory(context.Rax as usize, &mut data)?;
             }
 
             _ => {
@@ -79,7 +90,7 @@ impl Value {
             }
         }
 
-        Ok(Value { data: buffer, data_type: data_type, module: module })
+        Ok(Value { data, data_type, module })
     }
 
     pub fn display<'a, 'b>(&'a self, symbols: &'b SymbolHandler) -> ValueDisplay<'a, 'a, 'b> {

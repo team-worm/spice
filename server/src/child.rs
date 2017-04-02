@@ -4,7 +4,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{sync_channel, SyncSender, Receiver};
 use std::convert::TryInto;
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::path::PathBuf;
 use std::thread::{self, JoinHandle};
 use std::os::windows::io::RawHandle;
@@ -45,7 +45,7 @@ pub enum DebugMessage {
 }
 
 pub enum DebugTrace {
-    Line(u32, Vec<(usize, api::Value)>),
+    Line(u32, HashMap<usize, api::Value>),
     Call(u32, usize),
     Return(u32, api::Value, HashMap<usize, api::Value>),
 
@@ -655,21 +655,29 @@ fn trace_function(
                 let instruction = frame.stack.AddrPC.Offset as usize;
                 let (line, _) = symbols.line_from_address(instruction)?;
 
-                let mut locals = vec![];
+                let mut locals = HashMap::new();
+                let mut pointers = VecDeque::new();
                 symbols.enumerate_locals(instruction, |symbol, size| {
                     if size == 0 { return true; }
 
-                    if let Ok(value) = debug::Value::read(child, &context, symbols, &symbol) {
-                        if value.data[0] == 0xcc {
-                            return true;
-                        }
+                    let value = match debug::Value::read_symbol(child, &context, symbols, &symbol) {
+                        Ok(value) => value,
+                        _ => return true,
+                    };
 
-                        let value = value::parse(&value, symbols).into();
-                        locals.push((symbol.address, value));
+                    if value.data[0] == 0xcc {
+                        return true;
                     }
+
+                    let local = value::parse(&value, symbols, &mut pointers);
+                    locals.insert(symbol.address, local);
 
                     true
                 })?;
+
+                let module = symbols.module_from_address(context.as_raw().Rip as usize)?;
+                let base = context.as_raw().Rbp as usize;
+                value::trace_pointers(child, symbols, module, base, &mut pointers, &mut locals);
 
                 tx.send(DebugMessage::Trace(DebugTrace::Line(last_line, locals))).unwrap();
                 last_line = line.line;
@@ -715,10 +723,17 @@ fn trace_function(
                 // if the stack pointer has been restored, we're done
                 if context.stack_pointer() == stack {
                     // collect the return value
+
                     let (value, restore) = call.teardown(child, &context, symbols)?;
-                    let value = value::parse(&value, symbols).into();
-                    let data = HashMap::new();
-                    let trace = DebugTrace::Return(last_line, value, data);
+
+                    let mut values = HashMap::new();
+                    let mut pointers = VecDeque::new();
+                    let value = value::parse(&value, symbols, &mut pointers);
+
+                    let module = symbols.module_from_address(context.as_raw().Rip as usize)?;
+                    value::trace_pointers(child, symbols, module, 0, &mut pointers, &mut values);
+
+                    let trace = DebugTrace::Return(last_line, value, values);
                     tx.send(DebugMessage::Trace(trace)).unwrap();
 
                     if let Some(context) = restore {
