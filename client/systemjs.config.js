@@ -30,6 +30,7 @@
             // other libraries
             'rxjs': 'npm:rxjs',
             'hammerjs': 'npm:hammerjs/hammer.js',
+            'prismjs' : 'npm:prismjs',
             'angular-in-memory-web-api': 'npm:angular-in-memory-web-api/bundles/in-memory-web-api.umd.js',
             'd3': 'npm:d3',
         },
@@ -45,6 +46,10 @@
             d3: {
                 main: 'build/d3.js',
                 defaultExtension: 'js'
+            },
+            prismjs: {
+                main: 'prism.js',
+                defaultExtenstion: 'js'
             }
         }
     });

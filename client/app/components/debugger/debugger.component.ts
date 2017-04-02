@@ -14,6 +14,7 @@ import { SourceVariable, SourceVariableId } from "../../models/SourceVariable";
 import { Subscriber } from "rxjs/Subscriber";
 import { LoopData, TraceGroup } from "./trace-loop.component";
 import { DebuggerService, ExecutionEvent, PreCallFunctionEvent, DisplayTraceEvent, ProcessEndedEvent, DetachEvent, AttachEvent } from "../../services/debugger.service";
+import * as Prism from 'prismjs';
 
 @Component({
     moduleId: module.id,
@@ -53,6 +54,9 @@ export class DebuggerComponent {
 			.map(fileContents => {
 				this.lines = fileContents.split('\n')
                     .filter((l, i) => this.sourceFunction && i >= (this.sourceFunction.lineStart - 1) && i < (this.sourceFunction.lineStart - 1 + this.sourceFunction.lineCount));
+                this.lines = this.lines.map(function(l) {
+                    return Prism.highlight(l, Prism.languages["clike"]);
+                });
 				this.traceData = {
 					kind: 'loop',
 					startLine: sf.lineStart,

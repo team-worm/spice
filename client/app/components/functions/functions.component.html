@@ -50,9 +50,7 @@
                             </div>
                         </div>
                         <div class="source-code-col" fxFlex>
-                            <div class="row" [matchMaxHeight]="'functions-'+i" *ngFor="let line of lines; let i=index;">
-                                <pre>{{line}}</pre>
-                            </div>
+                            <pre class="language-clike"><code class="language-clike"><div class="row" [matchMaxHeight]="'functions-'+i"*ngFor="let line of lines; let i=index;"><div [innerHTML]="line"></div></div></code></pre>
                         </div>
                     </div>
                 </div>
