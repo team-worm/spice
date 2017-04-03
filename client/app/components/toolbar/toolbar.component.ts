@@ -8,27 +8,26 @@ import { Execution } from "../../models/Execution";
 import { Observable } from "rxjs/Observable";
 import { Trace } from "../../models/Trace";
 import { SourceFunction, SourceFunctionId } from "../../models/SourceFunction";
-import { DebuggerService } from "../../services/debugger.service";
+import { DebuggerService, ExecutionEvent, ProcessEndedEvent } from "../../services/debugger.service";
 import { Breakpoint } from "../../models/Breakpoint";
 
 @Component({
-    moduleId: module.id,
-    selector: 'spice-toolbar',
-    templateUrl: './toolbar.component.html'
+	moduleId: module.id,
+	selector: 'spice-toolbar',
+	templateUrl: './toolbar.component.html'
 })
 export class ToolbarComponent {
 
-    @Output() isDarkTheme = new EventEmitter<boolean>();
-    private dark: boolean = false;
-    public debugState: DebuggerState | null = null;
-    public debugProcessName: string = '';
-    public bpFunctions: SourceFunction[] = [];
-    public execution: Execution | null = null; //TODO: get this data from the service
+	@Output() isDarkTheme = new EventEmitter<boolean>();
+	private dark: boolean = false;
+	public bpFunctions: SourceFunction[] = [];
 
-    constructor(public dialog: MdDialog,
-        public viewService: ViewService,
-        public debuggerService: DebuggerService,
-        private snackBar: MdSnackBar) { }
+	constructor(public dialog: MdDialog,
+				public viewService: ViewService,
+				public debuggerService: DebuggerService,
+				private snackBar: MdSnackBar) {
+		this.debuggerService.getEventStream(['execution']).subscribe((event: ExecutionEvent) => this.onExecution(event));
+	}
 
     public IsInFunctionView():boolean {
         return this.viewService.activeView === 'functions';
@@ -47,8 +46,18 @@ export class ToolbarComponent {
         this.dark = !this.dark;
     }
 
-    public ExecuteBinary() {
-    	this.debuggerService.continueExecution('', '');
+    public ContinueExecution() {
+    	this.debuggerService.continueExecution('', '')
+			.subscribe(
+				() => {},
+				(error: Response) => {
+					this.snackBar.open('Error continuing execution (' + error.status + '): ' + error.statusText, undefined, {
+						duration: 3000
+					});
+					if ((<any>error).message) {
+						console.error(error);
+					}
+				});
     }
 	public KillProcess() {
 		this.debuggerService.killProcess().subscribe(
@@ -60,26 +69,27 @@ export class ToolbarComponent {
 			});
 	}
 
-    public PauseExecution() {
-        if (this.debugState && this.execution) {
-            this.debugState.pauseExecution(this.execution.id)
-                .subscribe(
-                () => {
-                },
-                (error: Response) => {
-                    this.snackBar.open('Error stopping execution (' + error.status + '): ' + error.statusText, undefined, {
-                        duration: 3000
-                    });
-                    if ((<any>error).message) {
-                        console.error(error);
-                    }
-                });
-        }
+	public StopExecution() {
+		this.debuggerService.stopCurrentExecution()
+			.subscribe(
+				() => {},
+				(error: Response) => {
+					this.snackBar.open('Error stopping execution (' + error.status + '): ' + error.statusText, undefined, {
+						duration: 3000
+					});
+					if ((<any>error).message) {
+						console.error(error);
+					}
+				});
     }
-    public OnExecutionStopped() {
-        this.execution = null;
 
-        //auto reattach
+    public onExecution(event: ExecutionEvent) {
+
+	}
+
+	public onProcessEnded(event: ProcessEndedEvent) {
+		//auto reattach
+        /*
         if (this.debugState && this.viewService.launcherComponent && this.viewService.launcherComponent.launchedFile) {
             let launchedFile = this.viewService.launcherComponent.launchedFile;
             //save breakpoints
@@ -112,27 +122,23 @@ export class ToolbarComponent {
         } else {
             this.viewService.activeView = 'launcher';
         }
+        */
     }
-    public Detach() {
-        if (this.debugState) {
-            this.KillProcess();
-            //TODO: When the api for kill+detach exists do something for this.
-            if (this.viewService.launcherComponent) {
-                this.viewService.launcherComponent.onDetach();
-            }
-        }
-    }
-    public GetBpFunctions() {
-        if (this.debugState) {
-            this.bpFunctions = [];
 
-            for (let key of this.debugState.breakpoints.keys()) {
-                this.debugState.sourceFunctions.get(key).subscribe((sf: SourceFunction) => {
-                    this.bpFunctions.push(sf);
-                })
-            }
-        }
+	public Detach() {
+		this.debuggerService.killProcess()
+			.map(() => this.debuggerService.detach())
+			.subscribe(
+				() => {},
+				(err) => { console.error(err); }
+		);
     }
+
+	public GetBpFunctions() {
+		this.bpFunctions = Array.from(this.debuggerService.currentDebuggerState!.breakpoints.values())
+			.map(b => this.debuggerService.currentDebuggerState!.sourceFunctions.get(b.sFunction)!);
+	}
+
     public BreakpointFunctionSelected(func: SourceFunction) {
         this.GoToFunctionsView();
         if (this.viewService.functionsComponent) {
@@ -142,4 +148,32 @@ export class ToolbarComponent {
     openAboutSpiceDialog() {
         this.dialog.open(AboutComponent);
     }
+
+	public canDetach(): boolean {
+		return !!this.debuggerService.currentDebuggerState;
+	}
+
+	public canStart(): boolean {
+		return !!this.debuggerService.currentDebuggerState && !this.debuggerService.currentExecution;
+	}
+
+	public canContinue(): boolean {
+		return !!this.debuggerService.currentDebuggerState && !!this.debuggerService.currentExecution;
+	}
+
+	public canStopExecution(): boolean {
+		return !!this.debuggerService.currentDebuggerState && !!this.debuggerService.currentExecution;
+	}
+
+	public canKillProcess(): boolean {
+		return !!this.debuggerService.currentDebuggerState && !!this.debuggerService.currentExecution;
+	}
+
+	public processName(): string {
+		return (this.debuggerService.currentDebuggerState && this.debuggerService.currentDebuggerState.name) || '';
+	}
+
+	public breakpointCount(): number {
+		return (this.debuggerService.currentDebuggerState && this.debuggerService.currentDebuggerState.breakpoints.size) || 0
+	}
 }

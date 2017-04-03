@@ -39,7 +39,7 @@ export class FunctionsComponent implements OnInit {
 				private viewService: ViewService,
 				private fileSystemService: FileSystemService,
 				private http: Http) {
-		this.debuggerService.getEventStream(['attach']).subscribe(this.onAttach);
+		this.debuggerService.getEventStream(['attach']).subscribe((event: AttachEvent) => this.onAttach(event));
 		//this.debuggerService.getEventStream(['detach']).subscribe(this.onDetach);
 	}
 

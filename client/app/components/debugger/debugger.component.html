@@ -31,7 +31,10 @@
 					</div>
 				</div>
 				<div class="trace-col" fxFlex>
-					<spice-trace-loop [loopData]="traceData" [oddStartLine]="traceData.startLine%2===1"></spice-trace-loop>
+					<spice-trace-loop
+						[debuggerState]="debuggerService.currentDebuggerState"
+						[sourceFunction]="sourceFunction"
+						[loopData]="traceData" [oddStartLine]="traceData.startLine%2===1"></spice-trace-loop>
 				</div>
 			</div>
 		</md-card-content>
@@ -41,8 +44,8 @@
 			<div fxFlex="25">
 				<h2>Graph Function Variable</h2>
 				<div class="variable-selector">
-					<md-select placeholder="Variable" *ngIf="!!sourceFunction" [(ngModel)]="graphVariableName">
-						<md-option *ngFor="let sf of sourceFunction.locals.concat(sourceFunction.parameters)" [value]="sf.name">
+					<md-select placeholder="Variable" *ngIf="!!sourceFunction" [(ngModel)]="graphVariable">
+						<md-option *ngFor="let sf of sourceFunction.locals.concat(sourceFunction.parameters)" [value]="sf.address">
 							{{sf.name}}
 						</md-option>
 					</md-select>
@@ -50,7 +53,7 @@
 				<!--<md-input-container class="width-100">-->
 					<!--<input mdInput [(ngModel)]="graphVariableName" placeholder="Variable name">-->
 				<!--</md-input-container>-->
-				<button md-raised-button [disabled]="!graphVariableName" (click)="SetGraphVariable(graphVariableName)"><md-icon>timeline</md-icon> Graph</button>
+				<button md-raised-button [disabled]="!graphVariable" (click)="SetGraphVariable(graphVariable)"><md-icon>timeline</md-icon> Graph</button>
 			</div>
 			<span fxFlex></span>
 			<div fxFlex class="line-graph">

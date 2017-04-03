@@ -4,7 +4,7 @@ import {Response} from "@angular/http";
 
 import {SourceFile} from "../../models/SourceFile";
 import {Process} from "../../models/Process";
-import {DebuggerService, DebuggerEvent } from "../../services/debugger.service";
+import {DebuggerService, DebuggerEvent, AttachEvent, DetachEvent } from "../../services/debugger.service";
 import {DebuggerState} from "../../models/DebuggerState";
 import {ViewService} from "../../services/view.service";
 import {FileBrowserComponent} from "../common/file-browser.component";
@@ -34,8 +34,8 @@ export class LauncherComponent implements AfterContentChecked {
 				private snackBar: MdSnackBar,
 				private viewService: ViewService,
 				private element: ElementRef) {
-		this.debuggerService.getEventStream(['attach']).subscribe(this.onAttach);
-		this.debuggerService.getEventStream(['detach']).subscribe(this.onDetach);
+		this.debuggerService.getEventStream(['attach']).subscribe((event: AttachEvent) => this.onAttach(event));
+		this.debuggerService.getEventStream(['detach']).subscribe((event: DetachEvent) => this.onDetach(event));
 	}
 
     public ngAfterContentChecked() {
@@ -117,9 +117,9 @@ export class LauncherComponent implements AfterContentChecked {
 				(error: Response) => { this.onAttachError(error, p.name); });
 	}
 
-	protected onAttachError(error: Response, attachName: string) {
+	protected onAttachError(error: any, attachName: string) {
 		this.attaching = false;
-		this.snackBar.open('Error Attaching ' + attachName  + ' (' + error.status + '): ' + error.statusText, undefined, {
+		this.snackBar.open(`Error Attaching ${attachName}: ${error.message || error.statusText}`, undefined, {
 			duration: 3000
 		});
 		if ((<any>error).message) {
@@ -127,11 +127,11 @@ export class LauncherComponent implements AfterContentChecked {
 		}
 	}
 
-	public onAttach() {
+	public onAttach(event: AttachEvent) {
 		this.attaching = false;
 	}
 
-	public onDetach() {
+	public onDetach(event: DetachEvent) {
 		this.debugProcessName = '';
 		this.launchedFile = null;
 	}

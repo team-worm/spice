@@ -1,7 +1,7 @@
 import { Component, ViewChild } from "@angular/core";
 import { DebuggerState } from "../../models/DebuggerState";
 import { Execution, ExecutionId, FunctionData } from "../../models/Execution";
-import { Trace, TraceState } from "../../models/Trace";
+import { Trace } from "../../models/Trace";
 import { Observable } from "rxjs/Observable";
 import { SourceFunction, SourceFunctionId } from "../../models/SourceFunction";
 import { MatchMaxHeightDirective } from "../../directives/MatchMaxHeight.directive";
@@ -10,7 +10,7 @@ import { ViewService } from "../../services/view.service";
 import { FileSystemService } from "../../services/file-system.service";
 import { MdSnackBar } from "@angular/material";
 import { LineGraphComponent, DataXY } from "../common/line-graph.component";
-import { SourceVariable } from "../../models/SourceVariable";
+import { SourceVariable, SourceVariableId } from "../../models/SourceVariable";
 import { Subscriber } from "rxjs/Subscriber";
 import { LoopData, TraceGroup } from "./trace-loop.component";
 import { DebuggerService, ExecutionEvent } from "../../services/debugger.service";
@@ -33,9 +33,7 @@ export class DebuggerComponent {
 
 	@ViewChild('lineGraph') lineGraph: LineGraphComponent;
 	public graphData: DataXY[] = [];
-	//public graphVariable: SourceVariable | null = null; //TODO: update this when we don't just use variable name in trace (and corresponding html)
-	public graphVariable: string = "";
-	public graphVariableName: string = "";
+	public graphVariable: SourceVariableId | null;
 	public currentExecution: Execution | null = null;
 
 	constructor(private debuggerService: DebuggerService,
@@ -43,7 +41,7 @@ export class DebuggerComponent {
 				private viewService: ViewService,
 				private snackBar: MdSnackBar) {
 		this.viewService.debuggerComponent = this;
-		this.debuggerService.getEventStream(['execution']).subscribe(this.onExecution);
+		this.debuggerService.getEventStream(['execution']).subscribe((event: ExecutionEvent) => this.onExecution(event));
 	}
 
 	public setSourceFunction(sf: SourceFunction): Observable<null> {
@@ -71,22 +69,22 @@ export class DebuggerComponent {
 	public DisplayTrace(executionId: ExecutionId) {
 		this.debuggerService.currentDebuggerState!.ensureExecutions([executionId])
 			.mergeMap((executionMap: Map<ExecutionId, Execution>) => {
-				let ex = executionMap.get(executionId)!;
+				let ex = this.debuggerService.currentDebuggerState!.executions.get(executionId)!;
 				if(ex.data.eType === 'process') {
 					throw new Error('Cannot display process execution');
 				}
 				this.currentExecution = ex;
 				return this.debuggerService.currentDebuggerState!.ensureSourceFunctions([ex.data.sFunction]);
 			}).mergeMap((sfMap: Map<SourceFunctionId, SourceFunction>) => {
-				let sf = sfMap.get((this.currentExecution!.data as FunctionData).sFunction)!;
+				let sf = this.debuggerService.currentDebuggerState!.sourceFunctions.get((this.currentExecution!.data as FunctionData).sFunction)!;
 				return Observable.forkJoin(
 					this.setSourceFunction(sf),
 					this.debuggerService.currentDebuggerState!.ensureTrace(executionId));
 			}).mergeMap(([fileContents, trace]: [null, Observable<Trace>]) => {
 				return trace;
 			}).subscribe(
-				(t: Trace) => { this.addTrace(t) },
-				(error: any) => { console.error(error) }
+				(t: Trace) => { this.addTrace(t); },
+				(error: any) => { console.error(error); }
 		);
 	}
 
@@ -176,42 +174,39 @@ export class DebuggerComponent {
 		this.viewService.activeView = 'functions';
 	}
 
-	public SetGraphVariable(variableName: string): void {
-		/*
-		if(this.currentExecution !== null) {
+	public SetGraphVariable(variableAddress: SourceVariableId): void {
+		//TODO: check if variable is graphable
+		if(this.sourceFunction) {
 			this.graphData = [];
-			this.graphVariable = variableName;
+			this.graphVariable = variableAddress;
 			this.lineGraph.onDataUpdated();
-
-			if(this.debugState && this.currentExecution !== null) {
-				let graphUpdates = Observable.create((observer: Subscriber<Trace>) => {
-					this.debugState!.getTrace(this.currentExecution!).subscribe(
-						(t: Trace) => {
-							if(t.data.tType === 'line') {
-								t.data.state.filter((s:TraceState) => s.sVariable === variableName)
-									.forEach((s:TraceState) => {
-									this.graphData.push({x: this.graphData.length, y: parseInt(s.value)});
-									observer.next();
-								});
+			let graphUpdates = Observable.create((observer: Subscriber<Trace>) => {
+				this.debuggerService.currentDebuggerState!.ensureTrace(this.currentExecution!.id).mergeMap(tObservable => tObservable).subscribe(
+					(t: Trace) => {
+						if(t.data.tType === 'line') {
+							let stateChange = t.data.state[variableAddress];
+							if(stateChange) {
+								//TODO: use type data to graph properly
+								let value = stateChange.value;
+								if(typeof value === 'number') {
+									this.graphData.push({x: this.graphData.length, y: value as number});
+								}
+								observer.next();
 							}
-						},
-						(error:Response)=>{
-							console.error(error);
-						});
-				}).debounceTime(100).subscribe(
-					() => this.lineGraph.onDataUpdated());
-			}
-			else {
-				console.error('Not attached');
-			}
+						}
+					},
+					(error:Response)=>{
+						console.error(error);
+					});
+			}).debounceTime(100).subscribe(
+				() => this.lineGraph.onDataUpdated());
 		}
-		*/
 	}
 
 	public onExecution(event: ExecutionEvent) {
 		this.setParameters = {};
 		if(event.reason === 'break') {
-			this.DisplayTrace(event.execution.id);
+			this.DisplayTrace(event.execution!.id);
 		}
 	}
 }

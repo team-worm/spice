@@ -41,7 +41,7 @@ export class DebuggerState {
 	}
 
 	protected ensureMapValues<K, V>(ids: K[], map: Map<K,V>, provider: (id:K) => Observable<V>, idFunc: (val:V) => K): Observable<Map<K,V>> {
-		return Observable.forkJoin(ids.filter(id => !map.has(id)).map(id => provider(id)))
+		return Observable.forkJoin(...ids.filter(id => !map.has(id)).map(id => provider(id))).defaultIfEmpty([])
 			.map((vals) => {
 				vals.forEach(val => map.set(idFunc(val), val));
 				return ids.reduce((o, id) => { o.set(id, map.get(id)); return o; }, new Map<K,V>());
@@ -93,6 +93,9 @@ export class DebuggerState {
 	}
 
 	public ensureTrace(id: ExecutionId): Observable<Observable<Trace>> {
+		if(this.traces.has(id)) {
+			return Observable.of(this.traces.get(id));
+		}
 		let t = this.debuggerHttp.getTrace(this.info.id, id);
 		this.traces.set(id, t);
 		return Observable.of(t);

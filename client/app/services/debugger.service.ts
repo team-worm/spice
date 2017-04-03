@@ -23,7 +23,7 @@ export interface DetachEvent {
 export interface ExecutionEvent {
 	eType: 'execution';
 	execution: Execution | null;
-	reason: 'break' | 'ended' | 'cancel' | 'crash' | 'error';
+	reason: 'break' | 'exit' | 'cancel' | 'crash' | 'error';
 }
 
 export interface ProcessEndedEvent {
@@ -45,7 +45,10 @@ export class DebuggerService {
 		this.debuggerStates = new Map<DebugId, DebuggerState>();
 		this.debuggerEvents = Observable.create((observer: Observer<DebuggerEvent>) => {
 			this.debuggerEventsObserver = observer;
-		});
+		}).publishReplay().refCount();
+		this.debuggerEvents.subscribe(
+			(event: DebuggerEvent) => console.log(event),
+			(err) => console.error(err));
 	}
 	
 	public getEventStream(eventTypes: string[]): Observable<DebuggerEvent> {
@@ -96,6 +99,7 @@ export class DebuggerService {
 	public killProcess(): Observable<null> {
 		return this.currentDebuggerState!.killProcess()
 			.map(() => {
+				this.currentExecution = null;
 				this.debuggerEventsObserver.next({eType: 'processEnded', reason: 'kill'});
 				return null;
 			});
@@ -104,6 +108,7 @@ export class DebuggerService {
 	public stopCurrentExecution(): Observable<null> {
 		return this.currentDebuggerState!.stopExecution(this.currentExecution!.id)
 			.map(() => {
+				this.currentExecution = null;
 				this.debuggerEventsObserver.next({eType: 'execution', execution: null, reason: 'cancel'});
 				return null;
 			});
@@ -115,6 +120,7 @@ export class DebuggerService {
 		this.currentDebuggerState = ds;
 		//ds.ensureAllSourceFunctions()
 			//.subscribe(sfs => { this.debuggerEventsObserver.next({eType: 'attach', debuggerState: ds, keepBreakpoints: keepBreakpoints}); });
+		console.log(this.debuggerEventsObserver);
 		this.debuggerEventsObserver.next({eType: 'attach', debuggerState: ds, keepBreakpoints: keepBreakpoints});
 	}
 

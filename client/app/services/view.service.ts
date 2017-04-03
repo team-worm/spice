@@ -24,6 +24,9 @@ export class ViewService {
     constructor(private debuggerService: DebuggerService) {
         this.views = ['launcher','functions','debugger'];
 		this._activeView = this.views[0];
+		this.debuggerService.getEventStream(['attach']).subscribe((event: AttachEvent) => this.onAttach(event));
+		this.debuggerService.getEventStream(['detach']).subscribe((event: DetachEvent) => this.onDetach(event));
+		this.debuggerService.getEventStream(['execution']).subscribe((event: ExecutionEvent) => this.onExecution(event));
     }
 
     get activeView() {
@@ -62,17 +65,19 @@ export class ViewService {
         return (this.launcherComponent && this.launcherComponent.debugState); //TODO: make return vary based on app state.
     }
 
-    public onAttach(event: AttachEvent) {
-		this.activeView = 'functions';
+	public onAttach(event: AttachEvent) {
+		//console.log('attached in view service');
+		//this.activeView = 'functions';
+		this._activeView = 'functions';
 	}
 
 	public onExecution(event: ExecutionEvent) {
 		if(event.reason === 'break') {
-			this.activeView = 'debugger';
+			this._activeView = 'debugger';
 		}
 	}
 
-    public onDetach(event: DetachEvent) {
-    	this.activeView = 'launcher';
+	public onDetach(event: DetachEvent) {
+		this._activeView = 'launcher';
 	}
 }

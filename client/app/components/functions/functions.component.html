@@ -24,10 +24,12 @@
                 <md-card-subtitle *ngIf="!selectedFunction">Select a function from the list to the left.</md-card-subtitle>
                 <md-card-subtitle *ngIf="!!selectedFunction">Line {{selectedFunction.lineStart}} of {{selectedFunction.sourcePath}}</md-card-subtitle>
                 <md-card-actions>
-                    <button md-button [disabled]="!selectedFunction" *ngIf="!selectedFunction || !!debugState && !debugState.breakpoints.has(selectedFunction.address)" (click)="ToggleBreakpoint()">
+                    <button md-button [disabled]="!selectedFunction"
+						*ngIf="!selectedFunction || !!debuggerService.currentDebuggerState && !debuggerService.currentDebuggerState.breakpoints.has(selectedFunction.address)" (click)="ToggleBreakpoint()">
                         <md-icon>bookmark_border</md-icon>Set Breakpoint
                     </button>
-                    <button md-button [disabled]="!selectedFunction" *ngIf="!!selectedFunction && !!debugState && debugState.breakpoints.has(selectedFunction.address)" (click)="ToggleBreakpoint()">
+                    <button md-button [disabled]="!selectedFunction"
+						*ngIf="!selectedFunction || !!debuggerService.currentDebuggerState && debuggerService.currentDebuggerState.breakpoints.has(selectedFunction.address)" (click)="ToggleBreakpoint()">
                         <md-icon>bookmark</md-icon>Remove Breakpoint
                     </button>
                     <i>or</i>

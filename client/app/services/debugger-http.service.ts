@@ -10,7 +10,7 @@ import { Observable } from "rxjs/Observable";
 import { DebuggerState } from "../models/DebuggerState";
 import { Execution, ExecutionId } from "../models/Execution";
 import { Breakpoint } from "../models/Breakpoint";
-import { Trace } from "../models/Trace";
+import { Trace, LineData } from "../models/Trace";
 import { Subscriber } from "rxjs/Subscriber";
 import { Process } from "../models/Process";
 
@@ -139,7 +139,12 @@ export class DebuggerHttpService {
 				method: 'GET'
 			}).node('{index line data}', (t: any) => {
 				try {
-					observer.next(fromJSON(t, Trace) as Trace);
+					//insert the 'value' field we need for the typing system to work
+					let trace = fromJSON(t, Trace) as Trace;
+					if(trace.data.tType === 'line') {
+						trace.data.state = Object.keys(trace.data.state).reduce((o, s) => { o[s] = {value: (trace.data as LineData).state[s]}; return o;}, {});
+					}
+					observer.next(trace);
 					if (['return', 'break', 'exit', 'crash', 'error'].indexOf(t.data.tType) > -1) {
 						observer.complete();
 					}

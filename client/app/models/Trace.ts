@@ -16,12 +16,12 @@ export class Trace {
 
 export interface LineData {
     tType: "line";
-    state: TraceState[];
+    state: { [sVariable: number]: Value}
 }
 
 export interface ReturnData {
     tType: "return";
-    value: string;
+    value: Value;
 }
 
 export interface BreakData {
@@ -47,9 +47,4 @@ export interface CallData {
 export interface ErrorData {
     tType: "error";
     error: SpiceError;
-}
-
-export interface TraceState {
-    sVariable: string;
-    value: Value;
 }
