@@ -22,8 +22,6 @@ import {Component, Input, OnInit} from "@angular/core";
     `
 })
 export class PrimitiveTypeDisplay implements OnInit{
-    @Input()
-    public variable:any;
 
     @Input()
     public type:any;

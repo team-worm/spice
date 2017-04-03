@@ -6,8 +6,6 @@ import {Component, Input, OnInit} from "@angular/core";
     `
 })
 export class ArrayTypeDisplay {
-    @Input()
-    public variable:any;
 
     @Input()
     public type:any;

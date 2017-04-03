@@ -2,41 +2,35 @@ import {Component, Input, OnInit} from "@angular/core";
 @Component({
     selector: 'spice-pointer-type-display',
     template: `
-        <div>
-            <span>{{getTypeName(type)}}</span>
-            <button md-raised-button (click)="expanded = !expanded">{{expanded ? 'Hide' : 'Show'}}</button>
+        <div class="pointer" (click)="expanded = !expanded">
+            {{getTypeName(type)}} - {{expanded ? 'Hide' : 'Show'}}
         </div>
-        <div *ngIf="expanded" [ngSwitch]="types[type.sType]">
+        <div *ngIf="expanded" [ngSwitch]="types[type.sType].tType">
             <spice-struct-type-display
                     *ngSwitchCase="'struct'"
-                    [variable]="variable"
                     [type]="types[type.sType]"
                     [value]="value"
                     [editable]="editable"
                     [types]="types"></spice-struct-type-display>
             <spice-primitive-type-display
                     *ngSwitchCase="'primative'"
-                    [variable]="variable"
                     [type]="types[type.sType]"
                     [value]="value"
                     [editable]="editable"></spice-primitive-type-display>
             <spice-array-type-display
                     *ngSwitchCase="'array'"
-                    [variable]="variable"
                     [type]="types[type.sType]"
                     [value]="value"
                     [editable]="editable"
                     [types]="types"></spice-array-type-display>
             <spice-pointer-type-display
                     *ngSwitchCase="'pointer'"
-                    [variable]="variable"
                     [type]="types[type.sType]"
                     [value]="value"
                     [editable]="editable"
                     [types]="types"></spice-pointer-type-display>
             <spice-function-type-display
                     *ngSwitchCase="'function'"
-                    [variable]="variable"
                     [type]="types[type.sType]"
                     [value]="value"
                     [editable]="editable"
@@ -45,8 +39,6 @@ import {Component, Input, OnInit} from "@angular/core";
     `
 })
 export class PointerTypeDisplay {
-    @Input()
-    public variable:any;
 
     @Input()
     public type:any;

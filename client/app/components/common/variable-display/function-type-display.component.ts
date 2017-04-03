@@ -15,8 +15,6 @@ import {Component, Input, OnInit} from "@angular/core";
     `
 })
 export class FunctionTypeDisplay {
-    @Input()
-    public variable:any;
 
     @Input()
     public type:any;

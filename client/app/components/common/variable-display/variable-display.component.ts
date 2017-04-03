@@ -7,34 +7,29 @@ import {Component, Input} from "@angular/core";
             <div [ngSwitch]="getType().tType">
                 <spice-struct-type-display
                         *ngSwitchCase="'struct'"
-                        [variable]="variable"
                         [type]="getType()"
                         [value]="value"
                         [editable]="editable"
                         [types]="types"></spice-struct-type-display>
                 <spice-primitive-type-display
                         *ngSwitchCase="'primative'"
-                        [variable]="variable"
                         [type]="getType()"
                         [value]="value"
                         [editable]="editable"></spice-primitive-type-display>
                 <spice-array-type-display
                         *ngSwitchCase="'array'"
-                        [variable]="variable"
                         [type]="getType()"
                         [value]="value"
                         [editable]="editable"
                         [types]="types"></spice-array-type-display>
                 <spice-pointer-type-display
                         *ngSwitchCase="'pointer'"
-                        [variable]="variable"
                         [type]="getType()"
                         [value]="value"
                         [editable]="editable"
                         [types]="types"></spice-pointer-type-display>
                 <spice-function-type-display
                         *ngSwitchCase="'function'"
-                        [variable]="variable"
                         [type]="getType()"
                         [value]="value"
                         [editable]="editable"
