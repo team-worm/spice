@@ -375,13 +375,13 @@ fn describe_function(target: &TargetState, address: usize) -> io::Result<api::Fu
         symbols.enumerate_locals(line.address, |symbol, _| {
             if symbol.flags & winapi::SYMFLAG_PARAMETER == 0 {
                 let name = symbol.name.clone();
-                locals.entry(name).or_insert((symbol.type_index, symbol.address));
+                locals.entry(symbol.address).or_insert((symbol.type_index, name));
             }
             true
         })?;
     }
     let locals = locals.into_iter()
-        .map(|(name, (type_index, address))| {
+        .map(|(address, (type_index, name))| {
             let name = name.to_string_lossy().into();
             api::Variable { name, type_index, address }
         })
