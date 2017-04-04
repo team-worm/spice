@@ -13,6 +13,7 @@ import { Breakpoint } from "../models/Breakpoint";
 import { Trace, LineData } from "../models/Trace";
 import { Subscriber } from "rxjs/Subscriber";
 import { Process } from "../models/Process";
+import { Value } from "../models/Value";
 
 const host:string = 'localhost';
 const port:number = 3000;
@@ -81,10 +82,10 @@ export class DebuggerHttpService {
 			.publishLast().refCount();
 	}
 
-	public executeFunction(id: DebugId, sFunction: SourceFunctionId, parameters: {[id: string]: any}): Observable<Execution> {
+	public executeFunction(id: DebugId, sFunction: SourceFunctionId, parameters: {[id: number]: Value}): Observable<Execution> {
 		return this.http.post(
 			`http://${host}:${port}/api/v1/debug/${id}/functions/${sFunction}/execute`,
-			{arguments: Object.keys(parameters).map(k => parseInt(parameters[k]))}
+			{arguments: parameters}
 		)
 			.map(res => fromJSON(res.json(), Execution))
 			.catch(DebuggerHttpService.handleServerDataError('Execution'))

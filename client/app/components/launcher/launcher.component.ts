@@ -106,13 +106,13 @@ export class LauncherComponent implements AfterContentChecked {
 
 	private launchBinary(f:SourceFile) {
 		this.launchedFile = f;
-		this.debuggerService.attachBinary(f.path, f.name, false).subscribe(
+		this.debuggerService.attachBinary(f.path, f.name).subscribe(
 			(ds: DebuggerState) => {},
 				(error: Response) => { this.onAttachError(error, f.name); });
 	}
 
 	private attachToProcess(p:Process) {
-		this.debuggerService.attachProcess(p.id, p.name, false).subscribe(
+		this.debuggerService.attachProcess(p.id, p.name).subscribe(
 			(ds: DebuggerState) => {},
 				(error: Response) => { this.onAttachError(error, p.name); });
 	}

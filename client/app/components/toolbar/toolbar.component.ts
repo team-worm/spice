@@ -33,7 +33,7 @@ export class ToolbarComponent {
         return this.viewService.activeView === 'functions';
     }
     public GoToFunctionsView() {
-        this.viewService.activeView = 'functions';
+    	this.debuggerService.displayFunction(null);
     }
     public ToggleTraceHistory() {
         if(this.viewService.traceHistoryComponent) {
@@ -88,46 +88,10 @@ export class ToolbarComponent {
 	}
 
 	public onProcessEnded(event: ProcessEndedEvent) {
-		//auto reattach
-        /*
-        if (this.debugState && this.viewService.launcherComponent && this.viewService.launcherComponent.launchedFile) {
-            let launchedFile = this.viewService.launcherComponent.launchedFile;
-            //save breakpoints
-            this.debugState.getBreakpoints().subscribe((breakpoints: Map<SourceFunctionId, Breakpoint>) => {
-                this.debuggerService.attachBinary(launchedFile.path).subscribe(
-                    (ds: DebuggerState) => {
-                        if (this.viewService.launcherComponent) {
-                            this.viewService.launcherComponent.onAttach(ds, launchedFile.name);
-                            breakpoints.forEach((breakpoint, bId) => {
-                                ds.setBreakpoint(bId).subscribe(
-                                    () => { },
-                                    (error) => {
-                                        this.snackBar.open('Error Setting Breakpoint ' + bId + ' (' + error.status + '): ' + error.statusText, undefined, {
-                                            duration: 3000
-                                        });
-                                    });
-                            });
-                            this.viewService.activeView = 'functions';
-                        }
-                    },
-                    (error: Response) => {
-                        this.snackBar.open('Error Restarting ' + launchedFile.name + ' (' + error.status + '): ' + error.statusText, undefined, {
-                            duration: 3000
-                        });
-                        if ((<any>error).message) {
-                            console.error(error);
-                        }
-                    });
-            });
-        } else {
-            this.viewService.activeView = 'launcher';
-        }
-        */
     }
 
 	public Detach() {
-		this.debuggerService.killProcess()
-			.map(() => this.debuggerService.detach())
+		this.debuggerService.detach()
 			.subscribe(
 				() => {},
 				(err) => { console.error(err); }
@@ -140,10 +104,7 @@ export class ToolbarComponent {
 	}
 
     public BreakpointFunctionSelected(func: SourceFunction) {
-        this.GoToFunctionsView();
-        if (this.viewService.functionsComponent) {
-            this.viewService.functionsComponent.OnFunctionSelected(func);
-        }
+    	this.debuggerService.displayFunction(func);
     }
     openAboutSpiceDialog() {
         this.dialog.open(AboutComponent);

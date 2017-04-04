@@ -2,7 +2,7 @@ import {Component, OnInit, ViewChild} from "@angular/core";
 import {Http, Response} from "@angular/http";
 import {MdSnackBar} from "@angular/material";
 import {SourceFunction, SourceFunctionId } from "../../models/SourceFunction";
-import {DebuggerService, AttachEvent } from "../../services/debugger.service";
+import {DebuggerService, AttachEvent, DisplayFunctionEvent } from "../../services/debugger.service";
 import {DebuggerState} from "../../models/DebuggerState";
 import {Breakpoint} from "../../models/Breakpoint";
 import {ViewService} from "../../services/view.service";
@@ -40,6 +40,7 @@ export class FunctionsComponent implements OnInit {
 				private fileSystemService: FileSystemService,
 				private http: Http) {
 		this.debuggerService.getEventStream(['attach']).subscribe((event: AttachEvent) => this.onAttach(event));
+		this.debuggerService.getEventStream(['displayFunction']).subscribe((event: DisplayFunctionEvent) => this.onDisplayFunction(event));
 		//this.debuggerService.getEventStream(['detach']).subscribe(this.onDetach);
 	}
 
@@ -78,9 +79,12 @@ export class FunctionsComponent implements OnInit {
     }
 
     public HasBreakpoint(line: number): boolean {
-		for (let breakpoint of this.debuggerService.currentDebuggerState!.breakpoints.values()) {
-			let breakpointFunction = this.debuggerService.currentDebuggerState!.sourceFunctions.get(breakpoint.sFunction)!;
-			if(breakpointFunction.sourcePath === this.selectedFunction!.sourcePath && breakpointFunction.lineStart === line) {
+    	if(!this.debuggerService.currentDebuggerState || !this.selectedFunction) {
+    		return false;
+		}
+		for (let breakpoint of this.debuggerService.currentDebuggerState.breakpoints.values()) {
+			let breakpointFunction = this.debuggerService.currentDebuggerState.sourceFunctions.get(breakpoint.sFunction)!;
+			if(breakpointFunction.sourcePath === this.selectedFunction.sourcePath && breakpointFunction.lineStart === line) {
 				return true;
 			}
 		}
@@ -145,11 +149,9 @@ export class FunctionsComponent implements OnInit {
     }
 
     public ExecuteFunction() {
-        if (this.viewService.debuggerComponent) {
-            this.viewService.debuggerComponent.setParameters = {};
-            this.viewService.debuggerComponent.setSourceFunction(this.selectedFunction!);
-            this.viewService.activeView = 'debugger';
-        }
+		if(this.selectedFunction) {
+			this.debuggerService.preCallFunction(this.selectedFunction);
+		}
     }
 
 
@@ -199,8 +201,14 @@ export class FunctionsComponent implements OnInit {
 	protected onAttach(event: AttachEvent) {
 		this.loadSourceFunctions()
 			.subscribe(() => {
-			if(event.keepBreakpoints) {
-			}
+			//if(event.keepBreakpoints) {
+			//}
 		});
+	}
+
+	protected onDisplayFunction(event: DisplayFunctionEvent) {
+		if(event.sourceFunction) {
+			this.OnFunctionSelected(event.sourceFunction);
+		}
 	}
 }

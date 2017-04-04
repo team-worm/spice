@@ -16,6 +16,8 @@ export class DebuggerState {
 	public sourceVariables: Map<SourceVariableId, SourceVariable>;
 	public traces: Map<ExecutionId, Observable<Trace>>;
 	public name: string = ''; //file/process name
+	public binaryPath: string = '';
+	public isBinary: boolean = false;
 
 	constructor(public info: DebugInfo, protected debuggerHttp: DebuggerHttpService) {
 		this.executions = new Map<ExecutionId, Execution>();

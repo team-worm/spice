@@ -13,7 +13,7 @@ import { LineGraphComponent, DataXY } from "../common/line-graph.component";
 import { SourceVariable, SourceVariableId } from "../../models/SourceVariable";
 import { Subscriber } from "rxjs/Subscriber";
 import { LoopData, TraceGroup } from "./trace-loop.component";
-import { DebuggerService, ExecutionEvent } from "../../services/debugger.service";
+import { DebuggerService, ExecutionEvent, PreCallFunctionEvent, DisplayTraceEvent } from "../../services/debugger.service";
 
 @Component({
     moduleId: module.id,
@@ -28,7 +28,6 @@ export class DebuggerComponent {
 	public traceLoopStack: LoopData[] = [];
 
 	public sourceFunction: SourceFunction | null = null;
-	public debugState: DebuggerState | null = null;
 	public setParameters:{[id: string]: any} = {};
 
 	@ViewChild('lineGraph') lineGraph: LineGraphComponent;
@@ -42,6 +41,8 @@ export class DebuggerComponent {
 				private snackBar: MdSnackBar) {
 		this.viewService.debuggerComponent = this;
 		this.debuggerService.getEventStream(['execution']).subscribe((event: ExecutionEvent) => this.onExecution(event));
+		this.debuggerService.getEventStream(['preCallFunction']).subscribe((event: PreCallFunctionEvent) => this.onPreCallFunction(event));
+		this.debuggerService.getEventStream(['displayTrace']).subscribe((event: DisplayTraceEvent) => this.onDisplayTrace(event));
 	}
 
 	public setSourceFunction(sf: SourceFunction): Observable<null> {
@@ -66,20 +67,17 @@ export class DebuggerComponent {
 			});
 	}
 
-	public DisplayTrace(executionId: ExecutionId) {
-		this.debuggerService.currentDebuggerState!.ensureExecutions([executionId])
-			.mergeMap((executionMap: Map<ExecutionId, Execution>) => {
-				let ex = this.debuggerService.currentDebuggerState!.executions.get(executionId)!;
-				if(ex.data.eType === 'process') {
-					throw new Error('Cannot display process execution');
-				}
-				this.currentExecution = ex;
-				return this.debuggerService.currentDebuggerState!.ensureSourceFunctions([ex.data.sFunction]);
-			}).mergeMap((sfMap: Map<SourceFunctionId, SourceFunction>) => {
+	public DisplayTrace(execution: Execution) {
+		if(execution.data.eType !== 'function') {
+			throw new Error('Cannot display trace for execution ${execution.id}: Only function traces can be displayed');
+		}
+		this.currentExecution = execution;
+		this.debuggerService.currentDebuggerState!.ensureSourceFunctions([execution.data.sFunction])
+			.mergeMap((sfMap: Map<SourceFunctionId, SourceFunction>) => {
 				let sf = this.debuggerService.currentDebuggerState!.sourceFunctions.get((this.currentExecution!.data as FunctionData).sFunction)!;
 				return Observable.forkJoin(
 					this.setSourceFunction(sf),
-					this.debuggerService.currentDebuggerState!.ensureTrace(executionId));
+					this.debuggerService.currentDebuggerState!.ensureTrace(execution.id));
 			}).mergeMap(([fileContents, trace]: [null, Observable<Trace>]) => {
 				return trace;
 			}).subscribe(
@@ -147,18 +145,20 @@ export class DebuggerComponent {
 		this.lastTrace = trace;
 	}
 
+	public onPreCallFunction(event: PreCallFunctionEvent) {
+		this.setParameters = {};
+		this.setSourceFunction(event.sourceFunction).subscribe(() => {}); //TODO: error handling
+	}
+
 	public ExecuteFunction() {
-		if(this.debugState && this.sourceFunction) {
-			this.debugState.executeFunction(this.sourceFunction.address,this.setParameters)
-                .subscribe((ex:Execution)=>{
-					this.DisplayTrace(ex.id);
+		if(this.sourceFunction) {
+			this.debuggerService.callFunction(this.sourceFunction, this.setParameters)
+				.subscribe((ex:Execution)=>{
+					this.DisplayTrace(ex);
 				}, (e:any) => {
+					//TODO: error handling
 					console.error(e);
 				});
-		} else {
-			this.snackBar.open('No breakpoint set.', undefined, {
-				duration: 3000
-			});
 		}
 	}
 
@@ -206,7 +206,11 @@ export class DebuggerComponent {
 	public onExecution(event: ExecutionEvent) {
 		this.setParameters = {};
 		if(event.reason === 'break') {
-			this.DisplayTrace(event.execution!.id);
+			this.DisplayTrace(event.execution!);
 		}
+	}
+
+	protected onDisplayTrace(event: DisplayTraceEvent) {
+		this.DisplayTrace(event.execution);
 	}
 }
