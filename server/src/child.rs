@@ -2,7 +2,6 @@ use std::{io, mem};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{sync_channel, SyncSender, Receiver};
-use std::convert::TryInto;
 use std::cell::RefCell;
 use std::collections::{HashMap, VecDeque};
 use std::path::PathBuf;
@@ -573,7 +572,6 @@ fn call_function(
     let exit = context.instruction_pointer();
 
     // set up the call
-    // TODO: filter out indirect values here? or possibly in Call::setup
     let args = arguments;
     let call = debug::Call::setup(&target.child, &target.symbols, &mut context, &function, args)?;
 
@@ -587,14 +585,6 @@ fn call_function(
 
     event.continue_event(true)?;
     Ok(())
-}
-
-impl debug::IntoValue for api::Value {
-    fn into_value(
-        self, data_type: debug::Type, module: usize, symbols: &debug::SymbolHandler
-    ) -> io::Result<debug::Value> {
-        value::write(self, data_type, module, symbols).try_into()
-    }
 }
 
 enum TraceEvent {

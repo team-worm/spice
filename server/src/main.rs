@@ -1,5 +1,3 @@
-#![feature(try_from)]
-
 extern crate hyper;
 extern crate unicase;
 extern crate reroute;

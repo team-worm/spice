@@ -1,5 +1,4 @@
 use std::io;
-use std::convert::{TryFrom, TryInto};
 use std::collections::{HashMap, VecDeque};
 use debug::{self, SymbolHandler};
 use api;
@@ -116,25 +115,17 @@ pub fn trace_pointers(
     }
 }
 
-pub struct Write<'a>(api::Value, debug::Type, usize, &'a SymbolHandler);
-
-pub fn write<'a>(
-    value: api::Value, data_type: debug::Type, module: usize, symbols: &'a SymbolHandler
-) -> Write<'a> {
-    Write(value, data_type, module, symbols)
-}
-
-impl<'a> TryFrom<Write<'a>> for debug::Value {
-    type Error = io::Error;
-
-    fn try_from(write: Write) -> Result<Self, Self::Error> {
-        let Write(value, data_type, module, symbols) = write;
-
+impl debug::IntoValue for api::Value {
+    fn into_value(
+        self, data_type: debug::Type, module: usize, symbols: &debug::SymbolHandler,
+        value_offset: usize, offsets: &mut HashMap<usize, usize>,
+        pointers: &mut VecDeque<(usize, u32)>
+    ) -> io::Result<debug::Value> {
         let mut data = vec![0; data_type.size(symbols, module)];
 
         use debug::Type::*;
         use debug::Primitive::*;
-        match (&data_type, value) {
+        match (&data_type, self) {
             (&Base { base: Void, .. }, api::Value::Null) => {}
 
             (&Base { base: Bool, .. }, api::Value::Boolean(value)) => {
@@ -161,9 +152,9 @@ impl<'a> TryFrom<Write<'a>> for debug::Value {
                 }
             }
 
-            // TODO: this needs to tie into call stack setup and address remapping
-            (&Pointer { .. }, api::Value::Integer(value)) => {
-                unsafe { *(data.as_mut_ptr() as *mut usize) = value as usize };
+            (&Pointer { type_index }, api::Value::Integer(value)) => {
+                offsets.insert(value_offset, value as usize);
+                pointers.push_back((value as usize, type_index));
             }
 
             (&Array { type_index, count }, api::Value::Array(values)) => {
@@ -175,9 +166,12 @@ impl<'a> TryFrom<Write<'a>> for debug::Value {
                 let size = element_type.size(symbols, module);
 
                 for (offset, value) in values.into_iter().enumerate().map(|(i, v)| (i * size, v)) {
-                    let data = &mut data[offset..offset+size];
-                    let value: debug::Value = Write(value, element_type.clone(), module, symbols)
-                        .try_into()?;
+                    let data_type = element_type.clone();
+                    let data = &mut data[offset..offset + size];
+
+                    let offset = value_offset + offset;
+                    let value = value
+                        .into_value(data_type, module, symbols, offset, offsets, pointers)?;
                     data.copy_from_slice(&value.data);
                 }
             }
@@ -189,14 +183,15 @@ impl<'a> TryFrom<Write<'a>> for debug::Value {
                         _ => return Err(io::Error::from(io::ErrorKind::InvalidInput)),
                     };
 
-                    let field_type = symbols.type_from_index(module, type_index)?;
+                    let data_type = symbols.type_from_index(module, type_index)?;
 
                     let offset = offset as usize;
-                    let size = field_type.size(symbols, module);
+                    let size = data_type.size(symbols, module);
                     let data = &mut data[offset..offset + size];
 
-                    let value: debug::Value = Write(value, field_type, module, symbols)
-                        .try_into()?;
+                    let offset = value_offset + offset;
+                    let value = value
+                        .into_value(data_type, module, symbols, offset, offsets, pointers)?;
                     data.copy_from_slice(&value.data);
                 }
             }
