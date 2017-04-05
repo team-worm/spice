@@ -7,6 +7,7 @@ import { Observable } from "rxjs/Observable";
 import { DebuggerHttpService } from "../services/debugger-http.service";
 import { Trace } from "./Trace";
 import { Value } from "./Value";
+import { SourceTypeId, SourceType } from "./SourceType";
 
 export class DebuggerState {
 
@@ -15,6 +16,7 @@ export class DebuggerState {
 	public sourceFunctions: Map<SourceFunctionId, SourceFunction>;
 	public sourceVariables: Map<SourceVariableId, SourceVariable>;
 	public traces: Map<ExecutionId, Observable<Trace>>;
+	public sourceTypes: Map<SourceTypeId, SourceType>;
 	public name: string = ''; //file/process name
 	public binaryPath: string = '';
 	public isBinary: boolean = false;
@@ -24,6 +26,7 @@ export class DebuggerState {
 		this.breakpoints = new Map<SourceFunctionId, Breakpoint>();
 		this.sourceFunctions = new Map<SourceFunctionId, SourceFunction>();
 		this.sourceVariables = new Map<SourceVariableId, SourceVariable>();
+		this.sourceTypes = new Map<SourceTypeId, SourceType>();
 		this.traces = new Map<ExecutionId, Observable<Trace>>();
 	}
 
@@ -59,6 +62,14 @@ export class DebuggerState {
 			.map(sfs => {
 				sfs.forEach(sf => this.sourceFunctions.set(sf.address, sf));
 				return sfs;
+			});
+	}
+
+	public ensureSourceTypes(ids: SourceTypeId[]): Observable<Map<SourceTypeId, SourceType>> {
+		return this.debuggerHttp.getSourceTypes(this.info.id, ids)
+			.map(sts => {
+				Object.keys(sts).forEach(stId => this.sourceTypes.set(parseInt(stId), sts[stId]));
+				return ids.reduce((o, id) => { o.set(id, this.sourceTypes.get(id)); return o; }, new Map<SourceTypeId, SourceType>());
 			});
 	}
 

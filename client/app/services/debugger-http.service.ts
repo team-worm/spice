@@ -14,6 +14,7 @@ import { Trace, LineData } from "../models/Trace";
 import { Subscriber } from "rxjs/Subscriber";
 import { Process } from "../models/Process";
 import { Value } from "../models/Value";
+import { SourceTypeId, SourceType } from "../models/SourceType";
 
 const host:string = 'localhost';
 const port:number = 3000;
@@ -167,5 +168,18 @@ export class DebuggerHttpService {
 		return this.http.post(`http://${host}:${port}/api/v1/debug/${id}/kill`, undefined)
             .map(res => null)
             .publishLast().refCount();
+	}
+
+	public getSourceTypes(id: DebugId, typeIds: SourceTypeId[]): Observable<{[id: number]: SourceType}> {
+		return this.http.get(`http://${host}:${port}/api/v1/debug/${id}/types?ids=${typeIds.join(',')}`)
+			.map(res => {
+				let data = res.json();
+				return Object.keys(data).reduce((o, tId) => {
+					o[tId] = fromJSON(data[tId], SourceType);
+					return o;
+				}, {})
+			})
+			.catch(DebuggerHttpService.handleServerDataError('SourceType'))
+			.publishLast().refCount();
 	}
 }

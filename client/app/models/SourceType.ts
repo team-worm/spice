@@ -1,6 +1,14 @@
 import { Deserialize } from "../util/SpiceValidator";
 
-export type SourceType = PrimitiveType | PointerType | ArrayType | FunctionType | StructType;
+export type SourceTypeId = number;
+
+export class SourceType {
+    @Deserialize()
+    id: SourceTypeId;
+
+    @Deserialize()
+    data: PrimitiveType | PointerType | ArrayType | FunctionType | StructType;
+}
 
 type PrimitiveBaseType = "void" | "bool" | "int" | "uint" | "float";
 
