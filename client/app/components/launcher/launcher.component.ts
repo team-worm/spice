@@ -4,7 +4,7 @@ import {Response} from "@angular/http";
 
 import {SourceFile} from "../../models/SourceFile";
 import {Process} from "../../models/Process";
-import {DebuggerService} from "../../services/debugger.service";
+import {DebuggerService, DebuggerEvent, AttachEvent, DetachEvent } from "../../services/debugger.service";
 import {DebuggerState} from "../../models/DebuggerState";
 import {ViewService} from "../../services/view.service";
 import {FileBrowserComponent} from "../common/file-browser.component";
@@ -30,10 +30,13 @@ export class LauncherComponent implements AfterContentChecked {
     public attaching:boolean = false;
     public launchedFile: SourceFile | null = null;
 
-    constructor(private debuggerService: DebuggerService,
-                private snackBar: MdSnackBar,
-                private viewService: ViewService,
-                private element: ElementRef) {}
+	constructor(private debuggerService: DebuggerService,
+				private snackBar: MdSnackBar,
+				private viewService: ViewService,
+				private element: ElementRef) {
+		this.debuggerService.getEventStream(['attach']).subscribe((event: AttachEvent) => this.onAttach(event));
+		this.debuggerService.getEventStream(['detach']).subscribe((event: DetachEvent) => this.onDetach(event));
+	}
 
     public ngAfterContentChecked() {
         this.launcherCardHeight = (window.innerHeight - this.element.nativeElement.getBoundingClientRect().top) - 34;
@@ -90,89 +93,46 @@ export class LauncherComponent implements AfterContentChecked {
         this.fileBrowser.ResetSelectedFile();
     }
 
-    public Attach() {
-        if(this.selectedFileOrProcess) {
-            if(this.selectedFileOrProcess instanceof Process) {
-                this.attachToProcess(this.selectedFileOrProcess);
-            } else {
-                this.launchBinary(this.selectedFileOrProcess);
-            }
-        }
-    }
+	public Attach() {
+		if(this.selectedFileOrProcess) {
+			this.attaching = true;
+			if(this.selectedFileOrProcess instanceof Process) {
+				this.attachToProcess(this.selectedFileOrProcess);
+			} else {
+				this.launchBinary(this.selectedFileOrProcess);
+			}
+		}
+	}
 
-    private launchBinary(f:SourceFile) {
-        this.attaching = true;
-
+	private launchBinary(f:SourceFile) {
 		this.launchedFile = f;
-        let launchedFile = f;
-        this.debuggerService.attachBinary(f.path).subscribe(
-            (ds: DebuggerState) => { this.onAttach(ds, launchedFile.name); },
-            (error: Response) => {
-                console.error(error);
-                this.attaching = false;
-                this.snackBar.open('Error Launching ' + launchedFile.name + ' (' + error.status + '): ' + error.statusText, undefined, {
-                    duration: 3000
-                });
-                if ((<any>error).message) {
-                    console.error(error);
-                }
-            });
-    }
-
-    private attachToProcess(p:Process) {
-
-        this.attaching = true;
-        let attachedProcess = p;
-
-        this.debuggerService.attachProcess(attachedProcess.id).subscribe(
-            (ds: DebuggerState) => { this.onAttach(ds, attachedProcess.name); },
-                (error: Response) => {
-                this.attaching = false;
-                this.snackBar.open('Error Attaching ' + attachedProcess.name  + ' (' + error.status + '): ' + error.statusText, undefined, {
-                    duration: 3000
-                });
-                if ((<any>error).message) {
-                    console.error(error);
-                }
-            }
-        );
-
+		this.debuggerService.attachBinary(f.path, f.name).subscribe(
+			(ds: DebuggerState) => {},
+				(error: Response) => { this.onAttachError(error, f.name); });
 	}
 
-	public onAttach(ds: DebuggerState, processName: string) {
-		this.debuggerService.setCurrentDebuggerState(ds);
-		this.debugState = ds;
-		this.debugProcessName = processName;
+	private attachToProcess(p:Process) {
+		this.debuggerService.attachProcess(p.id, p.name).subscribe(
+			(ds: DebuggerState) => {},
+				(error: Response) => { this.onAttachError(error, p.name); });
+	}
+
+	protected onAttachError(error: any, attachName: string) {
 		this.attaching = false;
-		if (this.viewService.functionsComponent) {
-			this.viewService.functionsComponent.loadSourceFunctions();
+		this.snackBar.open(`Error Attaching ${attachName}: ${error.message || error.statusText}`, undefined, {
+			duration: 3000
+		});
+		if ((<any>error).message) {
+			console.error(error);
 		}
-		if (this.viewService.toolbarComponent) {
-			this.viewService.toolbarComponent.debugState = ds;
-			this.viewService.toolbarComponent.debugProcessName = processName;
-		}
-		if (this.viewService.debuggerComponent) {
-			this.viewService.debuggerComponent.debugState = ds;
-		}
-		if (this.viewService.traceHistoryComponent) {
-		    this.viewService.traceHistoryComponent.debugState = ds;
-        }
-		this.viewService.activeView = 'functions';
 	}
 
-	public onDetach() {
-		this.debuggerService.setCurrentDebuggerState(null);
-		this.debugState = null;
+	public onAttach(event: AttachEvent) {
+		this.attaching = false;
+	}
+
+	public onDetach(event: DetachEvent) {
 		this.debugProcessName = '';
 		this.launchedFile = null;
-		if (this.viewService.toolbarComponent) {
-			this.viewService.toolbarComponent.debugState = null;
-			this.viewService.toolbarComponent.debugProcessName = '';
-			this.viewService.toolbarComponent.execution = null;
-		}
-		if (this.viewService.debuggerComponent) {
-			this.viewService.debuggerComponent.debugState = null;
-		}
-		this.viewService.activeView = 'launcher';
 	}
 }

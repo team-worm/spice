@@ -24,14 +24,16 @@
                 <md-card-subtitle *ngIf="!selectedFunction">Select a function from the list to the left.</md-card-subtitle>
                 <md-card-subtitle *ngIf="!!selectedFunction">Line {{selectedFunction.lineStart}} of {{selectedFunction.sourcePath}}</md-card-subtitle>
                 <md-card-actions>
-                    <button md-button [disabled]="!selectedFunction" *ngIf="!selectedFunction || !!debugState && !debugState.breakpoints.has(selectedFunction.address)" (click)="ToggleBreakpoint()">
+                    <button md-button [disabled]="!selectedFunction"
+						*ngIf="!selectedFunction || !!debuggerService.currentDebuggerState && !debuggerService.currentDebuggerState.breakpoints.has(selectedFunction.address)" (click)="ToggleBreakpoint()">
                         <md-icon>bookmark_border</md-icon>Set Breakpoint
                     </button>
-                    <button md-button [disabled]="!selectedFunction" *ngIf="!!selectedFunction && !!debugState && debugState.breakpoints.has(selectedFunction.address)" (click)="ToggleBreakpoint()">
+                    <button md-button [disabled]="!selectedFunction"
+						*ngIf="!selectedFunction || !!debuggerService.currentDebuggerState && debuggerService.currentDebuggerState.breakpoints.has(selectedFunction.address)" (click)="ToggleBreakpoint()">
                         <md-icon>bookmark</md-icon>Remove Breakpoint
                     </button>
                     <i>or</i>
-                    <button md-button [disabled]="!selectedFunction" (click)="ExecuteFunctionWithCustomParams()"><md-icon class="md-accent">play_circle_outline</md-icon> Call</button>
+                    <button md-button [disabled]="!selectedFunction" (click)="ExecuteFunction()"><md-icon class="md-accent">play_circle_outline</md-icon> Call</button>
                 </md-card-actions>
             </md-card>
             <md-card class="function-source-card smallerMargin">
@@ -42,7 +44,7 @@
                     <div class="source-code-viewer" fxFlex fxLayout="row">
                         <div class="line-number-col" fxFlex="nogrow">
                             <div class="row"
-								 [ngClass]="{breakpoint: HasBreakpoint(i+1) | async}"
+								 [ngClass]="{breakpoint: HasBreakpoint(i+1)}"
                                  [matchMaxHeight]="'functions-'+i"
                                  *ngFor="let line of lines; let i=index;">
                                 <span>{{i + 1}}</span>

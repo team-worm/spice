@@ -10,9 +10,11 @@ import { Observable } from "rxjs/Observable";
 import { DebuggerState } from "../models/DebuggerState";
 import { Execution, ExecutionId } from "../models/Execution";
 import { Breakpoint } from "../models/Breakpoint";
-import { Trace } from "../models/Trace";
+import { Trace, LineData } from "../models/Trace";
 import { Subscriber } from "rxjs/Subscriber";
 import { Process } from "../models/Process";
+import { Value } from "../models/Value";
+import { SourceTypeId, SourceType } from "../models/SourceType";
 
 const host:string = 'localhost';
 const port:number = 3000;
@@ -81,10 +83,10 @@ export class DebuggerHttpService {
 			.publishLast().refCount();
 	}
 
-	public executeFunction(id: DebugId, sFunction: SourceFunctionId, parameters: {[id: string]: any}): Observable<Execution> {
+	public executeFunction(id: DebugId, sFunction: SourceFunctionId, parameters: {[id: number]: Value}): Observable<Execution> {
 		return this.http.post(
 			`http://${host}:${port}/api/v1/debug/${id}/functions/${sFunction}/execute`,
-			{parameters: Object.keys(parameters).map(k => parseInt(parameters[k]))}
+			{arguments: parameters}
 		)
 			.map(res => fromJSON(res.json(), Execution))
 			.catch(DebuggerHttpService.handleServerDataError('Execution'))
@@ -139,18 +141,25 @@ export class DebuggerHttpService {
 				method: 'GET'
 			}).node('{index line data}', (t: any) => {
 				try {
-					observer.next(fromJSON(t, Trace) as Trace);
+					//insert the 'value' field we need for the typing system to work
+					let trace = fromJSON(t, Trace) as Trace;
+					if(trace.data.tType === 'line') {
+						trace.data.state = Object.keys(trace.data.state).reduce((o, s) => { o[s] = {value: (trace.data as LineData).state[s]}; return o;}, {});
+					}
+					observer.next(trace);
 					if (['return', 'break', 'exit', 'crash', 'error'].indexOf(t.data.tType) > -1) {
 						observer.complete();
 					}
 				} catch(e) {
 					observer.error(DebuggerHttpService.handleServerDataError('Trace')(e));
 				}
+			}).fail((thrown: any, statusCode: number, body: any, jsonBody: any) => {
+				observer.error(new Error(`GetTrace failed: ${thrown || {status: statusCode}}`));
 			});
 		}).publishReplay().refCount();
 	}
 
-	public pauseExecution(id: DebugId, executionId: ExecutionId): Observable<null> {
+	public stopExecution(id: DebugId, executionId: ExecutionId): Observable<null> {
 		return this.http.post(`http://${host}:${port}/api/v1/debug/${id}/executions/${executionId}/stop`, undefined)
 			.map(res => null)
 			.publishLast().refCount();
@@ -159,5 +168,18 @@ export class DebuggerHttpService {
 		return this.http.post(`http://${host}:${port}/api/v1/debug/${id}/kill`, undefined)
             .map(res => null)
             .publishLast().refCount();
+	}
+
+	public getSourceTypes(id: DebugId, typeIds: SourceTypeId[]): Observable<{[id: number]: SourceType}> {
+		return this.http.get(`http://${host}:${port}/api/v1/debug/${id}/types?ids=${typeIds.join(',')}`)
+			.map(res => {
+				let data = res.json();
+				return Object.keys(data).reduce((o, tId) => {
+					o[tId] = fromJSON(data[tId], SourceType);
+					return o;
+				}, {})
+			})
+			.catch(DebuggerHttpService.handleServerDataError('SourceType'))
+			.publishLast().refCount();
 	}
 }

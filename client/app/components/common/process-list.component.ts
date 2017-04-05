@@ -91,7 +91,7 @@ export class ProcessListComponent implements OnInit {
 		this.debuggerService.getProcesses()
 			.subscribe(
 				ps => { this.processes = ps; },
-				err => { console.error(err); }
+				err => { console.error(err); } //TODO: add proper error handling
 			);
 	}
 

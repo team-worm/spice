@@ -2,7 +2,7 @@ import {Component, OnInit, ViewChild} from "@angular/core";
 import {Http, Response} from "@angular/http";
 import {MdSnackBar} from "@angular/material";
 import {SourceFunction, SourceFunctionId } from "../../models/SourceFunction";
-import {DebuggerService} from "../../services/debugger.service";
+import {DebuggerService, AttachEvent, DisplayFunctionEvent } from "../../services/debugger.service";
 import {DebuggerState} from "../../models/DebuggerState";
 import {Breakpoint} from "../../models/Breakpoint";
 import {ViewService} from "../../services/view.service";
@@ -25,29 +25,24 @@ export class FunctionsComponent implements OnInit {
 
     @ViewChild('FunctionsFunctionList') functionList:FunctionListComponent;
 
-    public lines: string[] | null;
+    public lines: string[] | null = null;
     public linesLoaded: boolean = true;
-    public selectedFunction: SourceFunction | null;
-    public debugState: DebuggerState | null;
-    public listedFunctions: SourceFunction[];
-    public defaultFuncCollections: {collection: SourceFunctionCollection, doFilter: boolean}[];
+    public selectedFunction: SourceFunction | null = null;
+    public listedFunctions: SourceFunction[] = [];
+    public defaultFuncCollections: {collection: SourceFunctionCollection, doFilter: boolean}[] = [];
 
     private _functionsContentBody: HTMLElement | null;
-    private coreSourceFunctions: SourceFunction[];
+    private coreSourceFunctions: SourceFunction[] = [];
 
-    constructor(private debuggerService: DebuggerService,
-                private snackBar: MdSnackBar,
-                private viewService: ViewService,
-                private fileSystemService: FileSystemService,
-                private http: Http) {
-        this.selectedFunction = null;
-        this.debugState = null;
-        this.lines = null;
-        this.listedFunctions = [];
-        this.defaultFuncCollections = [];
-
-        this.coreSourceFunctions = [];
-    }
+	constructor(private debuggerService: DebuggerService,
+				private snackBar: MdSnackBar,
+				private viewService: ViewService,
+				private fileSystemService: FileSystemService,
+				private http: Http) {
+		this.debuggerService.getEventStream(['attach']).subscribe((event: AttachEvent) => this.onAttach(event));
+		this.debuggerService.getEventStream(['displayFunction']).subscribe((event: DisplayFunctionEvent) => this.onDisplayFunction(event));
+		//this.debuggerService.getEventStream(['detach']).subscribe(this.onDetach);
+	}
 
     public ngOnInit() {
         this._functionsContentBody = document.getElementById('FunctionsContainer');
@@ -66,11 +61,11 @@ export class FunctionsComponent implements OnInit {
     }
 
     public ToggleBreakpoint() {
-        if(this.selectedFunction && this.debugState) {
-            if (this.debugState.breakpoints.has(this.selectedFunction.address)) {
-                this.removeBreakpoint(this.debugState, this.selectedFunction.address);
+        if(this.selectedFunction) {
+            if (this.debuggerService.currentDebuggerState!.breakpoints.has(this.selectedFunction.address)) {
+                this.removeBreakpoint(this.debuggerService.currentDebuggerState!, this.selectedFunction.address);
             } else {
-                this.addBreakpoint(this.debugState, this.selectedFunction.address);
+                this.addBreakpoint(this.debuggerService.currentDebuggerState!, this.selectedFunction.address);
             }
         } else {
             this.snackBar.open('No function selected.', undefined, {
@@ -80,47 +75,35 @@ export class FunctionsComponent implements OnInit {
     }
 
     public ExecuteBinary() {
-        if (this.viewService.toolbarComponent) {
-            this.viewService.toolbarComponent.ExecuteBinary();
-        }
+    	this.debuggerService.continueExecution();
     }
 
-    public HasBreakpoint(line:number):Observable<boolean> {
-    	if(!this.debugState) {
-    		return Observable.of(false);
+    public HasBreakpoint(line: number): boolean {
+    	if(!this.debuggerService.currentDebuggerState || !this.selectedFunction) {
+    		return false;
 		}
-		return Observable.merge<boolean>(...[...this.debugState.breakpoints.keys()].map(key => {
-			return this.debugState!.getSourceFunction(key)
-				.switchMap(sf => Observable.of(!!(this.selectedFunction && this.selectedFunction.sourcePath === sf.sourcePath && sf.lineStart == line)));
-			})).filter((b:boolean) => b).take(1).defaultIfEmpty(false);
+		for (let breakpoint of this.debuggerService.currentDebuggerState.breakpoints.values()) {
+			let breakpointFunction = this.debuggerService.currentDebuggerState.sourceFunctions.get(breakpoint.sFunction)!;
+			if(breakpointFunction.sourcePath === this.selectedFunction.sourcePath && breakpointFunction.lineStart === line) {
+				return true;
+			}
+		}
+		return false;
 	}
 
-    public loadSourceFunctions() {
-        let ds: DebuggerState|null;
-        if (ds = this.debuggerService.getCurrentDebuggerState()) {
-            this.debugState = ds;
-            ds.getSourceFunctions().subscribe({
-                next: (sfMap: {[id: string]: SourceFunction}) => {
-                    this.coreSourceFunctions = Object.keys(sfMap).map((key: string) => {
-                        return sfMap[key]
-                    });
-                    this.filterListedFunctions();
-                },
-                complete: () => {
-                },
-                error: (error: any) => {
-                    console.log(error);
-                    this.snackBar.open('Error getting Source Functions', undefined, {
-                        duration: 3000
-                    });
-                }
-            })
-        } else {
-            this.snackBar.open('Not attached to a process.', undefined, {
-                duration: 3000
-            });
-        }
-    }
+    public loadSourceFunctions(): Observable<null> {
+		return this.debuggerService.currentDebuggerState!.ensureAllSourceFunctions().map(sfMap => {
+			this.coreSourceFunctions = Array.from(sfMap);
+			this.filterListedFunctions();
+			return null;
+		},
+		(error: any) => {
+			console.log(error);
+			this.snackBar.open('Error getting Source Functions', undefined, {
+				duration: 3000
+			});
+		});
+	}
 
     public OnFunctionSelected($event: SourceFunction) {
         if(this.functionList) {
@@ -165,28 +148,12 @@ export class FunctionsComponent implements OnInit {
         return this.GetFullCardHeight() - 62;
     }
 
-    public ExecuteFunctionWithCustomParams() {
-        if (this.viewService.debuggerComponent) {
-            this.viewService.debuggerComponent.setParameters = {};
-            this.viewService.debuggerComponent.setSourceFunction(this.selectedFunction!);
-            this.viewService.activeView = 'debugger';
-        }
+    public ExecuteFunction() {
+		if(this.selectedFunction) {
+			this.debuggerService.preCallFunction(this.selectedFunction);
+		}
     }
 
-    private addBreakpoint(ds: DebuggerState, id: SourceFunctionId) {
-        ds.setBreakpoint(id).subscribe({
-            next: (bp: Breakpoint) => {
-            },
-            complete: () => {
-            },
-            error: (error: any) => {
-                console.log(error);
-                this.snackBar.open('Error getting Source Functions', undefined, {
-                    duration: 3000
-                });
-            }
-        });
-    }
 
     public ToggleFilter(filter: {collection: SourceFunctionCollection, doFilter: boolean}) {
         filter.doFilter = !filter.doFilter;
@@ -209,19 +176,39 @@ export class FunctionsComponent implements OnInit {
         });
     }
 
-    private removeBreakpoint(ds: DebuggerState, id: SourceFunctionId) {
-        ds.removeBreakpoint(id).subscribe({
-            next: () => {
-                //Removed Breakpoints
-            },
-            complete: () => {
-            },
-            error: (error: any) => {
-                console.log(error);
-                this.snackBar.open('Error getting Source Functions', undefined, {
-                    duration: 3000
-                });
-            }
-        });
-    }
+	private addBreakpoint(ds: DebuggerState, id: SourceFunctionId) {
+		ds.setBreakpoint(id).subscribe(
+			(bp: Breakpoint) => {},
+			(error: any) => {
+				console.log(error);
+				this.snackBar.open(`Failed to add breakpoint: ${error.message}`, undefined, {
+					duration: 3000
+				});
+		});
+	}
+
+	private removeBreakpoint(ds: DebuggerState, id: SourceFunctionId) {
+		ds.removeBreakpoint(id).subscribe(
+			() => {},
+			(error: any) => {
+				console.log(error);
+				this.snackBar.open(`Failed to remove breakpoint: ${error.message}`, undefined, {
+					duration: 3000
+				});
+		});
+	}
+
+	protected onAttach(event: AttachEvent) {
+		this.loadSourceFunctions()
+			.subscribe(() => {
+			//if(event.keepBreakpoints) {
+			//}
+		});
+	}
+
+	protected onDisplayFunction(event: DisplayFunctionEvent) {
+		if(event.sourceFunction) {
+			this.OnFunctionSelected(event.sourceFunction);
+		}
+	}
 }

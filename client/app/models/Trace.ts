@@ -1,6 +1,7 @@
 import { Deserialize } from "../util/SpiceValidator";
 import { ExecutionId } from "./Execution";
 import { SpiceError } from "./SpiceError";
+import { Value } from "./Value";
 
 export class Trace {
     @Deserialize()
@@ -13,42 +14,37 @@ export class Trace {
     data: LineData | ReturnData | BreakData | ExitData | CrashData | CallData | ErrorData;
 }
 
-interface LineData {
+export interface LineData {
     tType: "line";
-    state: TraceState[];
+    state: { [sVariable: number]: Value}
 }
 
-interface ReturnData {
+export interface ReturnData {
     tType: "return";
-    value: string;
+    value: Value;
 }
 
-interface BreakData {
+export interface BreakData {
     tType: "break";
     nextExecution: ExecutionId;
 }
 
-interface ExitData {
+export interface ExitData {
     tType: "exit";
     code: number;
 }
 
-interface CrashData {
+export interface CrashData {
     tType: "crash";
     stack: string;
 }
 
-interface CallData {
+export interface CallData {
     tType: "call";
     sFunction: number;
 }
 
-interface ErrorData {
+export interface ErrorData {
     tType: "error";
     error: SpiceError;
-}
-
-export interface TraceState {
-    sVariable: string;
-    value: string;
 }

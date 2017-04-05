@@ -1,10 +1,19 @@
 <div class="trace">
 	<div *ngIf="trace.data.tType==='line'" class="trace-instruction">
 		<ul>
-			<li *ngFor="let state of trace.data.state">{{state.sVariable}}={{state.value}}</li>
+			<li *ngFor="let state of getStateEntries(trace)">{{state.variable ? state.variable.name : state.address}}={{state.value}}</li>
 		</ul>
 	</div>
 	<div *ngIf="trace.data.tType==='return'" class="trace-termination">
 		returned {{trace.data.value}}
+	</div>
+	<div *ngIf="trace.data.tType==='crash'" class="trace-termination">
+		crashed {{trace.data.stack}}
+	</div>
+	<div *ngIf="trace.data.tType==='error'" class="trace-termination">
+		error {{trace.data.error}}
+	</div>
+	<div *ngIf="trace.data.tType==='cancel'" class="trace-termination">
+		trace cancelled
 	</div>
 </div>
