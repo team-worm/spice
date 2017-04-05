@@ -32,6 +32,11 @@ export class ToolbarComponent {
     public IsInFunctionView(): boolean {
         return this.viewService.activeView === 'functions';
     }
+
+    public IsInLauncherView(): boolean {
+        return this.viewService.activeView === 'launcher';
+    }
+
     public GoToFunctionsView() {
     	this.debuggerService.displayFunction(null);
     }
