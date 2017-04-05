@@ -2,10 +2,10 @@ import {Component, Input, OnInit} from "@angular/core";
 @Component({
     selector: 'spice-pointer-type-display',
     template: `
-        <div class="pointer" (click)="expanded = !expanded">
-            {{getTypeName(type)}} - {{expanded ? 'Hide' : 'Show'}}
+        <div class="pointer" (click)="expanded = !expanded" [ngClass]="{'expanded':expanded}">
+            {{getTypeName(type)}}<md-icon>{{expanded ? 'keyboard_arrow_down' : 'keyboard_arrow_right'}}</md-icon>
         </div>
-        <div *ngIf="expanded" [ngSwitch]="types[type.sType].tType">
+        <div class="pointer-contents" *ngIf="expanded" [ngSwitch]="types[type.sType].tType">
             <spice-struct-type-display
                     *ngSwitchCase="'struct'"
                     [type]="types[type.sType]"

@@ -1,9 +1,7 @@
+<spice-variable-display></spice-variable-display>
 <div #Launcher id="LauncherContainer">
     <md-card class="smallMargin" [style.height.px]="launcherCardHeight">
         <md-tab-group>
-            <md-tab label="Variable Box Test"> <!-- TODO: DELETE ME -->
-                <spice-variable-display></spice-variable-display>
-            </md-tab>
             <md-tab label="Launch Binary">
                 <spice-file-browser #LauncherFileBrowser (onFileSelected)="OnFileSelected($event)" [elementHeightPx]="fileBrowserHeight"></spice-file-browser>
             </md-tab>

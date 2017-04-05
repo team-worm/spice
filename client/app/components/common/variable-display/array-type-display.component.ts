@@ -2,7 +2,7 @@ import {Component, Input, OnInit} from "@angular/core";
 @Component({
     selector: 'spice-array-type-display',
     template: `        
-        <div>Array of {{types[type.sType].base}} [{{type.count}}]</div>
+        <div>Array of {{types[type.sType].base}} [{{type.count}}] <b>TODO</b></div>
     `
 })
 export class ArrayTypeDisplay {
