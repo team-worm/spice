@@ -236,6 +236,9 @@ impl SymbolHandler {
                 .collect();
 
             Ok(Type::Struct { name: name, size: size as usize, fields: fields? })
+        } else if tag == winapi::SymTagEnum {
+            let TypeIndex(base) = self.get_type_info(module, type_index)?;
+            self.type_from_index(module, base)
         } else {
             Err(io::Error::new(io::ErrorKind::Other, "unsupported type"))
         }

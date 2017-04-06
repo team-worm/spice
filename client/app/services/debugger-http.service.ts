@@ -175,7 +175,7 @@ export class DebuggerHttpService {
 			.map(res => {
 				let data = res.json();
 				return Object.keys(data).reduce((o, tId) => {
-					o[tId] = fromJSON(data[tId], SourceType);
+					o[tId] = fromJSON({id: parseInt(tId), data: data[tId]}, SourceType);
 					return o;
 				}, {})
 			})

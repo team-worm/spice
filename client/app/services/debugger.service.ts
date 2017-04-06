@@ -145,7 +145,14 @@ export class DebuggerService {
 		ds.binaryPath = binaryPath;
 		ds.isBinary = isBinary;
 		ds.ensureAllSourceFunctions()
-			.subscribe(sfs => {
+			.mergeMap(sfs => {
+				return ds.ensureSourceTypes(Array.from(
+					sfs.reduce((o, sf) => {
+						sf.parameters.concat(sf.locals).forEach(sv => o.add(sv.sType));
+						return o;
+					}, new Set<number>()).values()));
+			})
+			.subscribe(sts => {
 				this.debuggerStates.set(ds.info.id, ds);
 				this.currentDebuggerState = ds;
 				this.debuggerEventsObserver.next({eType: 'attach', debuggerState: ds});
