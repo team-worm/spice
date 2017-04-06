@@ -1,6 +1,6 @@
 import {Component, OnInit, ViewChild} from "@angular/core";
 import {Http, Response} from "@angular/http";
-import {MdSnackBar} from "@angular/material";
+import {MdDialog, MdSnackBar} from "@angular/material";
 import {SourceFunction, SourceFunctionId } from "../../models/SourceFunction";
 import {DebuggerService, AttachEvent, DisplayFunctionEvent } from "../../services/debugger.service";
 import {DebuggerState} from "../../models/DebuggerState";
@@ -15,6 +15,7 @@ import { Observable } from "rxjs/Observable";
 
 import cRuntime from "./cRuntime";
 import cStandardLib from "./cStandardLib";
+import {TypeMappingComponent} from "../common/type-mapping.component";
 
 @Component({
     moduleId: module.id,
@@ -34,11 +35,12 @@ export class FunctionsComponent implements OnInit {
     private _functionsContentBody: HTMLElement | null;
     private coreSourceFunctions: SourceFunction[] = [];
 
-	constructor(private debuggerService: DebuggerService,
+	constructor(public debuggerService: DebuggerService,
 				private snackBar: MdSnackBar,
 				private viewService: ViewService,
 				private fileSystemService: FileSystemService,
-				private http: Http) {
+				private http: Http,
+                private dialog: MdDialog) {
 		this.debuggerService.getEventStream(['attach']).subscribe((event: AttachEvent) => this.onAttach(event));
 		this.debuggerService.getEventStream(['displayFunction']).subscribe((event: DisplayFunctionEvent) => this.onDisplayFunction(event));
 		//this.debuggerService.getEventStream(['detach']).subscribe(this.onDetach);
@@ -70,6 +72,14 @@ export class FunctionsComponent implements OnInit {
         } else {
             this.snackBar.open('No function selected.', undefined, {
                 duration: 3000
+            });
+        }
+    }
+
+    public OpenSpiceTypeDialog() {
+	    if(this.selectedFunction) {
+            this.dialog.open(TypeMappingComponent, {
+                data: this.selectedFunction
             });
         }
     }
@@ -131,8 +141,16 @@ export class FunctionsComponent implements OnInit {
         }
     }
 
-    public GetSelectedFunctionAsString(): string {
-        return this.selectedFunction ? this.selectedFunction.getAsStringWithParameters(' ') : 'none';
+    public GetSelectedFunctionAsString():string {
+        if(this.selectedFunction && this.debuggerService.currentDebuggerState && this.debuggerService.currentDebuggerState.sourceTypes) {
+            let stMap = this.debuggerService.currentDebuggerState.sourceTypes;
+            const parameters = this.selectedFunction.parameters
+                .map(parameter => `${stMap.get(parameter.sType)!.toString(stMap)} ${parameter.name}`)
+                .join(", ");
+            return  `${this.selectedFunction.name}(${parameters})`;
+        } else {
+            return 'none';
+        }
     }
 
     public GetFullCardHeight(): number {

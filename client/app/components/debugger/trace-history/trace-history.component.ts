@@ -44,8 +44,12 @@ export class TraceHistoryComponent {
     }
 
     public GetListTitle(e:{ex: Execution, func: SourceFunction | null}):string {
-        if(!!e.func) {
-            return e.func.getAsStringWithParameters();
+        if(e.func && this.debuggerService.currentDebuggerState && this.debuggerService.currentDebuggerState.sourceTypes) {
+            let stMap = this.debuggerService.currentDebuggerState.sourceTypes;
+            const parameters = e.func.parameters
+                .map(parameter => `${stMap.get(parameter.sType)!.toString(stMap)} ${parameter.name}`)
+                .join(", ");
+            return  `${e.func.name}(${parameters})`;
         } else {
             return 'Process'
         }

@@ -12,15 +12,14 @@
                     #FunctionsFunctionList
                     class="width-100"
                     [sourceFunctions]="listedFunctions"
-                    [debuggerState]="debugState"
+                    [debuggerState]="debuggerService.currentDebuggerState"
                     [elementHeightPx]="GetListHeight()"
                     (onFunctionSelected)="OnFunctionSelected($event)"></spice-function-list>
         </md-card>
         </div>
         <div fxFlex="70">
             <md-card class="smallerMargin">
-
-                <md-card-title>Selected Function: <i>{{GetSelectedFunctionAsString()}}</i></md-card-title>
+                <md-card-title>Selected Function: <i>{{GetSelectedFunctionAsString()}}</i> <button class="types-button" md-raised-button (click)="OpenSpiceTypeDialog()" [disabled]="!selectedFunction"><md-icon [color]="'primary'">compare_arrows</md-icon> Type Mapping</button></md-card-title>
                 <md-card-subtitle *ngIf="!selectedFunction">Select a function from the list to the left.</md-card-subtitle>
                 <md-card-subtitle *ngIf="!!selectedFunction">Line {{selectedFunction.lineStart}} of {{selectedFunction.sourcePath}}</md-card-subtitle>
                 <md-card-actions>

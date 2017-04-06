@@ -165,8 +165,14 @@ export class DebuggerComponent {
 	public GetFunctionAsString():string {
 		if(!this.sourceFunction) {
 			return 'No Function Selected';
+		} else if(this.debuggerService.currentDebuggerState && this.debuggerService.currentDebuggerState.sourceTypes) {
+			let stMap = this.debuggerService.currentDebuggerState.sourceTypes;
+			const parameters = this.sourceFunction.parameters
+                .map(parameter => `${stMap.get(parameter.sType)!.toString(stMap)} ${parameter.name}`)
+                .join(", ");
+			return `${this.sourceFunction.name}(${parameters})`;
 		} else {
-			return this.sourceFunction.name + ' ' + this.sourceFunction.getParametersAsString();
+			return 'Error: SourceTypes Not Valid';
 		}
 	}
 

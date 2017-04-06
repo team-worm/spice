@@ -1,7 +1,7 @@
 import {Component, Input, EventEmitter, Output} from "@angular/core";
 import { SourceFunction, SourceFunctionId } from "../../models/SourceFunction";
-import {SourceType} from "../../models/SourceType";
 import {DebuggerState} from "../../models/DebuggerState";
+import {DebuggerService} from "../../services/debugger.service";
 
 @Component({
     selector: 'spice-function-list',
@@ -21,7 +21,7 @@ import {DebuggerState} from "../../models/DebuggerState";
             (click)="FunctionClicked(func)">
             <md-icon class="function-icon" md-list-avatar *ngIf="!FunctionHasBreakpoint(func.id)">library_books</md-icon>
             <md-icon class="function-icon" md-list-avatar *ngIf="FunctionHasBreakpoint(func.id)">book</md-icon>
-            <p class="function-header" md-line title="{{func.name}} {{func.getParametersAsString()}}"><b>{{func.name}}</b> {{func.getParametersAsString()}}</p>
+            <p class="function-header" md-line title="{{func.name}} {{getParametersAsString(func)}}"><b>{{func.name}}</b> {{getParametersAsString(func)}}</p>
             <p class="function-subheader" md-line title="{{func.sourcePath}}">{{func.sourcePath}}</p>
         </md-list-item>
     </md-list>
@@ -74,6 +74,22 @@ export class FunctionListComponent{
         }
 
         return this.sourceFunctions;
+    }
+
+    public getParametersAsString(func:SourceFunction):string {
+        if(this.debuggerState && this.debuggerState.sourceTypes) {
+            let stMap = this.debuggerState.sourceTypes;
+            const parameters = func.parameters
+                .map(parameter => {
+                    console.log("ELLIOT!", parameter.sType, stMap, stMap.get(parameter.sType));
+                    return `${stMap.get(parameter.sType)!.toString(stMap)} ${parameter.name}`
+                })
+                .join(", ");
+
+            return `(${parameters})`;
+        }
+        console.log("SAM IS MAD!");
+        return '';
     }
 
     constructor() {

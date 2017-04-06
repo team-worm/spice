@@ -1,4 +1,6 @@
 import {Component, Input} from "@angular/core";
+import {DebuggerState} from "../../../models/DebuggerState";
+import {SourceType, SourceTypeId} from "../../../models/SourceType";
 
 @Component({
     selector: 'spice-variable-display',
@@ -50,14 +52,19 @@ export class VariableDisplayComponent {
     @Input()
     public editable:boolean;
 
+    @Input()
+    public debugState:DebuggerState;
+
     public displayedVariables:{[name: string]:boolean};
 
     /* Delete Mes */
-    public types: {[id: number]: any};
+    public types: any;
     /* END Delete Mes*/
 
     constructor(){
         this.editable = true;
+
+        //this.debugState.sourceTypes
 
         this.types = {
             1: {
@@ -184,6 +191,7 @@ export class VariableDisplayComponent {
     }
 
     public getType():any {
+        // this.debugState.sourceTypes.get(this.variable.sType);
         return this.types[this.variable.sType];
     }
 }
