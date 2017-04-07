@@ -37,7 +37,7 @@ pub enum FileData {
 
 #[derive(Serialize)]
 pub struct DebugInfo {
-    pub id: i32,
+    pub id: usize,
     #[serde(rename = "attachedProcess")]
     pub attached_process: Process,
 }

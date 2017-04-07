@@ -13,6 +13,9 @@ extern crate debug;
 extern crate winapi;
 extern crate kernel32;
 
+#[macro_use]
+extern crate lazy_static;
+
 use std::{io, fs};
 use std::sync::{Mutex, Arc};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -450,6 +453,7 @@ fn debug_attach_pid(caps: Captures, child: ChildThread, cancel: ChildCancel) -> 
     }
 
     let (child, flag) = child::Thread::attach(pid);
+    let debug_id = child.session;
     match child.rx.recv().unwrap() {
         DebugMessage::Attached(cancel) => {
             *child_thread = Some(child);
@@ -462,7 +466,7 @@ fn debug_attach_pid(caps: Captures, child: ChildThread, cancel: ChildCancel) -> 
 
     // TODO: get process name
     let message = api::DebugInfo {
-        id: 0,
+        id: debug_id,
         attached_process: api::Process {
             id: pid,
             name: String::new(),
@@ -488,6 +492,7 @@ fn debug_attach_bin(caps: Captures, child: ChildThread, cancel: ChildCancel) -> 
     }
 
     let (child, flag) = child::Thread::launch(path.into());
+    let debug_id = child.session;
     match child.rx.recv().unwrap() {
         DebugMessage::Attached(cancel) => {
             *child_thread = Some(child);
@@ -500,7 +505,7 @@ fn debug_attach_bin(caps: Captures, child: ChildThread, cancel: ChildCancel) -> 
 
     let name = path.file_name().unwrap_or(OsStr::new(""));
     let message = api::DebugInfo {
-        id: 0,
+        id: debug_id,
         attached_process: api::Process {
             id: 0,
             name: name.to_string_lossy().into(),
@@ -516,24 +521,40 @@ fn debug(req: Request, mut res: Response, _: Captures, _child: ChildThread) {
 }
 
 /// POST /debug/:id/kill
-fn debug_kill(_: Captures, child: ChildThread, cancel: ChildCancel) -> io::Result<Vec<u8>> {
-    let mut child_thread = child.lock().unwrap();
-    let mut child_cancel = cancel.lock().unwrap();
-    if let Some(child) = child_thread.take() {
-        child.tx.send(ServerMessage::Quit).unwrap();
-        child.thread.join().unwrap();
+fn debug_kill(caps: Captures, child: ChildThread, cancel: ChildCancel) -> io::Result<Vec<u8>> {
+    let caps = caps.unwrap();
+    let debug_id = caps[1].parse::<usize>()
+        .map_err(|e| io::Error::new(io::ErrorKind::NotConnected, e))?;
 
-        child_cancel.take().unwrap();
+    let mut child_thread = child.lock().unwrap();
+    let child = child_thread.take()
+        .ok_or(io::Error::from(io::ErrorKind::NotConnected))?;
+    if debug_id != child.session {
+        *child_thread = Some(child);
+        return Err(io::Error::new(io::ErrorKind::NotConnected, "no such session"));
     }
+
+    child.tx.send(ServerMessage::Quit).unwrap();
+    child.thread.join().unwrap();
+
+    let mut child_cancel = cancel.lock().unwrap();
+    child_cancel.take().unwrap();
 
     Ok(vec![])
 }
 
 /// GET /debug/:id/functions -- return a list of debuggable functions
-fn debug_functions(_: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
+fn debug_functions(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
+    let caps = caps.unwrap();
+    let debug_id = caps[1].parse::<usize>()
+        .map_err(|e| io::Error::new(io::ErrorKind::NotConnected, e))?;
+
     let child = child.lock().unwrap();
     let child = child.as_ref()
         .ok_or(io::Error::from(io::ErrorKind::NotConnected))?;
+    if debug_id != child.session {
+        return Err(io::Error::new(io::ErrorKind::NotConnected, "no such session"));
+    }
 
     child.tx.send(ServerMessage::ListFunctions).unwrap();
     let message = match child.rx.recv().unwrap() {
@@ -547,12 +568,17 @@ fn debug_functions(_: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
 /// GET /debug/:id/functions/:function
 fn debug_function(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
     let caps = caps.unwrap();
+    let debug_id = caps[1].parse::<usize>()
+        .map_err(|e| io::Error::new(io::ErrorKind::NotConnected, e))?;
     let address = caps[2].parse::<usize>()
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
 
     let child = child.lock().unwrap();
     let child = child.as_ref()
         .ok_or(io::Error::from(io::ErrorKind::NotConnected))?;
+    if debug_id != child.session {
+        return Err(io::Error::new(io::ErrorKind::NotConnected, "no such session"));
+    }
 
     child.tx.send(ServerMessage::DescribeFunction { address }).unwrap();
     let message = match child.rx.recv().unwrap() {
@@ -566,12 +592,17 @@ fn debug_function(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
 /// GET /debug/:id/types?ids=:id,:id,:id,...
 fn debug_types(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
     let caps = caps.unwrap();
+    let debug_id = caps[1].parse::<usize>()
+        .map_err(|e| io::Error::new(io::ErrorKind::NotConnected, e))?;
     let types: Result<Vec<u32>, _> = caps[2].split(',').map(str::parse).collect();
     let types = types.map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
 
     let child = child.lock().unwrap();
     let child = child.as_ref()
         .ok_or(io::Error::from(io::ErrorKind::NotConnected))?;
+    if debug_id != child.session {
+        return Err(io::Error::new(io::ErrorKind::NotConnected, "no such session"));
+    }
 
     child.tx.send(ServerMessage::ListTypes { types }).unwrap();
     let message = match child.rx.recv().unwrap() {
@@ -583,10 +614,17 @@ fn debug_types(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
 }
 
 /// GET /debug/:id/breakpoints
-fn debug_breakpoints(_: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
+fn debug_breakpoints(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
+    let caps = caps.unwrap();
+    let debug_id = caps[1].parse::<usize>()
+        .map_err(|e| io::Error::new(io::ErrorKind::NotConnected, e))?;
+
     let child = child.lock().unwrap();
     let child = child.as_ref()
         .ok_or(io::Error::from(io::ErrorKind::NotConnected))?;
+    if debug_id != child.session {
+        return Err(io::Error::new(io::ErrorKind::NotConnected, "no such session"));
+    }
 
     child.tx.send(ServerMessage::ListBreakpoints).unwrap();
     let breakpoints = match child.rx.recv().unwrap() {
@@ -604,12 +642,17 @@ fn debug_breakpoints(_: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
 /// PUT /debug/:id/breakpoints/:function
 fn debug_breakpoint_put(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
     let caps = caps.unwrap();
+    let debug_id = caps[1].parse::<usize>()
+        .map_err(|e| io::Error::new(io::ErrorKind::NotConnected, e))?;
     let address = caps[2].parse::<usize>()
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
 
     let child = child.lock().unwrap();
     let child = child.as_ref()
         .ok_or(io::Error::from(io::ErrorKind::NotConnected))?;
+    if debug_id != child.session {
+        return Err(io::Error::new(io::ErrorKind::NotConnected, "no such session"));
+    }
 
     child.tx.send(ServerMessage::SetBreakpoint { address }).unwrap();
     match child.rx.recv().unwrap() {
@@ -625,12 +668,17 @@ fn debug_breakpoint_put(caps: Captures, child: ChildThread) -> io::Result<Vec<u8
 /// DELETE /debug/:id/breakpoints/:function
 fn debug_breakpoint_delete(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
     let caps = caps.unwrap();
+    let debug_id = caps[1].parse::<usize>()
+        .map_err(|e| io::Error::new(io::ErrorKind::NotConnected, e))?;
     let address = caps[2].parse::<usize>()
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
 
     let child = child.lock().unwrap();
     let child = child.as_ref()
         .ok_or(io::Error::from(io::ErrorKind::NotConnected))?;
+    if debug_id != child.session {
+        return Err(io::Error::new(io::ErrorKind::NotConnected, "no such session"));
+    }
 
     child.tx.send(ServerMessage::ClearBreakpoint { address }).unwrap();
     match child.rx.recv().unwrap() {
@@ -645,12 +693,15 @@ fn debug_breakpoint_delete(caps: Captures, child: ChildThread) -> io::Result<Vec
 /// POST /debug/:id/execute
 fn debug_execute(caps: Captures, _body: api::Launch, child: ChildThread) -> io::Result<Vec<u8>> {
     let caps = caps.unwrap();
-    let _debug_id = caps[1].parse::<u64>()
+    let debug_id = caps[1].parse::<usize>()
         .map_err(|e| io::Error::new(io::ErrorKind::NotConnected, e))?;
 
     let mut child = child.lock().unwrap();
     let child = child.as_mut()
         .ok_or(io::Error::from(io::ErrorKind::NotConnected))?;
+    if debug_id != child.session {
+        return Err(io::Error::new(io::ErrorKind::NotConnected, "no such session"));
+    }
 
     child.tx.send(ServerMessage::Continue).unwrap();
     let id = match child.rx.recv().unwrap() {
@@ -667,7 +718,7 @@ fn debug_execute(caps: Captures, _body: api::Launch, child: ChildThread) -> io::
 /// POST /debug/:id/functions/:function/execute
 fn debug_function_execute(caps: Captures, body: api::Call, child: ChildThread) -> io::Result<Vec<u8>> {
     let caps = caps.unwrap();
-    let _debug_id = caps[1].parse::<u64>()
+    let debug_id = caps[1].parse::<usize>()
         .map_err(|e| io::Error::new(io::ErrorKind::NotConnected, e))?;
     let address = caps[2].parse::<usize>()
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
@@ -676,6 +727,9 @@ fn debug_function_execute(caps: Captures, body: api::Call, child: ChildThread) -
     let mut child = child.lock().unwrap();
     let child = child.as_mut()
         .ok_or(io::Error::from(io::ErrorKind::NotConnected))?;
+    if debug_id != child.session {
+        return Err(io::Error::new(io::ErrorKind::NotConnected, "no such session"));
+    }
 
     child.tx.send(ServerMessage::CallFunction { address, arguments }).unwrap();
     let id = match child.rx.recv().unwrap() {
@@ -693,12 +747,15 @@ fn debug_function_execute(caps: Captures, body: api::Call, child: ChildThread) -
 /// POST /debug/:id/executions
 fn debug_executions(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
     let caps = caps.unwrap();
-    let _debug_id = caps[1].parse::<u64>()
+    let debug_id = caps[1].parse::<usize>()
         .map_err(|e| io::Error::new(io::ErrorKind::NotConnected, e))?;
 
     let mut child = child.lock().unwrap();
     let child = child.as_mut()
         .ok_or(io::Error::from(io::ErrorKind::NotConnected))?;
+    if debug_id != child.session {
+        return Err(io::Error::new(io::ErrorKind::NotConnected, "no such session"));
+    }
 
     let message: Vec<_> = child.execution.iter()
         .map(|&(id, ref execution)| {
@@ -712,7 +769,7 @@ fn debug_executions(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
 /// GET /debug/:id/executions/:execution
 fn debug_execution(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
     let caps = caps.unwrap();
-    let _debug_id = caps[1].parse::<u64>()
+    let debug_id = caps[1].parse::<usize>()
         .map_err(|e| io::Error::new(io::ErrorKind::NotConnected, e))?;
     let execution_id = caps[2].parse::<i32>()
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
@@ -720,6 +777,9 @@ fn debug_execution(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
     let mut child = child.lock().unwrap();
     let child = child.as_mut()
         .ok_or(io::Error::from(io::ErrorKind::NotConnected))?;
+    if debug_id != child.session {
+        return Err(io::Error::new(io::ErrorKind::NotConnected, "no such session"));
+    }
 
     let (id, execution) = match child.execution {
         Some((id, ref execution)) if id == execution_id => (id, execution),
@@ -744,10 +804,14 @@ impl<'a> From<&'a child::Execution> for api::ExecutionData {
 /// GET /debug/:id/executions/:execution/trace
 fn debug_execution_trace(caps: Captures, child: &child::Thread) -> io::Result<i32> {
     let caps = caps.unwrap();
-    let _debug_id = caps[1].parse::<u64>()
+    let debug_id = caps[1].parse::<usize>()
         .map_err(|e| io::Error::new(io::ErrorKind::NotConnected, e))?;
     let execution = caps[2].parse::<i32>()
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
+
+    if debug_id != child.session {
+        return Err(io::Error::new(io::ErrorKind::NotConnected, "no such session"));
+    }
 
     match child.execution {
         Some((id, _)) if id == execution => Ok(id),
@@ -864,7 +928,7 @@ fn trace_stream(res: &mut Response<Streaming>, child: &mut child::Thread) -> io:
 /// POST /debug/:id/executions/:execution/stop -- Halts a running execution
 fn debug_execution_stop(caps: Captures, cancel: ChildCancel) -> io::Result<Vec<u8>> {
     let caps = caps.unwrap();
-    let _debug_id = caps[1].parse::<u64>()
+    let _debug_id = caps[1].parse::<usize>()
         .map_err(|e| io::Error::new(io::ErrorKind::NotConnected, e))?;
     let _execution_id = caps[2].parse::<i32>()
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
