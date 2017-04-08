@@ -28,8 +28,8 @@
 
 <md-menu class="breakpointMenu" #breakpointMenu="mdMenu">
 	<h3 *ngIf="breakpointCount() === 0">No Breakpoints</h3>
-    <button md-menu-item *ngFor="let func of bpFunctions" (click)="BreakpointFunctionSelected(func)" title="{{func.getAsStringWithParameters(' ')}}">
+    <button md-menu-item *ngFor="let func of bpFunctions" (click)="BreakpointFunctionSelected(func)" title="{{func.name}}">
         <md-icon md-prefix>library_books</md-icon>
-        <span class="overflow-ellipsis">{{func.getAsStringWithParameters(' ')}}</span>
+        <span class="overflow-ellipsis">{{func.name}}</span>
     </button>
 </md-menu>

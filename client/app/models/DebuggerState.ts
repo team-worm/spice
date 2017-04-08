@@ -66,7 +66,6 @@ export class DebuggerState {
 	}
 
 	public ensureSourceTypes(ids: SourceTypeId[]): Observable<Map<SourceTypeId, SourceType>> {
-		ids.forEach(id => this.debuggerHttp.getSourceTypes(this.info.id, [id]).subscribe(() => {}));
 		return this.debuggerHttp.getSourceTypes(this.info.id, ids)
 			.mergeMap(sts => {
 				Object.keys(sts).forEach(stId => this.sourceTypes.set(parseInt(stId), sts[stId]));
@@ -76,19 +75,16 @@ export class DebuggerState {
 						case 'pointer':
 							typeSet.add(st.data.sType);
 							if(st.data.sType === 1252 || st.data.sType === 1257) {
-								console.log(st);
 							}
 							break;
 						case 'array':
 							typeSet.add(st.data.sType);
 							if(st.data.sType === 1252 || st.data.sType === 1257) {
-								console.log(st);
 							}
 							break;
 						case 'function':
 							typeSet.add(st.data.sType);
 							if(st.data.sType === 1252 || st.data.sType === 1257) {
-								console.log(st);
 							}
 							st.data.parameters.forEach(tId => typeSet.add(tId));
 							break;
