@@ -66,10 +66,61 @@ export class DebuggerState {
 	}
 
 	public ensureSourceTypes(ids: SourceTypeId[]): Observable<Map<SourceTypeId, SourceType>> {
+		ids.forEach(id => this.debuggerHttp.getSourceTypes(this.info.id, [id]).subscribe(() => {}));
 		return this.debuggerHttp.getSourceTypes(this.info.id, ids)
-			.map(sts => {
+			.mergeMap(sts => {
 				Object.keys(sts).forEach(stId => this.sourceTypes.set(parseInt(stId), sts[stId]));
-				return ids.reduce((o, id) => { o.set(id, this.sourceTypes.get(id)!); return o; }, new Map<SourceTypeId, SourceType>());
+				function gatherSTypes(st: SourceType): Set<SourceTypeId> {
+					let typeSet = new Set<SourceTypeId>();
+					switch(st.data.tType) {
+						case 'pointer':
+							typeSet.add(st.data.sType);
+							if(st.data.sType === 1252 || st.data.sType === 1257) {
+								console.log(st);
+							}
+							break;
+						case 'array':
+							typeSet.add(st.data.sType);
+							if(st.data.sType === 1252 || st.data.sType === 1257) {
+								console.log(st);
+							}
+							break;
+						case 'function':
+							typeSet.add(st.data.sType);
+							if(st.data.sType === 1252 || st.data.sType === 1257) {
+								console.log(st);
+							}
+							st.data.parameters.forEach(tId => typeSet.add(tId));
+							break;
+						case 'struct':
+							st.data.fields.forEach(field => typeSet.add(field.sType));
+							break;
+					}
+					return typeSet;
+				}
+				let missingIds = Array.from(Object.keys(sts).map(stId => gatherSTypes(sts[stId]))
+					.reduce((s, sIdSet) => {
+						sIdSet.forEach(sId => {
+							if(!this.sourceTypes.has(sId)) {
+								s.add(sId);
+							}
+						});
+						return s;
+					}, new Set<SourceTypeId>()));
+
+				if(missingIds.length === 0) {
+					return Observable.of(ids.reduce((o, id) => {
+						o.set(id, this.sourceTypes.get(id)!);
+						return o;
+					}, new Map<SourceTypeId, SourceType>()));
+				}
+				return this.ensureSourceTypes(missingIds)
+					.map(missingSts => {
+						return ids.concat(missingIds).reduce((o, id) => {
+							o.set(id, this.sourceTypes.get(id)!);
+							return o;
+						}, new Map<SourceTypeId, SourceType>());
+					});
 			});
 	}
 

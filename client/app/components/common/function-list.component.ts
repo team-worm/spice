@@ -81,14 +81,14 @@ export class FunctionListComponent{
             let stMap = this.debuggerState.sourceTypes;
             const parameters = func.parameters
                 .map(parameter => {
-                    console.log("ELLIOT!", parameter.sType, stMap, stMap.get(parameter.sType));
+                    //console.log("ELLIOT!", parameter.sType, stMap, stMap.get(parameter.sType));
                     return `${stMap.get(parameter.sType)!.toString(stMap)} ${parameter.name}`
                 })
                 .join(", ");
 
             return `(${parameters})`;
         }
-        console.log("SAM IS MAD!");
+        //console.log("SAM IS MAD!");
         return '';
     }
 
