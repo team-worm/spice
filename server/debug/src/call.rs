@@ -1,8 +1,9 @@
 use std::{mem, io};
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 
 use winapi;
 
+use AsBytes;
 use {Child, Context, Value, Type, Primitive, SymbolHandler, Symbol};
 
 pub struct Call {
@@ -12,7 +13,9 @@ pub struct Call {
 
 pub trait IntoValue {
     fn into_value(
-        self, data_type: Type, module: usize, symbols: &SymbolHandler
+        self, data_type: Type, module: usize, symbols: &SymbolHandler,
+        value_offset: usize, offsets: &mut HashMap<usize, usize>,
+        pointers: &mut VecDeque<(usize, u32)>
     ) -> io::Result<Value>;
 }
 
@@ -26,7 +29,7 @@ impl Call {
 
     pub fn setup<A: IntoValue>(
         child: &Child, symbols: &SymbolHandler,
-        context: &mut Context, function: &Symbol, mut arg_values: HashMap<usize, A>
+        old_context: &mut Context, function: &Symbol, mut arg_values: HashMap<usize, A>
     ) -> io::Result<Call> {
         let (module, return_type, arg_types) = get_function_types(symbols, function)?;
         let mut arg_offsets = vec![];
@@ -37,25 +40,69 @@ impl Call {
             true
         })?;
 
-        let mut args = Iterator::zip(arg_offsets.into_iter(), arg_types.into_iter());
-        let mut new_context = context.clone();
+        let mut addresses = HashMap::new();
+        let mut offsets = HashMap::new();
+        let mut pointers = VecDeque::new();
+
+        // remove direct arguments from the map before writing indirect values
+        let mut args = vec![];
+        for (offset, arg_type) in Iterator::zip(arg_offsets.into_iter(), arg_types.into_iter()) {
+            let mut offsets = HashMap::new();
+            let arg_type = symbols.type_from_index(module, arg_type)?;
+            let arg_value = arg_values.remove(&offset)
+                .ok_or(io::Error::from(io::ErrorKind::InvalidInput))?
+                .into_value(arg_type.clone(), module, symbols, 0, &mut offsets, &mut pointers)?;
+            args.push((arg_value, arg_type, offsets));
+        }
+
+        let mut context = old_context.clone();
+
+        // write indirect values to the stack
+        while let Some((offset, type_index)) = pointers.pop_front() {
+            if addresses.contains_key(&offset) {
+                continue;
+            }
+
+            let mut arg_offsets = HashMap::new();
+            let arg_type = symbols.type_from_index(module, type_index)?;
+            let arg_value = arg_values.remove(&offset)
+                .ok_or(io::Error::from(io::ErrorKind::InvalidInput))?
+                .into_value(arg_type.clone(), module, symbols, 0, &mut arg_offsets, &mut pointers)?;
+            child.stack_push(&mut context, &arg_value)?;
+
+            let address = context.stack_pointer();
+            addresses.insert(offset, address);
+
+            let arg_offsets = arg_offsets.into_iter()
+                .map(|(offset, value)| (address + offset, value));
+            offsets.extend(arg_offsets);
+        }
+
+        // fixup pointers to their actual targets
+        addresses.insert(0, 0);
+        for (&address, &target) in &offsets {
+            let bytes = addresses[&target].as_bytes();
+            child.write_memory(address, bytes)?;
+        }
+
+        // write direct arguments to registers and the stack
+
+        let mut args = args.into_iter();
 
         let return_type = symbols.type_from_index(module, return_type)?;
         let return_size = return_type.size(symbols, module);
         if return_size > 8 {
-            let stack_pointer = new_context.stack_pointer() - return_size;
-            new_context.set_stack_pointer(stack_pointer);
+            let stack_pointer = context.stack_pointer() - return_size;
+            context.set_stack_pointer(stack_pointer);
 
-            let context = new_context.as_raw_mut();
+            let context = context.as_raw_mut();
             context.Rcx = stack_pointer as winapi::DWORD64;
-        } else if let Some((arg, arg_type)) = args.next() {
-            let arg_type = symbols.type_from_index(module, arg_type)?;
-            let arg = arg_values.remove(&arg)
-                .ok_or(io::Error::from(io::ErrorKind::InvalidInput))?
-                .into_value(arg_type.clone(), module, symbols)?;
-            let (value, float) = write_value(&arg, &arg_type, child, &mut new_context)?;
+        } else if let Some((arg, arg_type, offsets)) = args.next() {
+            let (value, float) = write_value(
+                arg, &arg_type, child, &mut context, &addresses, &offsets
+            )?;
 
-            let context = new_context.as_raw_mut();
+            let context = context.as_raw_mut();
             if !float {
                 context.Rcx = value as winapi::DWORD64;
             } else {
@@ -63,14 +110,12 @@ impl Call {
             }
         }
 
-        if let Some((arg, arg_type)) = args.next() {
-            let arg_type = symbols.type_from_index(module, arg_type)?;
-            let arg = arg_values.remove(&arg)
-                .ok_or(io::Error::from(io::ErrorKind::InvalidInput))?
-                .into_value(arg_type.clone(), module, symbols)?;
-            let (value, float) = write_value(&arg, &arg_type, child, &mut new_context)?;
+        if let Some((arg, arg_type, offsets)) = args.next() {
+            let (value, float) = write_value(
+                arg, &arg_type, child, &mut context, &addresses, &offsets
+            )?;
 
-            let context = new_context.as_raw_mut();
+            let context = context.as_raw_mut();
             if !float {
                 context.Rdx = value as winapi::DWORD64;
             } else {
@@ -78,14 +123,12 @@ impl Call {
             }
         }
 
-        if let Some((arg, arg_type)) = args.next() {
-            let arg_type = symbols.type_from_index(module, arg_type)?;
-            let arg = arg_values.remove(&arg)
-                .ok_or(io::Error::from(io::ErrorKind::InvalidInput))?
-                .into_value(arg_type.clone(), module, symbols)?;
-            let (value, float) = write_value(&arg, &arg_type, child, &mut new_context)?;
+        if let Some((arg, arg_type, offsets)) = args.next() {
+            let (value, float) = write_value(
+                arg, &arg_type, child, &mut context, &addresses, &offsets
+            )?;
 
-            let context = new_context.as_raw_mut();
+            let context = context.as_raw_mut();
             if !float {
                 context.R8 = value as winapi::DWORD64;
             } else {
@@ -93,14 +136,12 @@ impl Call {
             }
         }
 
-        if let Some((arg, arg_type)) = args.next() {
-            let arg_type = symbols.type_from_index(module, arg_type)?;
-            let arg = arg_values.remove(&arg)
-                .ok_or(io::Error::from(io::ErrorKind::InvalidInput))?
-                .into_value(arg_type.clone(), module, symbols)?;
-            let (value, float) = write_value(&arg, &arg_type, child, &mut new_context)?;
+        if let Some((arg, arg_type, offsets)) = args.next() {
+            let (value, float) = write_value(
+                arg, &arg_type, child, &mut context, &addresses, &offsets
+            )?;
 
-            let context = new_context.as_raw_mut();
+            let context = context.as_raw_mut();
             if !float {
                 context.R9 = value as winapi::DWORD64;
             } else {
@@ -110,29 +151,27 @@ impl Call {
 
         // large values passed by pointer need to be allocated before any stack args
         let mut values = vec![];
-        for (arg, arg_type) in args {
-            let arg_type = symbols.type_from_index(module, arg_type)?;
-            let arg = arg_values.remove(&arg)
-                .ok_or(io::Error::from(io::ErrorKind::InvalidInput))?
-                .into_value(arg_type.clone(), module, symbols)?;
-            let (value, _) = write_value(&arg, &arg_type, child, &mut new_context)?;
+        for (arg, arg_type, offsets) in args {
+            let (value, _) = write_value(
+                arg, &arg_type, child, &mut context, &addresses, &offsets
+            )?;
             values.push(value);
         }
         for value in values {
-            child.stack_push(&mut new_context, value)?;
+            child.stack_push(&mut context, value)?;
         }
 
-        let stack_pointer = new_context.stack_pointer();
-        new_context.set_stack_pointer(stack_pointer - 4 * mem::size_of::<u64>());
+        let stack_pointer = context.stack_pointer();
+        context.set_stack_pointer(stack_pointer - 4 * mem::size_of::<u64>());
 
-        let return_address = new_context.instruction_pointer();
-        child.stack_push(&mut new_context, return_address)?;
+        let return_address = context.instruction_pointer();
+        child.stack_push(&mut context, return_address)?;
 
-        new_context.set_instruction_pointer(function.address);
+        context.set_instruction_pointer(function.address);
 
         Ok(Call {
             return_type: return_type,
-            context: Some(mem::replace(context, new_context))
+            context: Some(mem::replace(old_context, context))
         })
     }
 
@@ -168,7 +207,8 @@ fn get_function_types(symbols: &SymbolHandler, function: &Symbol) ->
 }
 
 fn write_value(
-    arg: &Value, arg_type: &Type, child: &Child, context: &mut Context
+    mut arg: Value, arg_type: &Type, child: &Child, context: &mut Context,
+    addresses: &HashMap<usize, usize>, offsets: &HashMap<usize, usize>
 ) -> io::Result<(usize, bool)> {
     if &arg.data_type != arg_type {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "argument types do not match"));
@@ -178,6 +218,11 @@ fn write_value(
         Type::Base { base: Primitive::Float, .. } => true,
         _ => false,
     };
+
+    for (&offset, &target) in offsets {
+        let bytes = addresses[&target].as_bytes();
+        arg.data[offset..bytes.len()].copy_from_slice(bytes);
+    }
 
     let value = arg.data.as_ptr();
     let value = match *arg_type {
@@ -193,7 +238,7 @@ fn write_value(
         }
 
         Type::Struct { .. } if arg.data.len() > 8 => {
-            child.stack_push(context, arg)?;
+            child.stack_push(context, &arg)?;
             context.stack_pointer()
         }
 

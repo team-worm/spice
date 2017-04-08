@@ -1,6 +1,6 @@
 import { Component, Output, EventEmitter } from "@angular/core";
 import { Response } from "@angular/http";
-import {MdDialog, MdSnackBar, MdSidenav} from "@angular/material";
+import { MdDialog, MdSnackBar, MdSidenav } from "@angular/material";
 import { AboutComponent } from "./about.component";
 import { ViewService } from "../../services/view.service";
 import { DebuggerState } from "../../models/DebuggerState";
@@ -29,14 +29,14 @@ export class ToolbarComponent {
 		this.debuggerService.getEventStream(['execution']).subscribe((event: ExecutionEvent) => this.onExecution(event));
 	}
 
-    public IsInFunctionView():boolean {
+    public IsInFunctionView(): boolean {
         return this.viewService.activeView === 'functions';
     }
     public GoToFunctionsView() {
     	this.debuggerService.displayFunction(null);
     }
     public ToggleTraceHistory() {
-        if(this.viewService.traceHistoryComponent) {
+        if (this.viewService.traceHistoryComponent) {
             this.viewService.traceHistoryComponent.Toggle();
         }
     }

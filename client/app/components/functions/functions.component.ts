@@ -101,18 +101,15 @@ export class FunctionsComponent implements OnInit {
 		return false;
 	}
 
-    public loadSourceFunctions(): Observable<null> {
-		return this.debuggerService.currentDebuggerState!.ensureAllSourceFunctions().map(sfMap => {
-			this.coreSourceFunctions = Array.from(sfMap);
-			this.filterListedFunctions();
-			return null;
-		},
-		(error: any) => {
-			console.log(error);
-			this.snackBar.open('Error getting Source Functions', undefined, {
-				duration: 3000
-			});
-		});
+    public loadSourceFunctions() {
+		this.coreSourceFunctions = Array.from(this.debuggerService.currentDebuggerState!.sourceFunctions.values());
+		if(this.selectedFunction && this.debuggerService.currentDebuggerState!.sourceFunctions.has(this.selectedFunction.address)) {
+			this.selectedFunction = this.debuggerService.currentDebuggerState!.sourceFunctions.get(this.selectedFunction.address) || null;
+		}
+		else {
+			this.selectedFunction = null;
+		}
+		this.filterListedFunctions();
 	}
 
     public OnFunctionSelected($event: SourceFunction) {
@@ -217,11 +214,7 @@ export class FunctionsComponent implements OnInit {
 	}
 
 	protected onAttach(event: AttachEvent) {
-		this.loadSourceFunctions()
-			.subscribe(() => {
-			//if(event.keepBreakpoints) {
-			//}
-		});
+		this.loadSourceFunctions();
 	}
 
 	protected onDisplayFunction(event: DisplayFunctionEvent) {

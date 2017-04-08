@@ -13,7 +13,7 @@ import { LineGraphComponent, DataXY } from "../common/line-graph.component";
 import { SourceVariable, SourceVariableId } from "../../models/SourceVariable";
 import { Subscriber } from "rxjs/Subscriber";
 import { LoopData, TraceGroup } from "./trace-loop.component";
-import { DebuggerService, ExecutionEvent, PreCallFunctionEvent, DisplayTraceEvent } from "../../services/debugger.service";
+import { DebuggerService, ExecutionEvent, PreCallFunctionEvent, DisplayTraceEvent, ProcessEndedEvent, DetachEvent, AttachEvent } from "../../services/debugger.service";
 
 @Component({
     moduleId: module.id,
@@ -23,7 +23,7 @@ import { DebuggerService, ExecutionEvent, PreCallFunctionEvent, DisplayTraceEven
 export class DebuggerComponent {
 
 	public lines: string[] = [];
-	public traceData: LoopData = { kind: 'loop', startLine: 0, endLine: 0, iterations: []};
+    public traceData: LoopData = { kind: 'loop', startLine: 0, endLine: 0, iterations: [] };
 	public lastTrace: Trace | null = null;
 	public traceLoopStack: LoopData[] = [];
 
@@ -32,7 +32,7 @@ export class DebuggerComponent {
 
 	@ViewChild('lineGraph') lineGraph: LineGraphComponent;
 	public graphData: DataXY[] = [];
-	public graphVariable: SourceVariableId | null;
+	public graphVariable: SourceVariableId | null = null;
 	public currentExecution: Execution | null = null;
 
 	constructor(private debuggerService: DebuggerService,
@@ -43,6 +43,7 @@ export class DebuggerComponent {
 		this.debuggerService.getEventStream(['execution']).subscribe((event: ExecutionEvent) => this.onExecution(event));
 		this.debuggerService.getEventStream(['preCallFunction']).subscribe((event: PreCallFunctionEvent) => this.onPreCallFunction(event));
 		this.debuggerService.getEventStream(['displayTrace']).subscribe((event: DisplayTraceEvent) => this.onDisplayTrace(event));
+		this.debuggerService.getEventStream(['attach']).subscribe((event: AttachEvent) => this.resetView());
 	}
 
 	public setSourceFunction(sf: SourceFunction): Observable<null> {
@@ -51,7 +52,7 @@ export class DebuggerComponent {
 		return this.fileSystemService.getFileContents(sf.sourcePath)
 			.map(fileContents => {
 				this.lines = fileContents.split('\n')
-					.filter((l,i) => this.sourceFunction && i>=(this.sourceFunction.lineStart-1) && i<(this.sourceFunction.lineStart-1 + this.sourceFunction.lineCount));
+                    .filter((l, i) => this.sourceFunction && i >= (this.sourceFunction.lineStart - 1) && i < (this.sourceFunction.lineStart - 1 + this.sourceFunction.lineCount));
 				this.traceData = {
 					kind: 'loop',
 					startLine: sf.lineStart,
@@ -61,7 +62,7 @@ export class DebuggerComponent {
 				this.lastTrace = null;
 				this.traceLoopStack = [this.traceData];
 				this.lines.forEach((_, i) => {
-					MatchMaxHeightDirective.markDirty(`debugger-${sf.lineStart+i}`);
+                    MatchMaxHeightDirective.markDirty(`debugger-${sf.lineStart + i}`);
 				});
 				return null;
 			});
@@ -87,11 +88,11 @@ export class DebuggerComponent {
 	}
 
 	public addTrace(trace: Trace) {
-		if(trace.data.tType === 'call') {
+        if (trace.data.tType === 'call') {
 			//TODO: properly handle these
 			return;
 		}
-		if(trace.data.tType === 'crash') {
+        if (trace.data.tType === 'crash') {
 			this.snackBar.open(`Program crashed: ${trace.data.stack}`, undefined, {
 				duration: 5000
 			});
@@ -102,37 +103,37 @@ export class DebuggerComponent {
 		//In order to handle early exists, we need to go back and reorganize previous loops
 		//this probably involves changing loop.endLine values and moving traces into a more deeply nested loop
 		let currentLoop = this.traceLoopStack[this.traceLoopStack.length - 1];
-		if(this.lastTrace !== null) {
-			if(trace.line > this.lastTrace.line) {
-				if(trace.line > currentLoop.endLine) {
+        if (this.lastTrace !== null) {
+            if (trace.line > this.lastTrace.line) {
+                if (trace.line > currentLoop.endLine) {
 					this.traceLoopStack.pop();
 					currentLoop = this.traceLoopStack[this.traceLoopStack.length - 1];
 				}
 			}
 			else {
 
-				while(true) {
-					if(currentLoop.startLine > trace.line) {
+                while (true) {
+                    if (currentLoop.startLine > trace.line) {
 						this.traceLoopStack.pop();
 						currentLoop = this.traceLoopStack[this.traceLoopStack.length - 1];
 					}
-					else if(currentLoop.startLine === trace.line) {
+                    else if (currentLoop.startLine === trace.line) {
 						currentLoop.iterations.push([]);
 						break;
 					}
 					else {
-						let iteration = currentLoop.iterations[currentLoop.iterations.length-1];
+                        let iteration = currentLoop.iterations[currentLoop.iterations.length - 1];
 						let tgLine = -1;
-						let traceGroupIndex = iteration.findIndex((tg:TraceGroup) => {
+                        let traceGroupIndex = iteration.findIndex((tg: TraceGroup) => {
 							tgLine = (tg.kind === 'trace' && tg.trace.line) ||
 										 (tg.kind === 'loop' && tg.startLine) || -1;
 							return tgLine >= trace.line;
 						});
 
 						//if tgLine === -1 we're in trouble
-						let newLoop: TraceGroup = { kind: 'loop', startLine: tgLine, endLine: this.lastTrace.line, iterations: [iteration.slice(traceGroupIndex), []]};
-						currentLoop.iterations[currentLoop.iterations.length-1] = iteration.slice(0, traceGroupIndex);
-						currentLoop.iterations[currentLoop.iterations.length-1].push(newLoop);
+                        let newLoop: TraceGroup = { kind: 'loop', startLine: tgLine, endLine: this.lastTrace.line, iterations: [iteration.slice(traceGroupIndex), []] };
+                        currentLoop.iterations[currentLoop.iterations.length - 1] = iteration.slice(0, traceGroupIndex);
+                        currentLoop.iterations[currentLoop.iterations.length - 1].push(newLoop);
 						this.traceLoopStack.push(newLoop);
 						currentLoop = newLoop;
 						break;
@@ -141,7 +142,7 @@ export class DebuggerComponent {
 			}
 		}
 
-		currentLoop.iterations[currentLoop.iterations.length-1].push({ kind: 'trace', trace: trace});
+        currentLoop.iterations[currentLoop.iterations.length - 1].push({ kind: 'trace', trace: trace });
 		this.lastTrace = trace;
 	}
 
@@ -162,8 +163,8 @@ export class DebuggerComponent {
 		}
 	}
 
-	public GetFunctionAsString():string {
-		if(!this.sourceFunction) {
+    public GetFunctionAsString(): string {
+        if (!this.sourceFunction) {
 			return 'No Function Selected';
 		} else if(this.debuggerService.currentDebuggerState && this.debuggerService.currentDebuggerState.sourceTypes) {
 			let stMap = this.debuggerService.currentDebuggerState.sourceTypes;
@@ -201,7 +202,7 @@ export class DebuggerComponent {
 							}
 						}
 					},
-					(error:Response)=>{
+                        (error: Response) => {
 						console.error(error);
 					});
 			}).debounceTime(100).subscribe(
@@ -218,5 +219,19 @@ export class DebuggerComponent {
 
 	protected onDisplayTrace(event: DisplayTraceEvent) {
 		this.DisplayTrace(event.execution);
+	}
+
+	protected resetView() {
+		this.lines = [];
+		this.traceData = { kind: 'loop', startLine: 0, endLine: 0, iterations: [] };
+		this.lastTrace = null;
+		this.traceLoopStack = [];
+
+		this.sourceFunction = null;
+		this.setParameters = {};
+
+		this.graphData = [];
+		this.graphVariable = null;
+		this.currentExecution = null;
 	}
 }

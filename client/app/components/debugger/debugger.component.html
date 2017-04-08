@@ -31,7 +31,7 @@
 					</div>
 				</div>
 				<div class="trace-col" fxFlex>
-					<spice-trace-loop
+					<spice-trace-loop *ngIf="debuggerService.currentDebuggerState"
 						[debuggerState]="debuggerService.currentDebuggerState"
 						[sourceFunction]="sourceFunction"
 						[loopData]="traceData" [oddStartLine]="traceData.startLine%2===1"></spice-trace-loop>
