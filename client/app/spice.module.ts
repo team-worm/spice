@@ -1,3 +1,4 @@
+///<reference path="components/common/variable-display/variable-display.component.ts"/>
 import 'hammerjs';
 import './rxjs-extensions';
 
@@ -26,16 +27,19 @@ import {FileBrowserNodeComponent} from "./components/common/file-browser-node.co
 import {FunctionListComponent} from "./components/common/function-list.component";
 import {ProcessListComponent} from "./components/common/process-list.component";
 import {FilterByStringPipe} from "./pipes/filter-by-string.pipe";
+import {VariableDisplayComponent} from "./components/common/variable-display/variable-display.component";
 
-import { MockBackend } from "@angular/http/testing";
-import { Http, BaseRequestOptions, RequestOptions, ConnectionBackend } from "@angular/http";
-import { SpiceMockBackend } from "./spice-mock-backend";
-import { XHRBackend } from "@angular/http";
 import { MatchMaxHeightDirective } from "./directives/MatchMaxHeight.directive";
 import { TraceComponent } from "./components/debugger/trace.component";
 import { LineGraphComponent } from "./components/common/line-graph.component";
 import { TraceLoopComponent } from "./components/debugger/trace-loop.component";
 import {TraceHistoryComponent} from "./components/debugger/trace-history/trace-history.component";
+import {StructTypeDisplay} from "./components/common/variable-display/struct-type-display.component";
+import {PrimitiveTypeDisplay} from "./components/common/variable-display/primitive-type-display.component";
+import {ArrayTypeDisplay} from "./components/common/variable-display/array-type-display.component";
+import {PointerTypeDisplay} from "./components/common/variable-display/pointer-type-display.component";
+import {FunctionTypeDisplay} from "./components/common/variable-display/function-type-display.component";
+import {TypeMappingComponent} from "./components/common/type-mapping.component";
 
 @NgModule({
     imports: [MaterialModule.forRoot(), FormsModule, RouterModule, BrowserModule, HttpModule, FlexLayoutModule],
@@ -56,7 +60,14 @@ import {TraceHistoryComponent} from "./components/debugger/trace-history/trace-h
         FilterByStringPipe,
         MatchMaxHeightDirective,
         LineGraphComponent,
-        TraceHistoryComponent
+        TraceHistoryComponent,
+        VariableDisplayComponent,
+        StructTypeDisplay,
+        PrimitiveTypeDisplay,
+        ArrayTypeDisplay,
+        PointerTypeDisplay,
+        FunctionTypeDisplay,
+        TypeMappingComponent
     ],
     providers: [
         //BEGIN MOCK PROVIDERS--Comment these out to disable backend mocking!
@@ -71,7 +82,8 @@ import {TraceHistoryComponent} from "./components/debugger/trace-history/trace-h
         DebuggerService],
     entryComponents: [
         AboutComponent,
-        HelpComponent],
+        HelpComponent,
+        TypeMappingComponent],
     bootstrap: [SpiceRootComponent]
 
 })

@@ -9,6 +9,10 @@
         justify-content: flex-start;
     }
     md-card {
+        .types-button {
+            float:right;
+        }
+
         &.function-source-card {
             padding: 0 !important;
         }

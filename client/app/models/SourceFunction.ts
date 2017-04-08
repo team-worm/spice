@@ -25,16 +25,4 @@ export class SourceFunction {
     @Deserialize({ element: SourceVariable })
     locals: SourceVariable[];
 
-    getAsStringWithParameters(padding?:string):string {
-        let pad = padding ? padding : ' ';
-        return this.name + pad + this.getParametersAsString();
-    }
-
-    getParametersAsString(): string {
-        const parameters = this.parameters
-            .map(parameter => `${parameter.sType} ${parameter.name}`)
-            .join(", ");
-
-        return `(${parameters})`;
-    }
 }

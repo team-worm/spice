@@ -1,0 +1,84 @@
+.variable-display {
+  .variable-header {
+    .variable-name {
+      font-weight: 600;
+      font-size: larger;
+    }
+    .variable-subname{
+
+    }
+    .save-button {
+
+    }
+  }
+  .pointer {
+    margin: 8px;
+    cursor: pointer;
+    md-icon {
+      font-size: 18px;
+      vertical-align: sub;
+    }
+    &:hover {
+      font-weight: 600;
+    }
+  }
+  .pointer-contents {
+    margin: 8px;
+  }
+  .primitive {
+    &.null {
+      font-weight: 600;
+      font-style: italic;
+      margin-top: 8px;
+      margin-bottom: 8px;
+
+    }
+    &.bool {
+      margin-top: 8px !important;
+      margin-bottom: 8px !important;
+      .mat-slide-toggle {
+        margin: 0;
+      }
+    }
+    &.input {
+      margin: 16px 0 0 8px;
+      .mat-input-wrapper {
+        margin: 0;
+      }
+    }
+    margin-left: 10px;
+    width: 210px;
+  }
+  .struct {
+    margin: 8px;
+    table {
+      td:first-child {
+        width: 1%;
+        white-space: nowrap;
+        .fieldName {
+          font-weight: 600;
+        }
+        .fieldType {
+          font-size: 12px;
+          font-style: italic;
+
+        }
+      }
+      width: 100%;
+    }
+  }
+  .function {
+    md-icon {
+      font-size: 18px;
+      vertical-align: sub;
+    }
+    .edit-warning {
+      font-style: italic;
+      font-size: 12px;
+      vertical-align: text-top;
+    }
+    span {
+      font-weight: 500;
+    }
+  }
+}

@@ -1,6 +1,6 @@
 <div class="debugger-container">
 	<md-card class="smallerMargin">
-		<md-card-title><i>{{GetFunctionAsString()}}</i></md-card-title>
+		<md-card-title><i>{{GetFunctionAsString()}}</i> <button class="types-button" md-raised-button><md-icon [color]="'primary'">compare_arrows</md-icon> Type Mapping</button></md-card-title>
 		<md-card-subtitle *ngIf="!sourceFunction">Select functions and set breakpoints from the <span class="functions-keyword" (click)="GoToFunctionsView()">functions</span> view.</md-card-subtitle>
 		<md-card-content *ngIf="!!sourceFunction">
 			<table class="width-100" cellspacing="0">
@@ -31,7 +31,10 @@
 					</div>
 				</div>
 				<div class="trace-col" fxFlex>
-					<spice-trace-loop [loopData]="traceData" [oddStartLine]="traceData.startLine%2===1"></spice-trace-loop>
+					<spice-trace-loop *ngIf="debuggerService.currentDebuggerState"
+						[debuggerState]="debuggerService.currentDebuggerState"
+						[sourceFunction]="sourceFunction"
+						[loopData]="traceData" [oddStartLine]="traceData.startLine%2===1"></spice-trace-loop>
 				</div>
 			</div>
 		</md-card-content>
@@ -41,8 +44,8 @@
 			<div fxFlex="25">
 				<h2>Graph Function Variable</h2>
 				<div class="variable-selector">
-					<md-select placeholder="Variable" *ngIf="!!sourceFunction" [(ngModel)]="graphVariableName">
-						<md-option *ngFor="let sf of sourceFunction.locals.concat(sourceFunction.parameters)" [value]="sf.name">
+					<md-select placeholder="Variable" *ngIf="!!sourceFunction" [(ngModel)]="graphVariable">
+						<md-option *ngFor="let sf of sourceFunction.locals.concat(sourceFunction.parameters)" [value]="sf.address">
 							{{sf.name}}
 						</md-option>
 					</md-select>
@@ -50,7 +53,7 @@
 				<!--<md-input-container class="width-100">-->
 					<!--<input mdInput [(ngModel)]="graphVariableName" placeholder="Variable name">-->
 				<!--</md-input-container>-->
-				<button md-raised-button [disabled]="!graphVariableName" (click)="SetGraphVariable(graphVariableName)"><md-icon>timeline</md-icon> Graph</button>
+				<button md-raised-button [disabled]="!graphVariable" (click)="SetGraphVariable(graphVariable)"><md-icon>timeline</md-icon> Graph</button>
 			</div>
 			<span fxFlex></span>
 			<div fxFlex class="line-graph">

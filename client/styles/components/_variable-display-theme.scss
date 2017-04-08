@@ -1,0 +1,39 @@
+@import '../../node_modules/@angular/material/core/theming/theming';
+
+@mixin variable-display-theme($theme) {
+  $primary: map-get($theme, primary);
+  $accent: map-get($theme, accent);
+  $foreground: map-get($theme, foreground);
+  $background: map-get($theme, background);
+
+  .variable-display {
+    .pointer {
+      &.expanded {
+        border-bottom: 1px map-get($background, default-contrast) solid;
+      }
+    }
+    .struct {
+
+      table {
+        tr:nth-child(even) {
+          background-color: mat-color($primary, 200);
+        }
+        tr:nth-child(odd) {
+          background-color: mat-color($primary, 100);
+        }
+        td:first-child {
+          border-right: 1px map-get($background, default-contrast) solid;
+        }
+        td {
+          border-bottom: 1px map-get($background, default-contrast) solid;
+        }
+        border: 1px map-get($background, default-contrast) solid;
+      }
+    }
+    .function {
+      .edit-warning {
+        color: mat-color($primary, 900);
+      }
+    }
+  }
+}

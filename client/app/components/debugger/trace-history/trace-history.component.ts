@@ -1,9 +1,10 @@
 import {Component} from "@angular/core";
 import {DebuggerState} from "../../../models/DebuggerState";
 import {MdSidenav} from "@angular/material";
-import {Execution} from "../../../models/Execution";
+import {Execution, FunctionData } from "../../../models/Execution";
 import {SourceFunction} from "../../../models/SourceFunction";
 import {ViewService} from "../../../services/view.service";
+import { DebuggerService } from "../../../services/debugger.service";
 
 @Component({
     selector: 'trace-history',
@@ -25,43 +26,30 @@ export class TraceHistoryComponent {
 
     public executions:{ex: Execution, func: SourceFunction | null}[] = [];
 
-    constructor(private viewService:ViewService) {}
+	constructor(private debuggerService: DebuggerService,
+				private viewService:ViewService) {
+	}
 
     public Toggle() {
-        if(this.debugState && this.sidenav) {
-            if(this.sidenav.opened) {
-                this.sidenav.close();
-            } else {
-                this.executions = [];
-
-                for(let k of this.debugState.executions.keys()) {
-                    this.debugState.executions.get(k).subscribe((e:Execution) => {
-                        if(this.debugState && e.data.eType === "function") {
-                            this.debugState.sourceFunctions.get(e.data.sFunction).subscribe((sf:SourceFunction)=>{
-                                this.executions.push({
-                                    ex: e,
-                                    func: sf
-                                });
-                            })
-                        } else {
-                            this.executions.push({
-                                ex: e,
-                                func: null
-                            });
-                        }
-
-                    })
-                }
-
-                this.sidenav.open();
-            }
-
-        }
+    	if(this.debuggerService.currentDebuggerState && this.sidenav) {
+    		if(this.sidenav.opened) {
+    			this.sidenav.close();
+			} else {
+				this.executions = Array.from(this.debuggerService.currentDebuggerState.executions.values())
+					.filter(ex => ex.data.eType === 'function')
+					.map(ex => { return { ex: ex, func: this.debuggerService.currentDebuggerState!.sourceFunctions.get((ex.data as FunctionData).sFunction) || null };});
+				this.sidenav.open();
+			}
+		}
     }
 
     public GetListTitle(e:{ex: Execution, func: SourceFunction | null}):string {
-        if(!!e.func) {
-            return e.func.getAsStringWithParameters();
+        if(e.func && this.debuggerService.currentDebuggerState && this.debuggerService.currentDebuggerState.sourceTypes) {
+            let stMap = this.debuggerService.currentDebuggerState.sourceTypes;
+            const parameters = e.func.parameters
+                .map(parameter => `${stMap.get(parameter.sType)!.toString(stMap)} ${parameter.name}`)
+                .join(", ");
+            return  `${e.func.name}(${parameters})`;
         } else {
             return 'Process'
         }
@@ -76,10 +64,7 @@ export class TraceHistoryComponent {
     }
 
     public ReplayTrace(e:{ex: Execution, func: SourceFunction | null}) {
-        if(this.viewService.debuggerComponent) {
-            this.viewService.debuggerComponent.DisplayTrace(e.ex.id);
-            this.viewService.activeView = 'debugger';
-        }
+		this.debuggerService.displayTrace(e.ex);
     }
 
 }

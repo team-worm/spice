@@ -11,11 +11,11 @@ export class Execution {
     data: ProcessData | FunctionData;
 }
 
-interface ProcessData {
+export interface ProcessData {
     eType: "process";
 }
 
-interface FunctionData {
+export interface FunctionData {
     eType: "function";
     sFunction: SourceFunctionId;
 }

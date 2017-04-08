@@ -227,6 +227,14 @@ impl SymbolHandler {
 
             let fields = self.get_type_children(module, type_index)?;
             let fields: io::Result<Vec<_>> = fields.iter()
+                .filter(|&field| {
+                    // TODO: this would more accurately filter for data fields, not "typed things"
+                    // that would need to be expanded to support base classes
+                    match self.get_type_info(module, *field) {
+                        Ok(TypeIndex(_)) => true,
+                        Err(_) => false,
+                    }
+                })
                 .map(|&field| {
                     let name = self.get_type_name(module, field)?;
                     let TypeIndex(field_type) = self.get_type_info(module, field)?;
@@ -236,6 +244,9 @@ impl SymbolHandler {
                 .collect();
 
             Ok(Type::Struct { name: name, size: size as usize, fields: fields? })
+        } else if tag == winapi::SymTagEnum {
+            let TypeIndex(base) = self.get_type_info(module, type_index)?;
+            self.type_from_index(module, base)
         } else {
             Err(io::Error::new(io::ErrorKind::Other, "unsupported type"))
         }
