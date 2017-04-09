@@ -1,11 +1,11 @@
 import {Component, Input, OnInit} from "@angular/core";
+import {SourceType} from "../../../models/SourceType";
 @Component({
     selector: 'spice-primitive-type-display',
     template: `
-        
         <md-input-container class="primitive input" *ngIf="typeOfInput() === 'number'">
             <input mdInput 
-                placeholder="{{type.base}}" 
+                placeholder="{{type.data.base}}" 
                 [disabled]="!editable" 
                 value="" 
                 type="{{inputType()}}" 
@@ -21,10 +21,10 @@ import {Component, Input, OnInit} from "@angular/core";
         
     `
 })
-export class PrimitiveTypeDisplay implements OnInit{
+export class PrimitiveTypeDisplay {
 
     @Input()
-    public type:any;
+    public type:SourceType;
 
     @Input()
     public value:any;
@@ -32,66 +32,78 @@ export class PrimitiveTypeDisplay implements OnInit{
     @Input()
     public editable:boolean = true;
 
-    constructor(){
-
-    }
-
-    public ngOnInit() {
-        //TODO Type Validation
-    }
+    constructor(){}
 
     public typeOfInput():string {
-        switch(this.type.base) {
-            case 'void':
-                return 'none';
-            case 'bool':
-                return 'boolean';
-            case 'int':
-            case 'uint':
-            case 'float':
-                return 'number';
-            default:
-                return 'none'
+        if(this.type.data.tType === 'primitive') {
+            switch(this.type.data.base) {
+                case 'void':
+                    return 'none';
+                case 'bool':
+                    return 'boolean';
+                case 'int':
+                case 'uint':
+                case 'float':
+                    return 'number';
+                default:
+                    return 'none'
+            }
+        } else {
+            return 'none';
         }
+
     }
 
     public inputMax():number|string {
-        let size:number = this.type.size;
-        let max:number = (Math.pow(2,8*size) - 2) / 2;
-        let maxU:number = (max*2)+1;
+        if(this.type.data.tType === 'primitive') {
+            let size:number = this.type.data.size;
+            let max:number = (Math.pow(2,8*size) - 2) / 2;
+            let maxU:number = (max*2)+1;
 
-        switch(this.type.base) {
-            case 'int':
-                return max;
-            case 'uint':
-                return maxU;
-            default:
-                return '';
+            switch(this.type.data.base) {
+                case 'int':
+                    return max;
+                case 'uint':
+                    return maxU;
+                default:
+                    return '';
+            }
+        } else {
+            return '';
         }
-    }
-    public inputMin():number|string{
-        let size:number = this.type.size;
-        let max:number = (Math.pow(2,8*size) - 2) / 2;
-        let min:number = (max + 1) * -1;
 
-        switch(this.type.base) {
-            case 'int':
-                return min;
-            case 'uint':
-                return 0;
-            default:
-                return '';
+    }
+    public inputMin():number|string {
+        if(this.type.data.tType === 'primitive') {
+            let size:number = this.type.data.size;
+            let max:number = (Math.pow(2,8*size) - 2) / 2;
+            let min:number = (max + 1) * -1;
+
+            switch(this.type.data.base) {
+                case 'int':
+                    return min;
+                case 'uint':
+                    return 0;
+                default:
+                    return '';
+            }
+        } else {
+            return '';
         }
     }
 
     public inputType():string {
-        switch(this.type.base) {
-            case 'int':
-            case 'uint':
-            case 'float':
-                return 'number';
-            default:
-                return ''
+        if(this.type.data.tType === 'primitive') {
+            switch(this.type.data.base) {
+                case 'int':
+                case 'uint':
+                case 'float':
+                    return 'number';
+                default:
+                    return ''
+            }
+        } else {
+            return '';
         }
     }
 }

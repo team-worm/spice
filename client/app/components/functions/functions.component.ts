@@ -39,9 +39,7 @@ export class FunctionsComponent implements OnInit {
 
 	constructor(public debuggerService: DebuggerService,
 				private snackBar: MdSnackBar,
-				private viewService: ViewService,
 				private fileSystemService: FileSystemService,
-				private http: Http,
                 private dialog: MdDialog) {
 		this.debuggerService.getEventStream(['attach']).subscribe((event: AttachEvent) => this.onAttach(event));
 		this.debuggerService.getEventStream(['displayFunction']).subscribe((event: DisplayFunctionEvent) => this.onDisplayFunction(event));

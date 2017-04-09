@@ -6,13 +6,17 @@
 			<table class="width-100" cellspacing="0">
 				<tr>
 					<td *ngFor="let par of sourceFunction.parameters">
-						<md-input-container class="width-100">
-							<input mdInput [(ngModel)]="setParameters[par.name]" placeholder="{{par.sType}} {{par.name}}">
-						</md-input-container>
+						<span>{{par.name}}:</span>
+						<spice-variable-display
+								[type]="debuggerService.currentDebuggerState ? debuggerService.currentDebuggerState.sourceTypes.get(par.sType) : null"
+								[editable]="true"
+								[debugState]="debuggerService.currentDebuggerState"
+								[address]="par.address"
+								(valueChange)="onCustomParameterChange()"></spice-variable-display>
 					</td>
 				</tr>
 			</table>
-			<button md-button [disabled]="!sourceFunction" (click)="ExecuteFunction()"><md-icon class="md-accent">play_circle_outline</md-icon> Call</button>
+			<button md-button [disabled]="!sourceFunction" (click)="CallFunction()"><md-icon class="md-accent">play_circle_outline</md-icon> Call</button>
 		</md-card-content>
 	</md-card>
 	<md-card class="smallerMargin source-card">

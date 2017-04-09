@@ -83,10 +83,14 @@ export class DebuggerHttpService {
 			.publishLast().refCount();
 	}
 
-	public executeFunction(id: DebugId, sFunction: SourceFunctionId, parameters: {[id: number]: Value}): Observable<Execution> {
+	public callFunction(id: DebugId, sFunction: SourceFunctionId, parameters: {[id: number]: Value}): Observable<Execution> {
+		let mappedParams:{[id: number]:any} = {};
+		for(let par of Object.keys(parameters)) {
+			mappedParams[par] = parameters[par].value;
+		}
 		return this.http.post(
 			`http://${host}:${port}/api/v1/debug/${id}/functions/${sFunction}/execute`,
-			{arguments: parameters}
+			{arguments: mappedParams}
 		)
 			.map(res => fromJSON(res.json(), Execution))
 			.catch(DebuggerHttpService.handleServerDataError('Execution'))

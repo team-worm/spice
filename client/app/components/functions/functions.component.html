@@ -28,7 +28,7 @@
                         <md-icon>bookmark_border</md-icon>Set Breakpoint
                     </button>
                     <button md-button [disabled]="!selectedFunction"
-						*ngIf="!selectedFunction || !!debuggerService.currentDebuggerState && debuggerService.currentDebuggerState.breakpoints.has(selectedFunction.address)" (click)="ToggleBreakpoint()">
+						*ngIf="!!selectedFunction && !!debuggerService.currentDebuggerState && debuggerService.currentDebuggerState.breakpoints.has(selectedFunction.address)" (click)="ToggleBreakpoint()">
                         <md-icon>bookmark</md-icon>Remove Breakpoint
                     </button>
                     <i>or</i>

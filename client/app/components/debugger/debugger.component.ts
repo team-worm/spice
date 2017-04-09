@@ -14,6 +14,7 @@ import { SourceVariable, SourceVariableId } from "../../models/SourceVariable";
 import { Subscriber } from "rxjs/Subscriber";
 import { LoopData, TraceGroup } from "./trace-loop.component";
 import { DebuggerService, ExecutionEvent, PreCallFunctionEvent, DisplayTraceEvent, ProcessEndedEvent, DetachEvent, AttachEvent } from "../../services/debugger.service";
+import {Value} from "../../models/Value";
 import * as Prism from 'prismjs';
 
 @Component({
@@ -29,14 +30,14 @@ export class DebuggerComponent {
 	public traceLoopStack: LoopData[] = [];
 
 	public sourceFunction: SourceFunction | null = null;
-	public setParameters:{[id: string]: any} = {};
+	public setParameters:{[address: number]: Value} = {};
 
 	@ViewChild('lineGraph') lineGraph: LineGraphComponent;
 	public graphData: DataXY[] = [];
 	public graphVariable: SourceVariableId | null = null;
 	public currentExecution: Execution | null = null;
 
-	constructor(private debuggerService: DebuggerService,
+	constructor(public debuggerService: DebuggerService,
 				private fileSystemService: FileSystemService,
 				private viewService: ViewService,
 				private snackBar: MdSnackBar) {
@@ -152,11 +153,17 @@ export class DebuggerComponent {
 
 	public onPreCallFunction(event: PreCallFunctionEvent) {
 		this.setParameters = {};
+		if(this.debuggerService.currentDebuggerState) {
+			for(let par of event.sourceFunction.parameters) {
+				this.setParameters[par.address] = this.debuggerService.currentDebuggerState.sourceTypes.get(par.sType)!.getDefaultValue();
+			}
+		}
 		this.setSourceFunction(event.sourceFunction).subscribe(() => {}); //TODO: error handling
 	}
 
-	public ExecuteFunction() {
+	public CallFunction() {
 		if(this.sourceFunction) {
+			console.log("Parameters", this.setParameters);
 			this.debuggerService.callFunction(this.sourceFunction, this.setParameters)
 				.subscribe((ex:Execution)=>{
 					this.DisplayTrace(ex);
@@ -219,6 +226,10 @@ export class DebuggerComponent {
 		if(event.reason === 'break') {
 			this.DisplayTrace(event.execution!);
 		}
+	}
+
+	public onCustomParameterChange(event: { address:number, val:Value}) {
+		this.setParameters[event.address] = event.val;
 	}
 
 	protected onDisplayTrace(event: DisplayTraceEvent) {

@@ -1,4 +1,5 @@
-import {Component, Input, OnInit} from "@angular/core";
+import {Component, Input} from "@angular/core";
+import {SourceType, SourceTypeId} from "../../../models/SourceType";
 @Component({
     selector: 'spice-array-type-display',
     template: `        
@@ -8,7 +9,7 @@ import {Component, Input, OnInit} from "@angular/core";
 export class ArrayTypeDisplay {
 
     @Input()
-    public type:any;
+    public type:SourceType;
 
     @Input()
     public value:any;
@@ -16,10 +17,8 @@ export class ArrayTypeDisplay {
     @Input()
     public editable:boolean;
 
-    /* Delete Mes */
     @Input()
-    public types: {[id: number]: any};
-    /* END Delete Mes*/
+    public types:Map<SourceTypeId, SourceType>;
 
     constructor() {}
 }
