@@ -12,6 +12,7 @@ import {FunctionListComponent} from "../common/function-list.component";
 import {fromJSON} from "../../util/SpiceValidator";
 import {SourceFunctionCollection} from "../../models/SourceFunctionCollection";
 import { Observable } from "rxjs/Observable";
+import * as Prism from 'prismjs';
 
 import cRuntime from "./cRuntime";
 import cStandardLib from "./cStandardLib";
@@ -122,6 +123,9 @@ export class FunctionsComponent implements OnInit {
         this.linesLoaded = false;
         this.fileSystemService.getFileContents($event.sourcePath).subscribe((contents: string) => {
             this.lines = contents.split('\n');
+            this.lines = this.lines.map(function(l) {
+                return Prism.highlight(l, Prism.languages["clike"]);
+            });
             this.linesLoaded = true;
             this.refreshHeights();
         }, (error:Error)=> {
