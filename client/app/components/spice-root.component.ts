@@ -4,14 +4,14 @@ import { DebuggerComponent } from "./debugger/debugger.component";
 import { FunctionsComponent } from "./functions/functions.component";
 import { ToolbarComponent } from "./toolbar/toolbar.component";
 import { LauncherComponent } from "./launcher/launcher.component";
-import {MdSidenav} from "@angular/material";
-import {TraceHistoryComponent} from "./debugger/trace-history/trace-history.component";
+import { MdSidenav } from "@angular/material";
+import { TraceHistoryComponent } from "./debugger/trace-history/trace-history.component";
 
 @Component({
     selector: 'spice-root',
     template: `
 <span [class.spicy-dark]="isDarkTheme">
-    <spice-toolbar ></spice-toolbar>
+    <spice-toolbar></spice-toolbar>
     <md-sidenav-container>
         <spice-launcher [hidden]="!IsInLauncher()"></spice-launcher>
         <spice-configuration [hidden]="!IsInFunctions()"></spice-configuration>
@@ -45,7 +45,7 @@ export class SpiceRootComponent implements OnInit {
         this.traceHistoryComponent.sidenav = this.traceHistory;
     }
 
-    public SetTheme(theme:string) {
+    public SetTheme(theme: string) {
         this.isDarkTheme = !this.isDarkTheme;
     }
 

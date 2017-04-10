@@ -5,24 +5,25 @@
         <span *ngIf="!!debugState" class="target-name">{{processName()}}</span>
     </span>
     <span class="flex-pusher"></span>
-    <button md-button *ngIf="!canContinue()" [disabled]="!canStart()" (click)="ContinueExecution()"><md-icon [color]="'accent'">play_arrow</md-icon> Start</button>
-    <button md-button *ngIf="canContinue()" [disabled]="!canContinue()" (click)="ContinueExecution()"><md-icon [color]="'accent'">skip_next</md-icon> Continue</button>
-    <button md-button [disabled]="!canStopExecution()" (click)="StopExecution()"><md-icon [color]="'accent'">pause</md-icon> Pause</button>
-    <button md-button [disabled]="!canKillProcess()" (click)="KillProcess()"><md-icon [color]="'accent'">stop</md-icon> Stop</button>
-    <button md-button [disabled]="!canDetach()" (click)="Detach()"><md-icon [color]="'accent'">close</md-icon>Detach</button>
-    <span class="left-divider">
-    <button md-button *ngIf="breakpointCount() === 0" [disabled]="!debuggerService.currentDebuggerState || IsInFunctionView()" (click)="GoToFunctionsView()">
-        <md-icon>library_books</md-icon>
-        Functions [{{breakpointCount()}}]
-    </button>
-    <button md-button *ngIf="breakpointCount() > 0" [mdMenuTriggerFor]="breakpointMenu" (click)="GetBpFunctions()">
-        <md-icon>library_books</md-icon>
-        Functions [{{breakpointCount()}}]
-    </button>
-	<button md-button [disabled]="breakpointCount() === 0" (click)="ToggleTraceHistory()">
-        <md-icon>bug_report</md-icon>
-        Debug Traces [{{breakpointCount()}}]
-    </button>
+    <span [hidden]="IsInLauncherView()">
+        <button md-button *ngIf="!canContinue()" [disabled]="!canStart()" (click)="ContinueExecution()"><md-icon [color]="'accent'">play_arrow</md-icon> Start</button>
+        <button md-button *ngIf="canContinue()" [disabled]="!canContinue()" (click)="ContinueExecution()"><md-icon [color]="'accent'">skip_next</md-icon> Continue</button>
+        <button md-button [disabled]="!canStopExecution()" (click)="StopExecution()"><md-icon [color]="'accent'">pause</md-icon> Pause</button>
+        <button md-button [disabled]="!canKillProcess()" (click)="KillProcess()"><md-icon [color]="'accent'">stop</md-icon> Stop</button>
+        <button md-button [disabled]="!canDetach()" (click)="Detach()"><md-icon [color]="'accent'">close</md-icon>Detach</button>
+        <span class="left-divider">
+        <button md-button *ngIf="breakpointCount() === 0" [disabled]="!debuggerService.currentDebuggerState || IsInFunctionView()" (click)="GoToFunctionsView()">
+            <md-icon>library_books</md-icon>
+            Functions [{{breakpointCount()}}]
+        </button>
+        <button md-button *ngIf="breakpointCount() > 0" [mdMenuTriggerFor]="breakpointMenu" (click)="GetBpFunctions()">
+            <md-icon>library_books</md-icon>
+            Functions [{{breakpointCount()}}]
+        </button>
+        <button md-button [disabled]="breakpointCount() === 0" (click)="ToggleTraceHistory()">
+            <md-icon>bug_report</md-icon>
+            Debug Traces [{{breakpointCount()}}]
+        </button>
     </span>
 </md-toolbar>
 
