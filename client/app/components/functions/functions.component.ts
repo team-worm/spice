@@ -17,6 +17,7 @@ import * as Prism from 'prismjs';
 import cRuntime from "./cRuntime";
 import cStandardLib from "./cStandardLib";
 import {TypeMappingComponent} from "../common/type-mapping.component";
+import { displaySnackbarError } from "../../util/SnackbarError";
 
 @Component({
     moduleId: module.id,
@@ -199,10 +200,7 @@ export class FunctionsComponent implements OnInit {
 		ds.setBreakpoint(id).subscribe(
 			(bp: Breakpoint) => {},
 			(error: any) => {
-				console.log(error);
-				this.snackBar.open(`Failed to add breakpoint: ${error.message}`, undefined, {
-					duration: 3000
-				});
+				displaySnackbarError(this.snackBar, 'Failed to add breakpoint', error);
 		});
 	}
 
@@ -210,10 +208,7 @@ export class FunctionsComponent implements OnInit {
 		ds.removeBreakpoint(id).subscribe(
 			() => {},
 			(error: any) => {
-				console.log(error);
-				this.snackBar.open(`Failed to remove breakpoint: ${error.message}`, undefined, {
-					duration: 3000
-				});
+				displaySnackbarError(this.snackBar, 'Failed to remove breakpoint', error);
 		});
 	}
 

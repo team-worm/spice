@@ -1,5 +1,4 @@
 import { Component, ViewChild, ElementRef, AfterContentChecked } from "@angular/core";
-import {MdSnackBar} from "@angular/material";
 import {Response} from "@angular/http";
 
 import {SourceFile} from "../../models/SourceFile";
@@ -31,7 +30,6 @@ export class LauncherComponent implements AfterContentChecked {
     public launchedFile: SourceFile | null = null;
 
 	constructor(private debuggerService: DebuggerService,
-				private snackBar: MdSnackBar,
 				private viewService: ViewService,
 				private element: ElementRef) {
 		this.debuggerService.getEventStream(['attach']).subscribe((event: AttachEvent) => this.onAttach(event));
@@ -119,12 +117,6 @@ export class LauncherComponent implements AfterContentChecked {
 
 	protected onAttachError(error: any, attachName: string) {
 		this.attaching = false;
-		this.snackBar.open(`Error Attaching ${attachName}: ${error.message || error.statusText}`, undefined, {
-			duration: 3000
-		});
-		if ((<any>error).message) {
-			console.error(error);
-		}
 	}
 
 	public onAttach(event: AttachEvent) {
