@@ -6,6 +6,9 @@ import { ToolbarComponent } from "./toolbar/toolbar.component";
 import { LauncherComponent } from "./launcher/launcher.component";
 import { MdSidenav } from "@angular/material";
 import { TraceHistoryComponent } from "./debugger/trace-history/trace-history.component";
+import { ErrorEvent, DebuggerService } from "../services/debugger.service";
+import { MdSnackBar } from "@angular/material";
+import { displaySnackbarError} from "../util/SnackbarError";
 
 @Component({
     selector: 'spice-root',
@@ -32,8 +35,11 @@ export class SpiceRootComponent implements OnInit {
 
     @ViewChild(MdSidenav) traceHistory: MdSidenav;
 
-    constructor(private viewService: ViewService) {
-    }
+	constructor(private viewService: ViewService,
+				private debuggerService: DebuggerService,
+				private snackBar: MdSnackBar) {
+		this.debuggerService.getEventStream(['error']).subscribe((event: ErrorEvent) => displaySnackbarError(this.snackBar, event.cause, event.error));
+	}
 
     ngOnInit() {
         this.viewService.rootComponent = this;
@@ -60,4 +66,5 @@ export class SpiceRootComponent implements OnInit {
     public IsInDebugger(): boolean {
         return this.viewService.activeView == 'debugger';
     }
+
 }

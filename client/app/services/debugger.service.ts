@@ -9,8 +9,15 @@ import { Observer } from "rxjs/Observer";
 import { Trace, BreakData } from "../models/Trace";
 import { SourceFunction } from "../models/SourceFunction";
 import { Value } from "../models/Value";
+import { Response } from "@angular/http";
 
-export type DebuggerEvent = AttachEvent | DetachEvent | ExecutionEvent | ProcessEndedEvent | PreCallFunctionEvent | DisplayTraceEvent | DisplayFunctionEvent;
+export type DebuggerEvent = ErrorEvent | AttachEvent | DetachEvent | ExecutionEvent | ProcessEndedEvent | PreCallFunctionEvent | DisplayTraceEvent | DisplayFunctionEvent;
+
+export interface ErrorEvent {
+	eType: 'error';
+	cause: string;
+	error: any;
+}
 
 export interface AttachEvent {
 	eType: 'attach';
@@ -78,7 +85,7 @@ export class DebuggerService {
 			.switchMap(ds => {
 				this.onAttach(ds, name, path, true);
 				return ds.initialize().map(()=> ds);
-			});
+			}).catch(DebuggerService.makeErrorHandler(this, 'Failed to attach to binary'));
 	}
 
 	public attachProcess(pid: number, name: string): Observable<DebuggerState> {
@@ -86,7 +93,7 @@ export class DebuggerService {
 			.switchMap(ds => {
 				this.onAttach(ds, name, '', false);
 				return ds.initialize().map(()=> ds);
-			});
+			}).catch(DebuggerService.makeErrorHandler(this, 'Failed to attach to process'));
 	}
 
     public continueExecution(args: string = '', env: string = ''): Observable<Trace> {
@@ -117,27 +124,25 @@ export class DebuggerService {
 					break;
 				}
 				return t;
-			});
+			}).catch(DebuggerService.makeErrorHandler(this, 'Failed to continue execution'));
 	}
 
-	public killProcess(): Observable<null> {
+	public killProcess(): Observable<{}> {
 		return this.currentDebuggerState!.killProcess()
 			.map(() => {
 				let lastDebuggerState = this.currentDebuggerState;
 				this.currentDebuggerState = null;
 				this.currentExecution = null;
 				this.debuggerEventsObserver.next({eType: 'processEnded', reason: 'kill', lastDebuggerState: lastDebuggerState!});
-				return null;
-			});
+			}).catch(DebuggerService.makeErrorHandler(this, 'Failed to kill process'));
 	}
 
-	public stopCurrentExecution(): Observable<null> {
+	public stopCurrentExecution(): Observable<{}> {
 		return this.currentDebuggerState!.stopExecution(this.currentExecution!.id)
 			.map(() => {
 				this.currentExecution = null;
 				this.debuggerEventsObserver.next({eType: 'execution', execution: null, reason: 'cancel'});
-				return null;
-			});
+			}).catch(DebuggerService.makeErrorHandler(this, 'Failed to stop execution'));
 	}
 
 	protected onAttach(ds: DebuggerState, name: string, binaryPath: string, isBinary: boolean) {
@@ -160,18 +165,17 @@ export class DebuggerService {
 	}
 
 	public getProcesses(): Observable<Process[]> {
-		return this.debuggerHttp.getProcesses();
+		return this.debuggerHttp.getProcesses().catch(DebuggerService.makeErrorHandler(this, 'Failed to get processes'));
 	}
 
 	//kills (without sending processEnded event), then detaches
-	public detach(): Observable<null> {
+	public detach(): Observable<{}> {
 		return this.currentDebuggerState!.killProcess()
 			.map(() => {
 				this.currentExecution = null;
 				this.currentDebuggerState = null;
 				this.debuggerEventsObserver.next({eType: 'detach'});
-				return null;
-			});
+			}).catch(DebuggerService.makeErrorHandler(this, 'Failed to detach'));
 	}
 
 	public callFunction(sourceFunction: SourceFunction, parameters: { [varId: number]: Value}): Observable<Execution> {
@@ -180,7 +184,7 @@ export class DebuggerService {
 				this.currentExecution = ex;
 				this.debuggerEventsObserver.next({eType: 'execution', execution: ex, reason: 'call'});
 				return ex;
-			});
+			}).catch(DebuggerService.makeErrorHandler(this, 'Failed to call function'));
 	}
 
 	public preCallFunction(sourceFunction: SourceFunction) {
@@ -212,5 +216,12 @@ export class DebuggerService {
 							(err) => {console.error(`Failed to set breakpoint ${err}`);});
 				},
 				err => { console.error(`Failed to reattach to binary: ${err}`); });
+	}
+
+	protected static makeErrorHandler(ds: DebuggerService, cause: string) {
+		return function(err: any) {
+			ds.debuggerEventsObserver.next({eType: 'error', cause: cause, error: err});
+			throw err;
+		}
 	}
 }
