@@ -4,6 +4,7 @@ import './rxjs-extensions';
 
 import {NgModule}      from '@angular/core';
 import {BrowserModule} from '@angular/platform-browser';
+import {BrowserAnimationsModule} from '@angular/platform-browser/animations';
 import {MaterialModule, MdIconRegistry} from "@angular/material";
 import {FormsModule} from "@angular/forms";
 import {HttpModule} from "@angular/http";
@@ -42,7 +43,7 @@ import {FunctionTypeDisplay} from "./components/common/variable-display/function
 import {TypeMappingComponent} from "./components/common/type-mapping.component";
 
 @NgModule({
-    imports: [MaterialModule.forRoot(), FormsModule, RouterModule, BrowserModule, HttpModule, FlexLayoutModule],
+    imports: [MaterialModule.forRoot(), FormsModule, RouterModule, BrowserModule, HttpModule, FlexLayoutModule, BrowserAnimationsModule],
     declarations: [
         AboutComponent,
         HelpComponent,

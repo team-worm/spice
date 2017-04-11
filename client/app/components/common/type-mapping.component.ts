@@ -23,6 +23,6 @@ export class TypeMappingComponent implements OnInit{
     }
 
     ngOnInit() {
-        this.func = <SourceFunction> this.dialogRef.config.data;
+        this.func = <SourceFunction> this.dialogRef._containerInstance.dialogConfig.data;
     }
 }
