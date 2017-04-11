@@ -11,7 +11,8 @@
         <button md-button [disabled]="!canStopExecution()" (click)="StopExecution()"><md-icon [color]="'accent'">pause</md-icon> Pause</button>
         <button md-button [disabled]="!canKillProcess()" (click)="KillProcess()"><md-icon [color]="'accent'">stop</md-icon> Stop</button>
         <button md-button [disabled]="!canDetach()" (click)="Detach()"><md-icon [color]="'accent'">close</md-icon>Detach</button>
-        <span class="left-divider">
+	</span>
+    <span class="left-divider">
         <button md-button *ngIf="breakpointCount() === 0" [disabled]="!debuggerService.currentDebuggerState || IsInFunctionView()" (click)="GoToFunctionsView()">
             <md-icon>library_books</md-icon>
             Functions [{{breakpointCount()}}]
