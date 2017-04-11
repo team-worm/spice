@@ -8,11 +8,11 @@
 					<td *ngFor="let par of sourceFunction.parameters">
 						<span>{{par.name}}:</span>
 						<spice-variable-display
+								#varDisplay
 								[type]="debuggerService.currentDebuggerState ? debuggerService.currentDebuggerState.sourceTypes.get(par.sType) : null"
 								[editable]="true"
 								[debugState]="debuggerService.currentDebuggerState"
-								[address]="par.address"
-								(valueChange)="onCustomParameterChange()"></spice-variable-display>
+								[address]="par.address"></spice-variable-display>
 					</td>
 				</tr>
 			</table>

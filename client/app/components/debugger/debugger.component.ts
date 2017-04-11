@@ -1,4 +1,4 @@
-import { Component, ViewChild } from "@angular/core";
+import {Component, QueryList, ViewChild, ViewChildren} from "@angular/core";
 import { DebuggerState } from "../../models/DebuggerState";
 import { Execution, ExecutionId, FunctionData } from "../../models/Execution";
 import { Trace } from "../../models/Trace";
@@ -15,6 +15,7 @@ import { Subscriber } from "rxjs/Subscriber";
 import { LoopData, TraceGroup } from "./trace-loop.component";
 import { DebuggerService, ExecutionEvent, PreCallFunctionEvent, DisplayTraceEvent, ProcessEndedEvent, DetachEvent, AttachEvent } from "../../services/debugger.service";
 import {Value} from "../../models/Value";
+import {VariableDisplayComponent} from "../common/variable-display/variable-display.component";
 import * as Prism from 'prismjs';
 
 @Component({
@@ -30,6 +31,10 @@ export class DebuggerComponent {
 	public traceLoopStack: LoopData[] = [];
 
 	public sourceFunction: SourceFunction | null = null;
+
+	@ViewChildren('varDisplay')
+	private variableDisplays:QueryList<VariableDisplayComponent>;
+
 	public setParameters:{[address: number]: Value} = {};
 
 	@ViewChild('lineGraph') lineGraph: LineGraphComponent;
@@ -163,7 +168,14 @@ export class DebuggerComponent {
 
 	public CallFunction() {
 		if(this.sourceFunction) {
-			console.log("Parameters", this.setParameters);
+			for(let i = 0; i < this.variableDisplays.length; i++) {
+				let vdc:VariableDisplayComponent = this.variableDisplays.toArray()[i];
+				let val = vdc.getValue();
+				console.log(val);
+				if(val !== undefined) {
+					this.setParameters[vdc.address] = val;
+				}
+			}
 			this.debuggerService.callFunction(this.sourceFunction, this.setParameters)
 				.subscribe((ex:Execution)=>{
 					this.DisplayTrace(ex);
@@ -223,6 +235,11 @@ export class DebuggerComponent {
 
 	public onExecution(event: ExecutionEvent) {
 		this.setParameters = {};
+		if(this.debuggerService.currentDebuggerState && this.sourceFunction) {
+			for(let par of this.sourceFunction.parameters) {
+				this.setParameters[par.address] = this.debuggerService.currentDebuggerState.sourceTypes.get(par.sType)!.getDefaultValue();
+			}
+		}
 		if(event.reason === 'break') {
 			this.DisplayTrace(event.execution!);
 		}
@@ -244,6 +261,11 @@ export class DebuggerComponent {
 
 		this.sourceFunction = null;
 		this.setParameters = {};
+		if(this.debuggerService.currentDebuggerState && this.sourceFunction) {
+			for(let par of this.sourceFunction.parameters) {
+				this.setParameters[par.address] = this.debuggerService.currentDebuggerState.sourceTypes.get(par.sType)!.getDefaultValue();
+			}
+		}
 
 		this.graphData = [];
 		this.graphVariable = null;

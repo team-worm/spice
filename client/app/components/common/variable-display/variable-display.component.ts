@@ -1,7 +1,12 @@
-import {Component, EventEmitter, Input, Output} from "@angular/core";
+import {Component, EventEmitter, Input, Output, ViewChild} from "@angular/core";
 import {DebuggerState} from "../../../models/DebuggerState";
 import {SourceType, SourceTypeId} from "../../../models/SourceType";
 import {Value} from "../../../models/Value";
+import {StructTypeDisplay} from "./struct-type-display.component";
+import {PrimitiveTypeDisplay} from "./primitive-type-display.component";
+import {ArrayTypeDisplay} from "./array-type-display.component";
+import {PointerTypeDisplay} from "./pointer-type-display.component";
+import {FunctionTypeDisplay} from "./function-type-display.component";
 
 @Component({
     selector: 'spice-variable-display',
@@ -53,10 +58,39 @@ export class VariableDisplayComponent {
     public editable:boolean;
 
     @Input()
+    public value:Value;
+
+    @Input()
     public debugState:DebuggerState;
 
-    @Output()
-    public valueChange = new EventEmitter<{address:number, val:Value}>();
+    @ViewChild(StructTypeDisplay)
+    private structDisplay: StructTypeDisplay;
+    @ViewChild(PrimitiveTypeDisplay)
+    private primitiveDisplay: PrimitiveTypeDisplay;
+    @ViewChild(ArrayTypeDisplay)
+    private arrayDisplay: ArrayTypeDisplay;
+    @ViewChild(PointerTypeDisplay)
+    private pointerDisplay: PointerTypeDisplay;
+    @ViewChild(FunctionTypeDisplay)
+    private functionDisplay: FunctionTypeDisplay;
+
+    public getValue():Value | undefined {
+        if(this.debugState && this.type) {
+            switch(this.type.data.tType) {
+                case "primitive":
+                    return this.primitiveDisplay.getValue();
+                case "pointer":
+                    return this.pointerDisplay.getValue();
+                case "array":
+                    return this.arrayDisplay.getValue();
+                case "struct":
+                    return this.structDisplay.getValue();
+                case "function":
+                    return this.functionDisplay.getValue();
+            }
+        }
+        return undefined;
+    }
 
     constructor(){}
 }
