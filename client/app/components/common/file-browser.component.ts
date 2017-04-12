@@ -24,6 +24,7 @@ import { SourceFile } from "../../models/SourceFile";
                 [selectedFileRef]="selectedFileRef" 
                 [customPath]="customPath"
                 [onSelected]="GetOnSelected()"
+[onDoubleClickFile]="GetOnDoubleClickFile()"
                 [filterNameChangeEmitter]="filterNameChangeEmitter"></spice-file-browser-node>
         </md-list>
     </div>
@@ -42,11 +43,14 @@ export class FileBrowserComponent {
     @Output()
     public onFileSelected: EventEmitter<SourceFile>;
 
-    public filterNameChangeEmitter:EventEmitter<string>;
+    @Output()
+    public onDoubleClickFile: EventEmitter<SourceFile>;
+
+    public filterNameChangeEmitter: EventEmitter<string>;
 
     public customPath: string;
 
-    public filterName:string; //TODO: Finish implementing this;
+    public filterName: string; //TODO: Finish implementing this;
 
     constructor(public FSS: FileSystemService,
         public element: ElementRef) {
@@ -56,6 +60,7 @@ export class FileBrowserComponent {
         this.customPath = '';
         this.elementHeightPx = 0;
         this.onFileSelected = new EventEmitter<SourceFile>();
+        this.onDoubleClickFile = new EventEmitter<SourceFile>();
         this.filterNameChangeEmitter = new EventEmitter<string>();
     }
     public CustomPathChanged($event: Event) {
@@ -70,11 +75,19 @@ export class FileBrowserComponent {
         };
     }
 
+    public GetOnDoubleClickFile(): (file: SourceFile) => void {
+        let self = this;
+        return (file: SourceFile) => {
+            self.selectedFileRef.file = file;
+            self.onDoubleClickFile.emit(file);
+        };
+    }
+
     public ResetSelectedFile() {
         this.selectedFileRef.file = null;
     }
 
-    public FilterNameKeyDown($event:KeyboardEvent) {
+    public FilterNameKeyDown($event: KeyboardEvent) {
         this.filterNameChangeEmitter.emit((<HTMLInputElement>$event.srcElement).value.toLowerCase());
     }
 

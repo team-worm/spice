@@ -86,6 +86,11 @@ export class LauncherComponent implements AfterContentChecked {
         this.selectedFileOrProcess = $event;
         this.processList.ResetSelectedProcess();
     }
+    public OnDoubleClickFile($event: SourceFile) {
+        this.selectedFileOrProcess = $event;
+        this.processList.ResetSelectedProcess();
+        this.Attach();
+    }
     public OnProcessSelected($event:Process) {
         this.selectedFileOrProcess = $event;
         this.fileBrowser.ResetSelectedFile();

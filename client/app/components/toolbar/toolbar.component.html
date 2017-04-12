@@ -15,15 +15,15 @@
     <span class="left-divider">
         <button md-button *ngIf="breakpointCount() === 0" [disabled]="!debuggerService.currentDebuggerState || IsInFunctionView()" (click)="GoToFunctionsView()">
             <md-icon>library_books</md-icon>
-            Functions [{{breakpointCount()}}]
+        Breakpoints [{{breakpointCount()}}]
         </button>
         <button md-button *ngIf="breakpointCount() > 0" [mdMenuTriggerFor]="breakpointMenu" (click)="GetBpFunctions()">
             <md-icon>library_books</md-icon>
-            Functions [{{breakpointCount()}}]
+        Breakpoints [{{breakpointCount()}}]
         </button>
         <button md-button [disabled]="breakpointCount() === 0" (click)="ToggleTraceHistory()">
             <md-icon>bug_report</md-icon>
-            Debug Traces [{{breakpointCount()}}]
+        Trace History [{{breakpointCount()}}]
         </button>
     </span>
 </md-toolbar>
