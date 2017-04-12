@@ -15,6 +15,7 @@ import { Subscriber } from "rxjs/Subscriber";
 import { LoopData, TraceGroup } from "./trace-loop.component";
 import { DebuggerService, ExecutionEvent, PreCallFunctionEvent, DisplayTraceEvent, ProcessEndedEvent, DetachEvent, AttachEvent } from "../../services/debugger.service";
 import * as Prism from 'prismjs';
+import { GraphDisplayComponent } from "../common/graph-display.component";
 
 @Component({
     moduleId: module.id,
@@ -32,6 +33,7 @@ export class DebuggerComponent {
 	public setParameters:{[id: string]: any} = {};
 
 	@ViewChild('lineGraph') lineGraph: LineGraphComponent;
+	@ViewChild('graphDisplay') graphDisplay: GraphDisplayComponent;
 	public graphData: DataXY[] = [];
 	public graphVariable: SourceVariableId | null = null;
 	public currentExecution: Execution | null = null;

@@ -55,36 +55,11 @@
 			</div>
 			<span fxFlex></span>
 			<div fxFlex class="line-graph">
+				<spice-graph-display #graphDisplay [data]="null" [width]="750" [height]="250">
+				</spice-graph-display>
 				<spice-line-graph #lineGraph [data]="graphData" [width]="750" [height]="250">
 				</spice-line-graph>
 			</div>
 		</md-card-content>
 	</md-card>
 </div>
-
-<!--
-		<reactive-height-grid layout="row" class="debugger">
-			<div flex class="source-code-viewer">
-				<div layout="row">
-					<div flex="none" class="line-number-column debug-column">
-						<reactive-height-cell ng-repeat="line in lines.slice(lineStart, lineEnd)" row="$index" col="0">
-							<span flex>{{$index + 1 + lineStart}}</span>
-						</reactive-height-cell>
-					</div>
-					<div flex class="code-column debug-column">
-						<reactive-height-cell ng-repeat="line in lines.slice(lineStart, lineEnd)" row="$index" col="1">
-							<pre flex>{{line.code}}</pre>
-						</reactive-height-cell>
-					</div>
-				</div>
-			</div>
-			<div flex class="state-column debug-column" layout="row">
-				<div flex class="trace-column" ng-repeat="(colIndex, i) in [].constructor(traceColCount) track by $index">
-					<reactive-height-cell ng-repeat="line in lines" row="$index" col="$parent.$index+2">
-						<trace flex trace="line.traces[colIndex]"></trace>
-					</reactive-height-cell>
-				</div>
-			</div>
-		</reactive-height-grid>
-	</div>
-	-->
