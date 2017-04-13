@@ -1,4 +1,4 @@
-import {Component, Input, OnInit, ViewChild} from "@angular/core";
+import {Component, Input, OnInit, QueryList, ViewChild, ViewChildren} from "@angular/core";
 import {SourceType, SourceTypeId} from "../../../models/SourceType";
 import {Value} from "../../../models/Value";
 import {PrimitiveTypeDisplay} from "./primitive-type-display.component";
@@ -10,9 +10,10 @@ import {FunctionTypeDisplay} from "./function-type-display.component";
     template: `
         <div class="struct">
             <div class="variable-header">
-                <span class="variable-subname">{{type.data.tType == 'struct' ? type.data.name : 'Type Error'}}</span>
+                <span class="variable-subname">{{type.data.tType === 'struct' ? type.data.name : 'Type Error'}}</span>
             </div>
-            <table>
+            <!--<table *ngIf="type.data.tType === 'struct'">-->
+            <table >
                 <tr *ngFor="let f of type.data.fields" [ngSwitch]="types.get(f.sType).data.tType">
                     <td>
                         <div class="fieldName">{{f.name}}</div>
@@ -23,29 +24,29 @@ import {FunctionTypeDisplay} from "./function-type-display.component";
                                 *ngSwitchCase="'struct'"
                                 [type]="types.get(f.sType)"
                                 [types]="types"
-                                [value]="value[f.offset]"
+                                [value]="getStructValue(f.offset)"
                                 [editable]="editable"></spice-struct-type-display>
                         <spice-primitive-type-display
                                 *ngSwitchCase="'primitive'"
                                 [type]="types.get(f.sType)"
-                                [value]="value[f.offset]"
+                                [value]="getStructValue(f.offset)"
                                 [editable]="editable"></spice-primitive-type-display>
                         <spice-array-type-display
                                 *ngSwitchCase="'array'"
                                 [type]="types.get(f.sType)"
-                                [value]="value[f.offset]"
+                                [value]="getStructValue(f.offset)"
                                 [editable]="editable"
                                 [types]="types"></spice-array-type-display>
                         <spice-pointer-type-display
                                 *ngSwitchCase="'pointer'"
                                 [type]="types.get(f.sType)"
-                                [value]="value[f.offset]"
+                                [value]="getStructValue(f.offset)"
                                 [editable]="editable"
                                 [types]="types"></spice-pointer-type-display>
                         <spice-function-type-display
                                 *ngSwitchCase="'function'"
                                 [type]="types.get(f.sType)"
-                                [value]="value[f.offset]"
+                                [value]="getStructValue(f.offset)"
                                 [editable]="editable"
                                 [types]="types"></spice-function-type-display>
                     </td>
@@ -54,13 +55,13 @@ import {FunctionTypeDisplay} from "./function-type-display.component";
         </div>
     `
 })
-export class StructTypeDisplay implements OnInit{
+export class StructTypeDisplay{
 
     @Input()
     public type:SourceType;
 
     @Input()
-    public value:Value;
+    public value:Value = {value:null};
 
     @Input()
     public editable:boolean;
@@ -68,37 +69,42 @@ export class StructTypeDisplay implements OnInit{
     @Input()
     public types:Map<SourceTypeId, SourceType>;
 
-    @ViewChild(StructTypeDisplay)
-    private structDisplay: StructTypeDisplay;
-    @ViewChild(PrimitiveTypeDisplay)
-    private primitiveDisplay: PrimitiveTypeDisplay;
-    @ViewChild(ArrayTypeDisplay)
-    private arrayDisplay: ArrayTypeDisplay;
-    @ViewChild(PointerTypeDisplay)
-    private pointerDisplay: PointerTypeDisplay;
-    @ViewChild(FunctionTypeDisplay)
-    private functionDisplay: FunctionTypeDisplay;
+    @ViewChildren(StructTypeDisplay)
+    private structDisplays: QueryList<StructTypeDisplay>;
+    @ViewChildren(PrimitiveTypeDisplay)
+    private primitiveDisplays: QueryList<PrimitiveTypeDisplay>;
+    @ViewChildren(ArrayTypeDisplay)
+    private arrayDisplays: QueryList<ArrayTypeDisplay>;
+    @ViewChildren(PointerTypeDisplay)
+    private pointerDisplays: QueryList<PointerTypeDisplay>;
+    @ViewChildren(FunctionTypeDisplay)
+    private functionDisplays: QueryList<FunctionTypeDisplay>;
 
     public getValue():Value | undefined {
         if(this.type && this.type.data.tType === 'struct') {
             let outVal = {value: {}};
+            let primDs = this.primitiveDisplays.toArray().reverse();
+            let poinDs = this.pointerDisplays.toArray().reverse();
+            let arraDs = this.arrayDisplays.toArray().reverse();
+            let struDs = this.structDisplays.toArray().reverse();
+            let funcDs = this.functionDisplays.toArray().reverse();
             for(let f of this.type.data.fields) {
                 let t = this.types.get(f.sType)!;
                 switch(t.data.tType) {
                     case "primitive":
-                        outVal.value[f.offset] = this.primitiveDisplay.getValue();
+                        outVal.value[f.offset] = primDs.pop()!.getValue();
                         break;
                     case "pointer":
-                        outVal.value[f.offset] = this.pointerDisplay.getValue();
+                        outVal.value[f.offset] = poinDs.pop()!.getValue();
                         break;
                     case "array":
-                        outVal.value[f.offset] = this.arrayDisplay.getValue();
+                        outVal.value[f.offset] = arraDs.pop()!.getValue();
                         break;
                     case "struct":
-                        outVal.value[f.offset] = this.structDisplay.getValue();
+                        outVal.value[f.offset] = struDs.pop()!.getValue();
                         break;
                     case "function":
-                        outVal.value[f.offset] = this.functionDisplay.getValue();
+                        outVal.value[f.offset] = funcDs.pop()!.getValue();
 
                 }
             }
@@ -107,9 +113,16 @@ export class StructTypeDisplay implements OnInit{
         return undefined;
     }
 
-    public ngOnInit() {
-
+    public getStructValue(offset:number):Value | null {
+        if(this.value && this.value.value) {
+            let val = this.value.value[offset];
+            if(val) {
+                return val;
+            }
+        }
+        return null;
     }
 
-    constructor(){}
+    constructor(){
+    }
 }

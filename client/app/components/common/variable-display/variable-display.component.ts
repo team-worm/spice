@@ -1,4 +1,4 @@
-import {Component, EventEmitter, Input, Output, ViewChild} from "@angular/core";
+import {Component, EventEmitter, Input, OnInit, Output, ViewChild} from "@angular/core";
 import {DebuggerState} from "../../../models/DebuggerState";
 import {SourceType, SourceTypeId} from "../../../models/SourceType";
 import {Value} from "../../../models/Value";
@@ -78,15 +78,25 @@ export class VariableDisplayComponent {
         if(this.debugState && this.type) {
             switch(this.type.data.tType) {
                 case "primitive":
-                    return this.primitiveDisplay.getValue();
+                    if(this.primitiveDisplay)
+                        return this.primitiveDisplay.getValue();
+                    break;
                 case "pointer":
-                    return this.pointerDisplay.getValue();
+                    if(this.pointerDisplay)
+                        return this.pointerDisplay.getValue();
+                    break;
                 case "array":
-                    return this.arrayDisplay.getValue();
+                    if(this.arrayDisplay)
+                        return this.arrayDisplay.getValue();
+                    break;
                 case "struct":
-                    return this.structDisplay.getValue();
+                    if(this.structDisplay)
+                        return this.structDisplay.getValue();
+                    break;
                 case "function":
-                    return this.functionDisplay.getValue();
+                    if(this.functionDisplay)
+                        return this.functionDisplay.getValue();
+                    break;
             }
         }
         return undefined;

@@ -47,6 +47,10 @@ export class SourceType {
 
 	}
 
+	public stringifyWithValues(typeMap:Map<SourceTypeId, SourceType>, value:Value):string {
+    	return "todo";
+	}
+
 	public getDefaultValue():Value {
     	switch(this.data.tType) {
 			case "primitive":

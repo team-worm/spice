@@ -171,7 +171,6 @@ export class DebuggerComponent {
 			for(let i = 0; i < this.variableDisplays.length; i++) {
 				let vdc:VariableDisplayComponent = this.variableDisplays.toArray()[i];
 				let val = vdc.getValue();
-				console.log(val);
 				if(val !== undefined) {
 					this.setParameters[vdc.address] = val;
 				}
@@ -261,11 +260,7 @@ export class DebuggerComponent {
 
 		this.sourceFunction = null;
 		this.setParameters = {};
-		if(this.debuggerService.currentDebuggerState && this.sourceFunction) {
-			for(let par of this.sourceFunction.parameters) {
-				this.setParameters[par.address] = this.debuggerService.currentDebuggerState.sourceTypes.get(par.sType)!.getDefaultValue();
-			}
-		}
+
 
 		this.graphData = [];
 		this.graphVariable = null;

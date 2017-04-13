@@ -1,5 +1,10 @@
-import {Component, Input, OnInit} from "@angular/core";
+import {Component, Input, OnInit, ViewChild} from "@angular/core";
 import {SourceType, SourceTypeId} from "../../../models/SourceType";
+import {Value} from "../../../models/Value";
+import {StructTypeDisplay} from "./struct-type-display.component";
+import {PrimitiveTypeDisplay} from "./primitive-type-display.component";
+import {ArrayTypeDisplay} from "./array-type-display.component";
+import {FunctionTypeDisplay} from "./function-type-display.component";
 @Component({
     selector: 'spice-pointer-type-display',
     template: `
@@ -45,7 +50,7 @@ export class PointerTypeDisplay {
     public type:SourceType;
 
     @Input()
-    public value:any;
+    public value:Value;
 
     @Input()
     public editable:boolean;
@@ -53,7 +58,22 @@ export class PointerTypeDisplay {
     @Input()
     public types:Map<SourceTypeId, SourceType>;
 
+    // @ViewChild(StructTypeDisplay)
+    // private structDisplay: StructTypeDisplay;
+    // @ViewChild(PrimitiveTypeDisplay)
+    // private primitiveDisplay: PrimitiveTypeDisplay;
+    // @ViewChild(ArrayTypeDisplay)
+    // private arrayDisplay: ArrayTypeDisplay;
+    // @ViewChild(PointerTypeDisplay)
+    // private pointerDisplay: PointerTypeDisplay;
+    // @ViewChild(FunctionTypeDisplay)
+    // private functionDisplay: FunctionTypeDisplay;
+
     public expanded:boolean = false;
+
+    public getValue():Value | undefined {
+        return this.value ? this.value : {value: null};
+    }
 
     constructor() {}
 }

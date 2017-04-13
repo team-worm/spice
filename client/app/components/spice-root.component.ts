@@ -17,7 +17,7 @@ import { displaySnackbarError} from "../util/SnackbarError";
     <spice-toolbar></spice-toolbar>
     <md-sidenav-container>
         <spice-launcher [hidden]="!IsInLauncher()"></spice-launcher>
-        <spice-configuration [hidden]="!IsInFunctions()"></spice-configuration>
+        <spice-functions [hidden]="!IsInFunctions()" [isHidden]="!IsInFunctions()"></spice-functions>
         <spice-debugger [hidden]="!IsInDebugger()"></spice-debugger>
         <md-sidenav #traceHistory [align]="'end'"><trace-history></trace-history></md-sidenav>
     </md-sidenav-container>

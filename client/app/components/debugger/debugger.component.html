@@ -1,6 +1,6 @@
 <div class="debugger-container">
 	<md-card class="smallerMargin">
-		<md-card-title><i>{{GetFunctionAsString()}}</i> <button class="types-button" md-raised-button><md-icon [color]="'primary'">compare_arrows</md-icon> Type Mapping</button></md-card-title>
+		<md-card-title><i>{{GetFunctionAsString()}}</i></md-card-title>
 		<md-card-subtitle *ngIf="!sourceFunction">Select functions and set breakpoints from the <span class="functions-keyword" (click)="GoToFunctionsView()">functions</span> view.</md-card-subtitle>
 		<md-card-content *ngIf="!!sourceFunction">
 			<table class="width-100" cellspacing="0">

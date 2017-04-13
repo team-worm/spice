@@ -1,38 +1,92 @@
-import {Component, Input, OnInit} from "@angular/core";
+import {
+    AfterContentInit, AfterViewInit, Component, ElementRef, Input, OnChanges, OnInit,
+    ViewChild
+} from "@angular/core";
 import {SourceType} from "../../../models/SourceType";
+import {Value} from "../../../models/Value";
 @Component({
     selector: 'spice-primitive-type-display',
     template: `
+        
+        <!--<input   *ngIf="typeOfInput() === 'number'" -->
+                 <!--placeholder="{{type.data.base}}"/>-->
+        
         <md-input-container class="primitive input" *ngIf="typeOfInput() === 'number'">
-            <input mdInput 
+            <input mdInput
+                #inputComp
                 placeholder="{{type.data.base}}" 
-                [disabled]="!editable" 
-                value="" 
-                type="{{inputType()}}" 
+                [disabled]="!editable"
+                value="{{value ? value.value : ''}}"
+                type="{{inputType()}}"
                 min="{{inputMin()}}"
                 max="{{inputMax()}}">
         </md-input-container>
         <div class="primitive bool" *ngIf="typeOfInput() === 'boolean'">
-            <md-slide-toggle [disabled]="!editable"></md-slide-toggle> 
+            <md-checkbox 
+                    [disabled]="!editable"
+                    #inputComp></md-checkbox> 
         </div>
         <div class="primitive null" *ngIf="typeOfInput() === 'none'">
             NULL
         </div>
-        
     `
 })
 export class PrimitiveTypeDisplay {
-
+//FIX: [(ngModel)]="inputVal"
     @Input()
     public type:SourceType;
 
     @Input()
-    public value:any;
+    public value:Value;
 
     @Input()
-    public editable:boolean = true;
+    public editable:boolean = false;
 
-    constructor(){}
+    @ViewChild('inputComp')
+    public inputEl:ElementRef;
+
+
+    constructor(){
+    }
+
+    // public ngAfterViewInit() {
+    //     console.log("ON Init outer!", this.value, this.inputEl);
+    //     setTimeout(()=>{
+    //         if(this.inputEl && this.inputEl.nativeElement && this.value && this.value.value != null) {
+    //             console.log("On Init inner!", this.value);
+    //             (<HTMLInputElement> this.inputEl.nativeElement).defaultValue = this.value.value.toString();
+    //         }
+    //     },0);
+    //
+    // }
+
+    public getValue():Value | undefined {
+        if(this.type && this.type.data.tType === 'primitive') {
+            let inputVal = (<HTMLInputElement> this.inputEl.nativeElement).value;
+            switch(this.type.data.base) {
+                case 'void':
+                    return {value: null};
+                case 'bool':
+                    return {value: !!inputVal};
+                case 'int':
+                    if(this.isNumeric(inputVal)) {
+                        return {value: parseInt(inputVal)};
+                    }
+                    break;
+                case 'uint':
+                    if(this.isNumeric(inputVal) && parseInt(inputVal) >= 0) {
+                        return {value: parseInt(inputVal)};
+                    }
+                    break;
+                case 'float':
+                    if(this.isNumeric(inputVal)) {
+                        return {value: parseFloat(inputVal)}
+                    }
+
+            }
+        }
+        return undefined;
+    }
 
     public typeOfInput():string {
         if(this.type.data.tType === 'primitive') {
@@ -105,5 +159,9 @@ export class PrimitiveTypeDisplay {
         } else {
             return '';
         }
+    }
+
+    private isNumeric(n:any):boolean {
+        return !isNaN(parseFloat(n)) && isFinite(n);
     }
 }

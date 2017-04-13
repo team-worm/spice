@@ -1,5 +1,6 @@
 import {Component, Input, OnInit} from "@angular/core";
 import {SourceType, SourceTypeId} from "../../../models/SourceType";
+import {Value} from "../../../models/Value";
 @Component({
     selector: 'spice-function-type-display',
     template: `
@@ -19,13 +20,17 @@ export class FunctionTypeDisplay {
     public type:SourceType;
 
     @Input()
-    public value:any;
+    public value:Value;
 
     @Input()
     public editable:boolean;
 
     @Input()
     public types:Map<SourceTypeId, SourceType>;
+
+    public getValue():Value | undefined {
+        return this.value ? this.value : {value: null};
+    }
 
     constructor() {}
 
