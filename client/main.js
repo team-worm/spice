@@ -11,8 +11,11 @@ let mainWindow;
 
 function createWindow () {
     var screen = electron.screen.getPrimaryDisplay().size;
-    mainWindow = new BrowserWindow({ width: screen.width, height: screen.height,
-                                     title: "Spice", icon: "./images/favicon.png" });
+    mainWindow = new BrowserWindow({
+        width: screen.width * 3/4, height: screen.height - 100,
+        title: "Spice", frame: false
+    });
+    mainWindow.setMenuBarVisibility(false);
 
     mainWindow.loadURL(url.format({
         pathname: path.join(__dirname, 'index.html'),
@@ -20,7 +23,6 @@ function createWindow () {
         slashes: true
     }));
 
-    mainWindow.setMenuBarVisibility(false);
 
     // Open the developer console
     //    mainWindow.webContents.openDevTools();

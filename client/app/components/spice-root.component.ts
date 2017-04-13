@@ -15,7 +15,7 @@ import { displaySnackbarError } from "../util/SnackbarError";
     template: `
 <span [class.spicy-dark]="isDarkTheme">
     <spice-toolbar></spice-toolbar>
-    <md-sidenav-container>
+    <md-sidenav-container class="body">
         <spice-launcher [hidden]="!IsInLauncher()"></spice-launcher>
         <spice-functions [hidden]="!IsInFunctions()" [isHidden]="!IsInFunctions()"></spice-functions>
         <spice-debugger [hidden]="!IsInDebugger()"></spice-debugger>

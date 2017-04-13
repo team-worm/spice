@@ -24,6 +24,17 @@
         Trace History [{{executionCount()}}]
         </button>
     </span>
+
+    <button md-button class="os" (click)="Minimize()">
+        <md-icon>remove</md-icon>
+    </button>
+    <button md-button class="os" (click)="Maximize()">
+        <md-icon *ngIf="!isMaximized()">fullscreen</md-icon>
+        <md-icon *ngIf="isMaximized()">fullscreen_exit</md-icon>
+    </button>
+    <button md-button class="os" (click)="Close()">
+        <md-icon>close</md-icon>
+    </button>
 </md-toolbar>
 
 <md-menu class="breakpointMenu" #breakpointMenu="mdMenu">

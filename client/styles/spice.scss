@@ -40,10 +40,18 @@ $text-color-error: rgb(220, 49, 32);
 @import 'components/graph-display';
 
 html, body {
+    overflow: hidden;
     height: 100%;
     margin: 0;
     padding: 0;
+}
 
+.body {
+    overflow-y: auto !important;
+    position: absolute !important;
+    width: 100%;
+    top: 64px;
+    bottom: 0;
 }
 
 pre {
