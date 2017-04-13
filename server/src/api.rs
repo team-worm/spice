@@ -52,6 +52,8 @@ pub struct Function {
     pub line_start: u32,
     #[serde(rename = "lineCount")]
     pub line_count: u32,
+    #[serde(rename = "sType")]
+    pub type_index: u32,
     pub parameters: Vec<Variable>,
     pub locals: Vec<Variable>,
 }
