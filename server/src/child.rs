@@ -352,7 +352,10 @@ fn describe_function(target: &TargetState, address: usize) -> io::Result<api::Fu
 
     let (function, _) = symbols.symbol_from_address(address)?;
     let module = symbols.module_from_address(address)?;
-    let _fn_type = symbols.type_from_index(module, function.type_index)?;
+    let type_index = match symbols.type_from_index(module, function.type_index)? {
+        debug::Type::Function { type_index, .. } => type_index,
+        _ => return Err(io::Error::from(io::ErrorKind::InvalidInput)),
+    };
 
     let debug::Symbol { ref name, size, .. } = function;
 
@@ -393,6 +396,7 @@ fn describe_function(target: &TargetState, address: usize) -> io::Result<api::Fu
         source_path: start.file.to_string_lossy().into(),
         line_start: start.line,
         line_count: end.line - start.line + 1,
+        type_index: type_index,
         parameters: parameters,
         locals: locals,
     })
