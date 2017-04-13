@@ -39,13 +39,13 @@ export class GraphDisplayComponent implements OnInit, AfterViewInit, OnChanges, 
 	}
 
 	ngOnChanges(changes: SimpleChanges) {
-		let nodes = [{id: 'a'},{id: 'b'},{id: 'c'},{id: 'd'}];
-		let edges = [
-			{id: 0, source: nodes[0], target: nodes[1]},
-			{id: 1, source: nodes[1], target: nodes[2]},
-			{id: 2, source: nodes[1], target: nodes[3]},
-			{id: 3, source: nodes[3], target: nodes[3]}];
-		this.data = {nodes: nodes, edges: edges};
+		//let nodes = [{id: 'a'},{id: 'b'},{id: 'c'},{id: 'd'}];
+		//let edges = [
+			//{id: 0, source: nodes[0], target: nodes[1]},
+			//{id: 1, source: nodes[1], target: nodes[2]},
+			//{id: 2, source: nodes[1], target: nodes[3]},
+			//{id: 3, source: nodes[3], target: nodes[3]}];
+		//this.data = {nodes: nodes, edges: edges};
 		this.setup();
 		this.buildSvg();
 		this.populate();

@@ -15,7 +15,8 @@ import { Subscriber } from "rxjs/Subscriber";
 import { LoopData, TraceGroup } from "./trace-loop.component";
 import { DebuggerService, ExecutionEvent, PreCallFunctionEvent, DisplayTraceEvent, ProcessEndedEvent, DetachEvent, AttachEvent } from "../../services/debugger.service";
 import * as Prism from 'prismjs';
-import { GraphDisplayComponent } from "../common/graph-display.component";
+import { GraphDisplayComponent, GraphData } from "../common/graph-display.component";
+import { SourceType } from "../../models/SourceType";
 
 @Component({
     moduleId: module.id,
@@ -36,12 +37,19 @@ export class DebuggerComponent {
 	@ViewChild('graphDisplay') graphDisplay: GraphDisplayComponent;
 	public graphData: DataXY[] = [];
 	public graphVariable: SourceVariableId | null = null;
+
+	public nodeGraphData: GraphData = {nodes: [], edges: []};
+	public nodeGraphVariable: SourceVariableId | null = null;
+	public nodeGraphFieldIndexes: Set<number>;
+
 	public currentExecution: Execution | null = null;
 
 	constructor(private debuggerService: DebuggerService,
 				private fileSystemService: FileSystemService,
 				private viewService: ViewService,
 				private snackBar: MdSnackBar) {
+
+		this.nodeGraphFieldIndexes = new Set<number>();
 		this.viewService.debuggerComponent = this;
 		this.debuggerService.getEventStream(['execution']).subscribe((event: ExecutionEvent) => this.onExecution(event));
 		this.debuggerService.getEventStream(['preCallFunction']).subscribe((event: PreCallFunctionEvent) => this.onPreCallFunction(event));
@@ -205,6 +213,76 @@ export class DebuggerComponent {
 									this.graphData.push({x: this.graphData.length, y: value as number});
 								}
 								observer.next();
+							}
+						}
+					},
+                        (error: Response) => {
+						console.error(error);
+					});
+			}).debounceTime(100).subscribe(
+				() => this.lineGraph.onDataUpdated());
+		}
+	}
+
+	public variableBaseTypeIsStruct(id: SourceVariableId | null): boolean {
+		let sourceType = this.getVariableBaseType(id);
+		return !!sourceType && sourceType.data.tType === 'struct';
+	}
+
+	public getVariableType(id: SourceVariableId | null): SourceType | null {
+		if(!id || ! this.debuggerService.currentDebuggerState || !this.sourceFunction) {
+			return null;
+		}
+		let sourceVariable = this.sourceFunction.locals.concat(this.sourceFunction.parameters).find(v => v.address === id);
+		return sourceVariable && this.debuggerService.currentDebuggerState.sourceTypes.get(sourceVariable.sType) || null;
+	}
+
+	public getVariableBaseType(id: SourceVariableId | null): SourceType | null {
+		let initialType = this.getVariableType(id);
+		if(!initialType) {
+			return null;
+		}
+		return this.getBaseType(initialType);
+	}
+
+	public getBaseType(sourceType: SourceType): SourceType {
+		switch(sourceType.data.tType) {
+			case 'primitive':
+			case 'function':
+			case 'struct':
+			return sourceType;
+			case 'pointer':
+			case 'array':
+				return this.getBaseType(this.debuggerService.currentDebuggerState!.sourceTypes.get(sourceType.data.sType)!);
+		}
+	}
+
+	public toggleNodeGraphFieldIndex(i: number) {
+		if(this.nodeGraphFieldIndexes.has(i)) {
+			this.nodeGraphFieldIndexes.delete(i);
+		}
+		else {
+			this.nodeGraphFieldIndexes.add(i);
+		}
+	}
+
+	public SetNodeGraphVariable(variableId: SourceVariableId): void {
+		if(this.sourceFunction) {
+			this.nodeGraphData = {nodes: [], edges: []};
+			this.nodeGraphVariable = variableId;
+			this.graphDisplay.onDataUpdated();
+
+			let graphUpdates = Observable.create((observer: Subscriber<Trace>) => {
+				this.debuggerService.currentDebuggerState!.ensureTrace(this.currentExecution!.id).mergeMap(tObservable => tObservable).subscribe(
+					(t: Trace) => {
+						if(t.data.tType === 'line') {
+							let stateChange = t.data.state[variableId];
+							if(stateChange) {
+								//let value = stateChange.value;
+								//if(typeof value === 'number') {
+									//this.graphData.push({x: this.graphData.length, y: value as number});
+								//}
+								//observer.next();
 							}
 						}
 					},

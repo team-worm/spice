@@ -40,6 +40,37 @@
 	<md-card class="smallerMargin">
 		<md-card-content fxLayout="row">
 			<div fxFlex="25">
+				<h2>Node Graph</h2>
+				<div class="variable-selector">
+					<md-select placeholder="Variable" *ngIf="!!sourceFunction" [(ngModel)]="nodeGraphVariable">
+						<md-option *ngFor="let sf of sourceFunction.locals.concat(sourceFunction.parameters)" [value]="sf.address">
+							{{sf.name}}
+						</md-option>
+					</md-select>
+				</div>
+				<div class="node-selector" *ngIf="variableBaseTypeIsStruct(nodeGraphVariable)">
+					<ul>
+						<li *ngFor="let field of getVariableBaseType(nodeGraphVariable).data.fields; let i = index">
+							<button md-button (click)="toggleNodeGraphFieldIndex(i)">
+								<md-icon [color]="'accent'" *ngIf="nodeGraphFieldIndexes.has(i)">check</md-icon>
+								<md-icon [color]="'warn'" *ngIf="!nodeGraphFieldIndexes.has(i)">close</md-icon>
+								{{field.name}}
+							</button>
+						</li>
+					</ul>
+				</div>
+				<button md-raised-button [disabled]="!nodeGraphVariable" (click)="SetNodeGraphVariable(nodeGraphVariable)"><md-icon>timeline</md-icon> Display</button>
+			</div>
+			<span fxFlex></span>
+			<div fxFlex class="graph-display">
+				<spice-graph-display #graphDisplay [data]="nodeGraphData" [width]="750" [height]="250"></spice-graph-display>
+			</div>
+		</md-card-content>
+	</md-card>
+
+	<md-card class="smallerMargin">
+		<md-card-content fxLayout="row">
+			<div fxFlex="25">
 				<h2>Graph Function Variable</h2>
 				<div class="variable-selector">
 					<md-select placeholder="Variable" *ngIf="!!sourceFunction" [(ngModel)]="graphVariable">
@@ -55,10 +86,7 @@
 			</div>
 			<span fxFlex></span>
 			<div fxFlex class="line-graph">
-				<spice-graph-display #graphDisplay [data]="null" [width]="750" [height]="250">
-				</spice-graph-display>
-				<spice-line-graph #lineGraph [data]="graphData" [width]="750" [height]="250">
-				</spice-line-graph>
+				<spice-line-graph #lineGraph [data]="graphData" [width]="750" [height]="250"></spice-line-graph>
 			</div>
 		</md-card-content>
 	</md-card>
