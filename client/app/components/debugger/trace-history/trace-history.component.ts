@@ -47,7 +47,7 @@ export class TraceHistoryComponent {
         if(e.func && this.debuggerService.currentDebuggerState && this.debuggerService.currentDebuggerState.sourceTypes) {
             let stMap = this.debuggerService.currentDebuggerState.sourceTypes;
             const parameters = e.func.parameters
-                .map(parameter => `${stMap.get(parameter.sType)!.toString(stMap)} ${parameter.name}`)
+                .map(parameter => (parameter && `${stMap.get(parameter.sType) !.toString(stMap)} ${parameter.name}`) || "")
                 .join(", ");
             return  `${e.func.name}(${parameters})`;
         } else {

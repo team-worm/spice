@@ -140,6 +140,15 @@ export class ToolbarComponent {
 	}
 
 	public breakpointCount(): number {
-		return (this.debuggerService.currentDebuggerState && this.debuggerService.currentDebuggerState.breakpoints.size) || 0
+        return (this.debuggerService.currentDebuggerState && this.debuggerService.currentDebuggerState.breakpoints.size) || 0;
+    }
+
+    public executionCount(): number {
+        if (this.debuggerService.currentDebuggerState) {
+            return Array.from(this.debuggerService.currentDebuggerState.executions.values())
+                .filter(ex => ex.data.eType === 'function').length;
+        } else {
+            return 0;
+        }
 	}
 }
