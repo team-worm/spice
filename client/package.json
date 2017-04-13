@@ -2,6 +2,7 @@
   "name": "spice",
   "version": "0.2.0",
   "description": "Debug through time.",
+  "main": "main.js",
   "scripts": {
       "start": "tsc && npm run sass && concurrently \"tsc -w\" \"npm run sass-watch\" \"lite-server\" ",
       "start-electron": "tsc && npm run sass && concurrently \"tsc -w\" \"npm run sass-watch\" \"electron .\" ",
@@ -31,7 +32,6 @@
     "@angular/platform-browser-dynamic": "^4.0.1",
     "@angular/platform-server": "^4.0.1",
     "@angular/router": "^4.0.1",
-    "@types/prismjs": "^1.6.1",
     "angular-in-memory-web-api": "~0.2.4",
     "core-js": "^2.4.1",
     "d3": "^4.6.0",
@@ -48,6 +48,7 @@
     "@types/d3": "^4.5.0",
     "@types/jasmine": "2.5.41",
     "@types/node": "^6.0.46",
+    "@types/prismjs": "^1.6.0",
     "@types/reflect-metadata": "^0.0.5",
     "canonical-path": "0.0.2",
     "concurrently": "^3.1.0",
@@ -69,7 +70,5 @@
     "rollup-plugin-node-resolve": "^2.0.0",
     "tslint": "^3.15.1",
     "typescript": "~2.2.2"
-  },
-    "repository": {},
-    "main" : "main.js"
+  }
 }

@@ -1,5 +1,5 @@
 import {Component, Input, OnInit, QueryList, ViewChildren} from "@angular/core";
-import {SourceType, SourceTypeId} from "../../../models/SourceType";
+import {SourceType, SourceTypeId, Field} from "../../../models/SourceType";
 import {Value} from "../../../models/Value";
 import {PrimitiveTypeDisplay} from "./primitive-type-display.component";
 import {ArrayTypeDisplay} from "./array-type-display.component";
@@ -21,7 +21,7 @@ import {FunctionTypeDisplay} from "./function-type-display.component";
                 {{type.data.tType === 'struct' ? type.data.name : 'Type Error'}}
             </div>
             <table >
-                <tr *ngFor="let f of type.data.fields" [ngSwitch]="types.get(f.sType).data.tType">
+                <tr *ngFor="let f of getFields()" [ngSwitch]="types.get(f.sType).data.tType">
                     <td>
                         <div class="fieldName">{{f.name}}</div>
                         <div class="fieldType" *ngIf="!compact">{{types.get(f.sType).toString(types)}}</div>
@@ -108,6 +108,10 @@ export class StructTypeDisplay implements OnInit {
     private functionDisplays: QueryList<FunctionTypeDisplay>;
 
     private activeVal:Value;
+
+    public getFields(): Field[] {
+        return (this.type.data as any).fields;
+    }
 
     public getValue(parameters:{[address: number]: Value}):Value | undefined {
         if(this.type && this.type.data.tType === 'struct') {
