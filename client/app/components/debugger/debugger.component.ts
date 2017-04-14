@@ -36,6 +36,7 @@ export class DebuggerComponent {
     public graphData: DataXY[] = [];
     public graphVariable: SourceVariableId | null = null;
     public currentExecution: Execution | null = null;
+    public currentSess: number;
 
     constructor(private debuggerService: DebuggerService,
         private fileSystemService: FileSystemService,
@@ -84,6 +85,28 @@ export class DebuggerComponent {
                 return Observable.forkJoin(
                     this.setSourceFunction(sf),
                     this.debuggerService.currentDebuggerState!.ensureTrace(execution.id));
+            }).mergeMap(([fileContents, trace]: [null, Observable<Trace>]) => {
+                return trace;
+            }).subscribe(
+            (t: Trace) => { this.addTrace(t); },
+            (error: any) => { console.error(error); }
+            );
+    }
+
+    public DisplayOldTrace(execution: Execution, sessId: number) {
+        if (execution.data.eType !== 'function') {
+            throw new Error('Cannot display trace for execution ${execution.id}: Only function traces can be displayed');
+        }
+
+        this.currentExecution = execution;
+        this.currentSess = sessId;
+
+        this.debuggerService.debuggerStates.get(sessId) !.ensureSourceFunctions([execution.data.sFunction])
+            .mergeMap((sfMap: Map<SourceFunctionId, SourceFunction>) => {
+                let sf = this.debuggerService.debuggerStates.get(sessId) !.sourceFunctions.get((this.currentExecution!.data as FunctionData).sFunction) !;
+                return Observable.forkJoin(
+                    this.setSourceFunction(sf),
+                    this.debuggerService.debuggerStates.get(sessId) !.ensureTrace(execution.id));
             }).mergeMap(([fileContents, trace]: [null, Observable<Trace>]) => {
                 return trace;
             }).subscribe(
@@ -196,6 +219,13 @@ export class DebuggerComponent {
     public GetFunctionAsString(): string {
         if (!this.sourceFunction) {
             return 'No Function Selected';
+        } else if (this.debuggerService.debuggerStates.get(this.currentSess)) {
+            let stMap = this.debuggerService.debuggerStates.get(this.currentSess) !.sourceTypes;
+            const parameters = this.sourceFunction.parameters
+                .map(parameter => stMap.get(parameter.sType)
+                    && `${stMap.get(parameter.sType) !.toString(stMap)} ${parameter.name}`)
+                .join(", ");
+            return `${this.sourceFunction.name}(${parameters})`;
         } else if (this.debuggerService.currentDebuggerState && this.debuggerService.currentDebuggerState.sourceTypes) {
             let stMap = this.debuggerService.currentDebuggerState.sourceTypes;
             const parameters = this.sourceFunction.parameters

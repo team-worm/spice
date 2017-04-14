@@ -14,7 +14,7 @@ import { DebuggerService } from "../../../services/debugger.service";
     <md-list>
         <md-list-item *ngFor="let e of executions.reverse()" (click)="ReplayTrace(e)">
             <md-icon md-list-icon>{{GetListIcon(e)}}</md-icon>
-            <h3 md-line><b>#{{e.ex.id}}</b> : {{GetListTitle(e)}}</h3>
+            <h3 md-line><b>#{{e.debugSessId}}</b> : {{GetListTitle(e)}}</h3>
         </md-list-item>
     </md-list>
 </div>`,
@@ -24,7 +24,7 @@ export class TraceHistoryComponent {
     public debugState:DebuggerState | null = null;
     public sidenav:MdSidenav | null;
 
-    public executions:{ex: Execution, func: SourceFunction | null}[] = [];
+    public executions: { ex: Execution, func: SourceFunction | null, debugSessId: number }[] = [];
 
 	constructor(private debuggerService: DebuggerService,
 				private viewService:ViewService) {
@@ -35,17 +35,37 @@ export class TraceHistoryComponent {
     		if(this.sidenav.opened) {
     			this.sidenav.close();
 			} else {
-				this.executions = Array.from(this.debuggerService.currentDebuggerState.executions.values())
-					.filter(ex => ex.data.eType === 'function')
-					.map(ex => { return { ex: ex, func: this.debuggerService.currentDebuggerState!.sourceFunctions.get((ex.data as FunctionData).sFunction) || null };});
+                this.executions = [];
+
+                var createExecution = function(e: Execution, sessid: number, ds: DebuggerService) {
+                    return {
+                        ex: e,
+                        func: ds!.debuggerStates!.get(sessid) !.sourceFunctions!.get((e.data as FunctionData).sFunction) || null, debugSessId: sessid
+                    }
+                };
+
+                Array.from(this.debuggerService.debuggerStates.values())
+                    .map(debugState => {
+                        return {
+                            exs: Array.from(debugState.executions.values()).filter(ex => ex.data.eType === 'function')
+                            , sessId: debugState.info.id
+                        }
+                    }).forEach(exObj => {
+                        var sessId = exObj.sessId;
+                        var ds = this.debuggerService;
+                        var test = exObj.exs.map(function(e) { return createExecution(e, sessId, ds) });
+                        this.executions = this.executions.concat(test);
+                    });
+
 				this.sidenav.open();
 			}
 		}
     }
 
-    public GetListTitle(e:{ex: Execution, func: SourceFunction | null}):string {
-        if(e.func && this.debuggerService.currentDebuggerState && this.debuggerService.currentDebuggerState.sourceTypes) {
-            let stMap = this.debuggerService.currentDebuggerState.sourceTypes;
+    public GetListTitle(e: { ex: Execution, func: SourceFunction | null, debugSessId: number }): string {
+        if (e.func && this.debuggerService.debuggerStates.get(e.debugSessId)
+            && this.debuggerService.debuggerStates.get(e.debugSessId) !.sourceTypes) {
+            let stMap = this.debuggerService.debuggerStates.get(e.debugSessId) !.sourceTypes;
             const parameters = e.func.parameters
                 .map(parameter => {
                     const t = stMap.get(parameter.sType);
@@ -54,7 +74,7 @@ export class TraceHistoryComponent {
                 .join(", ");
             return  `${e.func.name}(${parameters})`;
         } else {
-            return 'Process'
+            return 'Process';
         }
     }
 
@@ -66,8 +86,9 @@ export class TraceHistoryComponent {
         }
     }
 
-    public ReplayTrace(e:{ex: Execution, func: SourceFunction | null}) {
-		this.debuggerService.displayTrace(e.ex);
+    public ReplayTrace(e: { ex: Execution, func: SourceFunction | null, debugSessId: number }) {
+        this.viewService.debuggerComponent!.DisplayOldTrace(e.ex, e.debugSessId);
+        //this.debuggerService.displayTrace(e.ex);
     }
 
 }
