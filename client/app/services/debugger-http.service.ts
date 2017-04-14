@@ -152,6 +152,9 @@ export class DebuggerHttpService {
 					if(trace.data.tType === 'line') {
 						trace.data.state = Object.keys(trace.data.state).reduce((o, s) => { o[s] = Value.deserialize((trace.data as LineData).state[s]); return o;}, {});
 					}
+					if(trace.data.tType === 'return') {
+						trace.data.value = Value.deserialize(trace.data.value);
+					}
 					observer.next(trace);
 					if (['return', 'break', 'exit', 'crash', 'error'].indexOf(t.data.tType) > -1) {
 						observer.complete();

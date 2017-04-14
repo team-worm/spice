@@ -9,8 +9,8 @@ import {FunctionTypeDisplay} from "./function-type-display.component";
     selector: 'spice-struct-type-display',
     template: `
         <div class="struct">
-            <div class="variable-header">
-                <span class="variable-subname">{{type.data.tType === 'struct' ? type.data.name : 'Type Error'}}</span>
+            <div class="struct-header">
+                {{type.data.tType === 'struct' ? type.data.name : 'Type Error'}}
             </div>
             <!--<table *ngIf="type.data.tType === 'struct'">-->
             <table >

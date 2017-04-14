@@ -13,12 +13,12 @@
 		</ul>
 	</div>
 	<div *ngIf="trace.data.tType==='return'" class="trace-termination">
-		returned {{trace.data.value}}
-		<!--<spice-variable-display-->
-				<!--[type]=""-->
-				<!--[value]="trace.data.value"-->
-				<!--[editable]="false"-->
-				<!--[debugState]="debuggerState"></spice-variable-display>-->
+		returned
+		<spice-variable-display
+				[type]="functionReturnType"
+				[value]="trace.data.value"
+				[editable]="false"
+				[debugState]="debuggerState"></spice-variable-display>
 	</div>
 	<div *ngIf="trace.data.tType==='crash'" class="trace-termination">
 		crashed {{trace.data.stack}}

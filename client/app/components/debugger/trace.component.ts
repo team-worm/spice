@@ -17,6 +17,8 @@ export class TraceComponent implements OnChanges {
 	@Input() debuggerState: DebuggerState;
 	@Input() sourceFunction: SourceFunction;
 
+	public functionReturnType: SourceType;
+
 	public stateEntries:{ address: number, variable: SourceVariable | undefined, value: Value, sType: SourceType | undefined}[];
 
 
@@ -68,6 +70,10 @@ export class TraceComponent implements OnChanges {
 	public ngOnChanges() {
 		if(this.trace && this.trace.data.tType === 'line') {
 			this.stateEntries = this.getStateEntries(this.trace);
+		}
+		if(this.sourceFunction && this.debuggerState && this.trace && this.trace.data.tType === 'return') {
+			console.log('tracedata', this.trace.data);
+			this.functionReturnType = this.debuggerState.sourceTypes.get(this.sourceFunction.sType)!;
 		}
 	}
 }

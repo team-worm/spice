@@ -1,16 +1,4 @@
 .variable-display {
-  .variable-header {
-    .variable-name {
-      font-weight: 600;
-      font-size: larger;
-    }
-    .variable-subname{
-
-    }
-    .save-button {
-
-    }
-  }
   .pointer {
     margin: 8px;
     cursor: pointer;
@@ -50,6 +38,9 @@
     min-width: 50px;
   }
   .struct {
+    .struct-header {
+      font-weight: 700;
+    }
     margin: 8px;
     table {
       td:first-child {

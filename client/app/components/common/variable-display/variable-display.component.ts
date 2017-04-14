@@ -11,39 +11,37 @@ import {FunctionTypeDisplay} from "./function-type-display.component";
 @Component({
     selector: 'spice-variable-display',
     template: `        
-        <div *ngIf="!!debugState && !!type" class="variable-display">
-            <div [ngSwitch]="type.data.tType">
-                <spice-struct-type-display
-                        *ngSwitchCase="'struct'"
-                        [type]="type"
-                        [value]="value"
-                        [editable]="editable"
-                        [types]="debugState.sourceTypes"></spice-struct-type-display>
-                <spice-primitive-type-display
-                        *ngSwitchCase="'primitive'"
-                        [type]="type"
-                        [value]="value"
-                        [editable]="editable"></spice-primitive-type-display>
-                <spice-array-type-display
-                        *ngSwitchCase="'array'"
-                        [type]="type"
-                        [value]="value"
-                        [editable]="editable"
-                        [types]="debugState.sourceTypes"></spice-array-type-display>
-                <spice-pointer-type-display
-                        *ngSwitchCase="'pointer'"
-                        [type]="type"
-                        [value]="value"
-                        [editable]="editable"
-                        [types]="debugState.sourceTypes"></spice-pointer-type-display>
-                <spice-function-type-display
-                        *ngSwitchCase="'function'"
-                        [type]="type"
-                        [value]="value"
-                        [editable]="editable"
-                        [types]="debugState.sourceTypes"></spice-function-type-display>
-            </div>
-        </div>
+        <span *ngIf="!!debugState && !!type" class="variable-display" [ngSwitch]="type.data.tType">
+            <spice-struct-type-display
+                    *ngSwitchCase="'struct'"
+                    [type]="type"
+                    [value]="value"
+                    [editable]="editable"
+                    [types]="debugState.sourceTypes"></spice-struct-type-display>
+            <spice-primitive-type-display
+                    *ngSwitchCase="'primitive'"
+                    [type]="type"
+                    [value]="value"
+                    [editable]="editable"></spice-primitive-type-display>
+            <spice-array-type-display
+                    *ngSwitchCase="'array'"
+                    [type]="type"
+                    [value]="value"
+                    [editable]="editable"
+                    [types]="debugState.sourceTypes"></spice-array-type-display>
+            <spice-pointer-type-display
+                    *ngSwitchCase="'pointer'"
+                    [type]="type"
+                    [value]="value"
+                    [editable]="editable"
+                    [types]="debugState.sourceTypes"></spice-pointer-type-display>
+            <spice-function-type-display
+                    *ngSwitchCase="'function'"
+                    [type]="type"
+                    [value]="value"
+                    [editable]="editable"
+                    [types]="debugState.sourceTypes"></spice-function-type-display>
+        </span>
     `
 })
 export class VariableDisplayComponent {

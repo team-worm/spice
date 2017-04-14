@@ -25,4 +25,7 @@ export class SourceFunction {
     @Deserialize({ element: SourceVariable })
     locals: SourceVariable[];
 
+    @Deserialize()
+    sType: number;
+
 }
