@@ -50,10 +50,10 @@
 				</div>
 				<div class="node-selector" *ngIf="variableBaseTypeIsStruct(nodeGraphVariable)">
 					<ul>
-						<li *ngFor="let field of getVariableBaseType(nodeGraphVariable).data.fields; let i = index">
-							<button md-button (click)="toggleNodeGraphFieldIndex(i)">
-								<md-icon [color]="'accent'" *ngIf="nodeGraphFieldIndexes.has(i)">check</md-icon>
-								<md-icon [color]="'warn'" *ngIf="!nodeGraphFieldIndexes.has(i)">close</md-icon>
+						<li *ngFor="let field of getVariableBaseType(nodeGraphVariable).data.fields">
+							<button md-button (click)="toggleNodeGraphFieldIndex(field.offset)">
+								<md-icon [color]="'accent'" *ngIf="nodeGraphFieldOffsets.has(field.offset)">check</md-icon>
+								<md-icon [color]="'warn'" *ngIf="!nodeGraphFieldOffsets.has(field.offset)">close</md-icon>
 								{{field.name}}
 							</button>
 						</li>

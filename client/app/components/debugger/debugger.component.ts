@@ -1,7 +1,7 @@
 import { Component, ViewChild } from "@angular/core";
 import { DebuggerState } from "../../models/DebuggerState";
 import { Execution, ExecutionId, FunctionData } from "../../models/Execution";
-import { Trace } from "../../models/Trace";
+import { Trace, LineData } from "../../models/Trace";
 import { Observable } from "rxjs/Observable";
 import { SourceFunction, SourceFunctionId } from "../../models/SourceFunction";
 import { MatchMaxHeightDirective } from "../../directives/MatchMaxHeight.directive";
@@ -16,7 +16,8 @@ import { LoopData, TraceGroup } from "./trace-loop.component";
 import { DebuggerService, ExecutionEvent, PreCallFunctionEvent, DisplayTraceEvent, ProcessEndedEvent, DetachEvent, AttachEvent } from "../../services/debugger.service";
 import * as Prism from 'prismjs';
 import { GraphDisplayComponent, GraphData } from "../common/graph-display.component";
-import { SourceType } from "../../models/SourceType";
+import { SourceType, Field } from "../../models/SourceType";
+import { StructValue, Value, PointerValue } from "../../models/Value";
 
 @Component({
     moduleId: module.id,
@@ -40,7 +41,7 @@ export class DebuggerComponent {
 
 	public nodeGraphData: GraphData = {nodes: [], edges: []};
 	public nodeGraphVariable: SourceVariableId | null = null;
-	public nodeGraphFieldIndexes: Set<number>;
+	public nodeGraphFieldOffsets: Set<number>;
 
 	public currentExecution: Execution | null = null;
 
@@ -49,7 +50,7 @@ export class DebuggerComponent {
 				private viewService: ViewService,
 				private snackBar: MdSnackBar) {
 
-		this.nodeGraphFieldIndexes = new Set<number>();
+		this.nodeGraphFieldOffsets = new Set<number>();
 		this.viewService.debuggerComponent = this;
 		this.debuggerService.getEventStream(['execution']).subscribe((event: ExecutionEvent) => this.onExecution(event));
 		this.debuggerService.getEventStream(['preCallFunction']).subscribe((event: PreCallFunctionEvent) => this.onPreCallFunction(event));
@@ -258,11 +259,11 @@ export class DebuggerComponent {
 	}
 
 	public toggleNodeGraphFieldIndex(i: number) {
-		if(this.nodeGraphFieldIndexes.has(i)) {
-			this.nodeGraphFieldIndexes.delete(i);
+		if(this.nodeGraphFieldOffsets.has(i)) {
+			this.nodeGraphFieldOffsets.delete(i);
 		}
 		else {
-			this.nodeGraphFieldIndexes.add(i);
+			this.nodeGraphFieldOffsets.add(i);
 		}
 	}
 
@@ -276,14 +277,30 @@ export class DebuggerComponent {
 				this.debuggerService.currentDebuggerState!.ensureTrace(this.currentExecution!.id).mergeMap(tObservable => tObservable).subscribe(
 					(t: Trace) => {
 						if(t.data.tType === 'line') {
-							let stateChange = t.data.state[variableId];
-							if(stateChange) {
+							//for all nodes in the graph changed in this trace (and the root), remove old edges and nodes, add new edges and nodes
+							let updatedNodes = Object.keys(t.data.state)
+								.filter(s => s === ''+this.nodeGraphVariable || !!this.nodeGraphData.nodes.find(n => n.id === s));
+
+							updatedNodes.forEach(id => {
+								console.log((this.nodeGraphFieldOffsets.values()));
+								console.log((t.data as LineData).state);
+								let watchedValues = Array.from(this.nodeGraphFieldOffsets.values()).map(offset => (t.data as LineData).state[id].fields[offset]);
+								//add new edges & nodes
+								watchedValues.forEach((v: Value) => {
+									if(!this.nodeGraphData.nodes.find(n => n.id === ''+v.value)) {
+										console.log('new node', v.value);
+									}
+								});
+							});
+
+							//let stateChange = t.data.state[variableId];
+							//if(stateChange) {
 								//let value = stateChange.value;
 								//if(typeof value === 'number') {
 									//this.graphData.push({x: this.graphData.length, y: value as number});
 								//}
 								//observer.next();
-							}
+							//}
 						}
 					},
                         (error: Response) => {

@@ -80,7 +80,7 @@ interface StructType {
 	fields: Field[];
 }
 
-class Field {
+export class Field {
 	name: string;
 	sType: number;
 	offset: number;
