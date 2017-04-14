@@ -15,7 +15,7 @@ import { Subscriber } from "rxjs/Subscriber";
 import { LoopData, TraceGroup } from "./trace-loop.component";
 import { DebuggerService, ExecutionEvent, PreCallFunctionEvent, DisplayTraceEvent, ProcessEndedEvent, DetachEvent, AttachEvent } from "../../services/debugger.service";
 import * as Prism from 'prismjs';
-import { GraphDisplayComponent, GraphData } from "../common/graph-display.component";
+import { GraphDisplayComponent, GraphData, DataNode } from "../common/graph-display.component";
 import { SourceType, Field } from "../../models/SourceType";
 import { StructValue, Value, PointerValue } from "../../models/Value";
 
@@ -258,6 +258,15 @@ export class DebuggerComponent {
 		}
 	}
 
+	//public getBaseValue(id: SourceVariableId, value: Value) {
+		//let sourceType = this.getVariableType(id);
+		//if(sourceType.data.tType === 'pointer') {
+			//return this.getBaseValue((value as PointerValue).
+		//}
+
+		//return value;
+	//}
+
 	public toggleNodeGraphFieldIndex(i: number) {
 		if(this.nodeGraphFieldOffsets.has(i)) {
 			this.nodeGraphFieldOffsets.delete(i);
@@ -277,21 +286,49 @@ export class DebuggerComponent {
 				this.debuggerService.currentDebuggerState!.ensureTrace(this.currentExecution!.id).mergeMap(tObservable => tObservable).subscribe(
 					(t: Trace) => {
 						if(t.data.tType === 'line') {
+							let lineData: LineData = t.data;
 							//for all nodes in the graph changed in this trace (and the root), remove old edges and nodes, add new edges and nodes
 							let updatedNodes = Object.keys(t.data.state)
-								.filter(s => s === ''+this.nodeGraphVariable || !!this.nodeGraphData.nodes.find(n => n.id === s));
+								.filter(s => parseInt(s) === this.nodeGraphVariable || !!this.nodeGraphData.nodes.find(n => n.id === parseInt(s)));
 
-							updatedNodes.forEach(id => {
-								console.log((this.nodeGraphFieldOffsets.values()));
-								console.log((t.data as LineData).state);
-								let watchedValues = Array.from(this.nodeGraphFieldOffsets.values()).map(offset => (t.data as LineData).state[id].fields[offset]);
-								//add new edges & nodes
-								watchedValues.forEach((v: Value) => {
-									if(!this.nodeGraphData.nodes.find(n => n.id === ''+v.value)) {
-										console.log('new node', v.value);
+							function addNode(nodePointerAddress: number) {
+								//assume a node is always a pointer to a struct
+								//TODO: make this generalized (using spice types)
+								let nodeStructAddress = lineData.state[nodePointerAddress].value as PointerValue;
+								//if this node doesn't exist in the graph, add it
+								if(!this.nodeGraphData.nodes.find((n:DataNode) => n.id === nodeStructAddress)) {
+									this.nodeGraphData.nodes.push({id: nodeStructAddress});
+								}
+
+								let nodeStructValue = lineData.state[nodeStructAddress].value as StructValue;
+								Array.from(this.nodeGraphFieldOffsets.values()).forEach((offset: number) => {
+									let nodeEdgePointer = nodeStructValue[offset].value as PointerValue;
+									if(nodeEdgePointer) {
+										//add missing children
+										addNode(nodeEdgePointer);
 									}
+									//add edges to new children
+									this.nodeGraphData.edges.push({id: `${nodeStructAddress},${nodeEdgePointer}`, source: nodeStructAddress, target: nodeEdgePointer});
 								});
-							});
+							}
+
+							updatedNodes.forEach(address => addNode.call(this, parseInt(address)));
+							observer.next();
+
+							//updatedNodes.forEach(id => {
+								////assume we have a point to struct
+								//let baseValue = 
+								//let pointedValue = 
+								//console.log((this.nodeGraphFieldOffsets.values()));
+								//console.log((t.data as LineData).state);
+								//let watchedValues = Array.from(this.nodeGraphFieldOffsets.values()).map(offset => (t.data as LineData).state[id].fields[offset]);
+								////add new edges & nodes
+								//watchedValues.forEach((v: Value) => {
+									//if(!this.nodeGraphData.nodes.find(n => n.id === ''+v.value)) {
+										//console.log('new node', v.value);
+									//}
+								//});
+							//});
 
 							//let stateChange = t.data.state[variableId];
 							//if(stateChange) {
@@ -307,7 +344,7 @@ export class DebuggerComponent {
 						console.error(error);
 					});
 			}).debounceTime(100).subscribe(
-				() => this.lineGraph.onDataUpdated());
+				() => this.graphDisplay.onDataUpdated());
 		}
 	}
 

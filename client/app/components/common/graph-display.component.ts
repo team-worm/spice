@@ -3,7 +3,7 @@ import { Observable } from "rxjs/Observable";
 import * as d3 from 'd3';
 
 export type GraphData = {nodes: DataNode[], edges: DataEdge[]};
-export type DataNode = {id: string};
+export type DataNode = {id: number};
 export type DataEdge = {id: number, source: DataNode & d3.SimulationNodeDatum, target: DataNode & d3.SimulationNodeDatum};
 
 @Component({
@@ -90,7 +90,7 @@ export class GraphDisplayComponent implements OnInit, AfterViewInit, OnChanges, 
 
 
 		this.simulation = d3.forceSimulation();
-		this.linkForce = d3.forceLink().id((d:DataNode) => d.id).distance(60);
+		this.linkForce = d3.forceLink().id((d:DataNode) => ''+d.id).distance(60);
 
 		this.simulation
 			.force("link",  this.linkForce)
@@ -122,7 +122,7 @@ export class GraphDisplayComponent implements OnInit, AfterViewInit, OnChanges, 
 		let node = this.svg.append('g')
 				.attr('class', 'nodes')
 			.selectAll('g')
-				.data(this.data.nodes, (d:DataNode) => d.id);
+				.data(this.data.nodes, (d:DataNode) => ''+d.id);
 
 		let newNode = node.enter().append('g');
 		
