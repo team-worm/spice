@@ -10,7 +10,7 @@
 
     .pointer {
       &.expanded {
-        border-bottom: 1px map-get($background, default-contrast) solid;
+        border-bottom: 1px rgba(0,0,0,0.3) solid;
       }
     }
     .primitive {

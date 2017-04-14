@@ -11,40 +11,48 @@ import {FunctionTypeDisplay} from "./function-type-display.component";
 @Component({
     selector: 'spice-variable-display',
     template: `        
-        <span *ngIf="!!debugState && !!type" class="variable-display" [ngSwitch]="type.data.tType">
+        <span *ngIf="!!debugState && !!type" class="variable-display" [ngClass]="{'normal-size':!compact || editable, 'compact-size':compact && !editable}" [ngSwitch]="type.data.tType">
             <spice-struct-type-display
                     *ngSwitchCase="'struct'"
                     [type]="type"
                     [value]="value"
+                    [valueMap]="valueMap"
                     [editable]="editable"
+                    [compact]="compact && !editable"
                     [types]="debugState.sourceTypes"></spice-struct-type-display>
             <spice-primitive-type-display
                     *ngSwitchCase="'primitive'"
                     [type]="type"
                     [value]="value"
+                    [compact]="compact && !editable"
                     [editable]="editable"></spice-primitive-type-display>
             <spice-array-type-display
                     *ngSwitchCase="'array'"
                     [type]="type"
                     [value]="value"
+                    [valueMap]="valueMap"
                     [editable]="editable"
+                    [compact]="compact && !editable"
                     [types]="debugState.sourceTypes"></spice-array-type-display>
             <spice-pointer-type-display
                     *ngSwitchCase="'pointer'"
                     [type]="type"
                     [value]="value"
+                    [valueMap]="valueMap"
                     [editable]="editable"
+                    [compact]="compact && !editable"
                     [types]="debugState.sourceTypes"></spice-pointer-type-display>
             <spice-function-type-display
                     *ngSwitchCase="'function'"
                     [type]="type"
                     [value]="value"
                     [editable]="editable"
+                    [compact]="compact && !editable"
                     [types]="debugState.sourceTypes"></spice-function-type-display>
         </span>
     `
 })
-export class VariableDisplayComponent {
+export class VariableDisplayComponent implements OnInit {
 
     @Input()
     public type:SourceType;
@@ -53,10 +61,16 @@ export class VariableDisplayComponent {
     public address:number;
 
     @Input()
-    public editable:boolean;
+    public editable:boolean = false;
 
     @Input()
     public value:Value;
+
+    @Input()
+    public valueMap:{ [sVariable: number]: Value};
+
+    @Input()
+    public compact:boolean = false;
 
     @Input()
     public debugState:DebuggerState;
@@ -71,6 +85,15 @@ export class VariableDisplayComponent {
     private pointerDisplay: PointerTypeDisplay;
     @ViewChild(FunctionTypeDisplay)
     private functionDisplay: FunctionTypeDisplay;
+
+
+    constructor(){}
+
+    public ngOnInit() {
+        if(this.compact && this.editable) {
+            console.log('Both "compact" and "editable" not supported, not displaying compactly.');
+        }
+    }
 
     public getValue():Value | undefined {
         if(this.debugState && this.type) {
@@ -99,6 +122,4 @@ export class VariableDisplayComponent {
         }
         return undefined;
     }
-
-    constructor(){}
 }

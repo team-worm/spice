@@ -23,7 +23,10 @@ export class FunctionTypeDisplay {
     public value:Value;
 
     @Input()
-    public editable:boolean;
+    public editable:boolean = false;
+
+    @Input()
+    public compact:boolean = false;
 
     @Input()
     public types:Map<SourceTypeId, SourceType>;

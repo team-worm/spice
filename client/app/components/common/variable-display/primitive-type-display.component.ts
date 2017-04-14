@@ -7,32 +7,30 @@ import {Value} from "../../../models/Value";
 @Component({
     selector: 'spice-primitive-type-display',
     template: `
-        
-        <!--<input   *ngIf="typeOfInput() === 'number'" -->
-                 <!--placeholder="{{type.data.base}}"/>-->
-        
-        <md-input-container class="primitive input" *ngIf="typeOfInput() === 'number'">
-            <input mdInput
-                #inputComp
-                placeholder="{{type.data.base}}" 
-                [disabled]="!editable"
-                value="{{value ? value.value : ''}}"
-                type="{{inputType()}}"
-                min="{{inputMin()}}"
-                max="{{inputMax()}}">
-        </md-input-container>
-        <div class="primitive bool" *ngIf="typeOfInput() === 'boolean'">
-            <md-checkbox 
-                    [disabled]="!editable"
-                    #inputComp></md-checkbox> 
-        </div>
-        <div class="primitive null" *ngIf="typeOfInput() === 'none'">
-            NULL
-        </div>
+        <span *ngIf="compact" class="primitive">{{valAsString()}}</span>
+        <span *ngIf="!compact">
+            <md-input-container class="primitive input" *ngIf="typeOfInput() === 'number'">
+                <input mdInput
+                       #inputComp
+                       placeholder="{{type.data.base}}"
+                       [disabled]="!editable"
+                       value="{{value ? value.value : ''}}"
+                       type="{{inputType()}}"
+                       min="{{inputMin()}}"
+                       max="{{inputMax()}}">
+            </md-input-container>
+            <div class="primitive bool" *ngIf="typeOfInput() === 'boolean'">
+                <md-checkbox
+                        [disabled]="!editable"
+                        #inputComp></md-checkbox> 
+            </div>
+            <div class="primitive null" *ngIf="typeOfInput() === 'none'">
+                NULL
+            </div>
+        </span>
     `
 })
 export class PrimitiveTypeDisplay {
-//FIX: [(ngModel)]="inputVal"
     @Input()
     public type:SourceType;
 
@@ -42,23 +40,15 @@ export class PrimitiveTypeDisplay {
     @Input()
     public editable:boolean = false;
 
+    @Input()
+    public compact:boolean = false;
+
     @ViewChild('inputComp')
     public inputEl:ElementRef;
 
 
     constructor(){
     }
-
-    // public ngAfterViewInit() {
-    //     console.log("ON Init outer!", this.value, this.inputEl);
-    //     setTimeout(()=>{
-    //         if(this.inputEl && this.inputEl.nativeElement && this.value && this.value.value != null) {
-    //             console.log("On Init inner!", this.value);
-    //             (<HTMLInputElement> this.inputEl.nativeElement).defaultValue = this.value.value.toString();
-    //         }
-    //     },0);
-    //
-    // }
 
     public getValue():Value | undefined {
         if(this.type && this.type.data.tType === 'primitive') {
@@ -159,6 +149,16 @@ export class PrimitiveTypeDisplay {
         } else {
             return '';
         }
+    }
+
+    public valAsString():string {
+        if(this.value) {
+            if(this.value.value === null) {
+                return 'null';
+            }
+            return this.value.value.toString();
+        }
+        return '~'
     }
 
     private isNumeric(n:any):boolean {

@@ -25,29 +25,37 @@ import {FunctionTypeDisplay} from "./function-type-display.component";
                                 [type]="types.get(f.sType)"
                                 [types]="types"
                                 [value]="getStructValue(f.offset)"
-                                [editable]="editable"></spice-struct-type-display>
+                                [valueMap]="valueMap"
+                                [editable]="editable"
+                                [compact]="compact && !editable"></spice-struct-type-display>
                         <spice-primitive-type-display
                                 *ngSwitchCase="'primitive'"
                                 [type]="types.get(f.sType)"
                                 [value]="getStructValue(f.offset)"
-                                [editable]="editable"></spice-primitive-type-display>
+                                [editable]="editable"
+                                [compact]="compact && !editable"></spice-primitive-type-display>
                         <spice-array-type-display
                                 *ngSwitchCase="'array'"
                                 [type]="types.get(f.sType)"
                                 [value]="getStructValue(f.offset)"
+                                [valueMap]="valueMap"
                                 [editable]="editable"
+                                [compact]="compact && !editable"
                                 [types]="types"></spice-array-type-display>
                         <spice-pointer-type-display
                                 *ngSwitchCase="'pointer'"
                                 [type]="types.get(f.sType)"
                                 [value]="getStructValue(f.offset)"
+                                [valueMap]="valueMap"
                                 [editable]="editable"
+                                [compact]="compact && !editable"
                                 [types]="types"></spice-pointer-type-display>
                         <spice-function-type-display
                                 *ngSwitchCase="'function'"
                                 [type]="types.get(f.sType)"
                                 [value]="getStructValue(f.offset)"
                                 [editable]="editable"
+                                [compact]="compact && !editable"
                                 [types]="types"></spice-function-type-display>
                     </td>
                 </tr>
@@ -64,7 +72,13 @@ export class StructTypeDisplay{
     public value:Value = {value:null};
 
     @Input()
-    public editable:boolean;
+    public valueMap:{ [sVariable: number]: Value};
+
+    @Input()
+    public editable:boolean = false;
+
+    @Input()
+    public compact:boolean = false;
 
     @Input()
     public types:Map<SourceTypeId, SourceType>;

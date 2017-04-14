@@ -7,7 +7,9 @@
 				<spice-variable-display
 					[type]="state.sType"
 					[value]="state.value"
+					[valueMap]="trace.data.state"
 					[editable]="false"
+					[compact]="true"
 					[debugState]="debuggerState"></spice-variable-display>
 			</li>
 		</ul>
@@ -18,6 +20,7 @@
 				[type]="functionReturnType"
 				[value]="trace.data.value"
 				[editable]="false"
+				[compact]="true"
 				[debugState]="debuggerState"></spice-variable-display>
 	</div>
 	<div *ngIf="trace.data.tType==='crash'" class="trace-termination">
