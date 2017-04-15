@@ -142,10 +142,8 @@ export class ArrayTypeDisplay implements OnInit{
             for(let i of this.sizeIterator) {
                 let disp: StructTypeDisplay|PrimitiveTypeDisplay|ArrayTypeDisplay|PointerTypeDisplay|FunctionTypeDisplay = list.toArray()[i];
                 let val = disp.getValue(parameters);
-                if(val) {
-                    if(Array.isArray(outVals.value)) {
-                        outVals.value.push(val);
-                    }
+                if(Array.isArray(outVals.value)) {
+                    outVals.value.push(val ? val : this.baseType.getDefaultValue());
                 }
 
             }

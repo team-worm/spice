@@ -18,14 +18,19 @@
 					<span *ngIf="!!getTraceGroupAtLine(iteration, i+loopData.startLine)"
 						[ngSwitch]="getTraceGroupAtLine(iteration, i+loopData.startLine).kind">
 						<div class="row trace" [ngClass]="{'odd': !!((i+loopData.startLine)%2)===oddStartLine, 'first': i===0, 'last': i===(loopData.endLine-loopData.startLine)}" *ngSwitchCase="'trace'" [matchMaxHeight]="'debugger-'+(i+loopData.startLine)">
-							<spice-trace [trace]="getTraceGroupAtLine(iteration, i+loopData.startLine).trace" [debuggerState]="debuggerState" [sourceFunction]="sourceFunction"></spice-trace>
+							<spice-trace
+									[trace]="getTraceGroupAtLine(iteration, i+loopData.startLine).trace"
+									[debuggerState]="debuggerState"
+									[sourceFunction]="sourceFunction"
+									[pointerTypes]="pointerTypes"></spice-trace>
 						</div>
 						<span *ngSwitchCase="'loop'">
 							<spice-trace-loop *ngIf="(i+loopData.startLine) === getTraceGroupAtLine(iteration, i+loopData.startLine).startLine"
 								[debuggerState]="debuggerState"
 								[sourceFunction]="sourceFunction"
 								[loopData]="getTraceGroupAtLine(iteration, i+loopData.startLine)"
-								[oddStartLine]="oddStartLine"></spice-trace-loop>
+								[oddStartLine]="oddStartLine"
+								[pointerTypes]="pointerTypes"></spice-trace-loop>
 						</span>
 					</span>
 					<div *ngIf="!getTraceGroupAtLine(iteration, i+loopData.startLine)" class="row trace"

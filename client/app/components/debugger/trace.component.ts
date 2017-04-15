@@ -16,10 +16,11 @@ export class TraceComponent implements OnChanges {
 	@Input() trace: Trace;
 	@Input() debuggerState: DebuggerState;
 	@Input() sourceFunction: SourceFunction;
+	@Input() pointerTypes: {[address:number]:{type: SourceType, name:string}} = {};
 
 	public functionReturnType: SourceType;
 
-	public stateEntries:{ address: number, variable: SourceVariable | undefined, value: Value, sType: SourceType | undefined}[];
+	public stateEntries:{ address: number, name:string, value: Value, sType: SourceType | undefined}[];
 
 
 	public expandMap:{[id:number]:boolean} = {};
@@ -31,16 +32,22 @@ export class TraceComponent implements OnChanges {
 	constructor() {
 	}
 
-	public getStateEntries(trace: Trace): { address: number, variable: SourceVariable | undefined, value: Value, sType: SourceType | undefined}[] {
+	public getStateEntries(trace: Trace): { address: number, name: string, value: Value, sType: SourceType | undefined}[] {
 		return Object.keys((trace.data as LineData).state).map(id => {
 			let variable = this.sourceFunction.locals.concat(this.sourceFunction.parameters).find(v => v.address === parseInt(id));
-			let sType: SourceType | undefined;
+			let sType: SourceType | undefined = undefined;
+			let name = '__';
 			if(variable) {
 				sType = this.debuggerState.sourceTypes.get(variable.sType);
+				name = variable.name
+			} else if(this.pointerTypes[parseInt(id)]) {
+				let info = this.pointerTypes[parseInt(id)]
+				name = info.name;
+				sType = info.type;
 			}
 			return {
 				address: parseInt(id),
-				variable: variable,
+				name: name,
 				sType: sType,
 				value: (trace.data as LineData).state[id],
 
@@ -72,7 +79,6 @@ export class TraceComponent implements OnChanges {
 			this.stateEntries = this.getStateEntries(this.trace);
 		}
 		if(this.sourceFunction && this.debuggerState && this.trace && this.trace.data.tType === 'return') {
-			console.log('tracedata', this.trace.data);
 			this.functionReturnType = this.debuggerState.sourceTypes.get(this.sourceFunction.sType)!;
 		}
 	}

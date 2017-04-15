@@ -17,6 +17,7 @@ import { DebuggerService, ExecutionEvent, PreCallFunctionEvent, DisplayTraceEven
 import {Value} from "../../models/Value";
 import {VariableDisplayComponent} from "../common/variable-display/variable-display.component";
 import * as Prism from 'prismjs';
+import {SourceType} from "../../models/SourceType";
 
 @Component({
     moduleId: module.id,
@@ -41,6 +42,8 @@ export class DebuggerComponent {
 	public graphData: DataXY[] = [];
 	public graphVariable: SourceVariableId | null = null;
 	public currentExecution: Execution | null = null;
+
+	public pointerTypes:{[address:number]:{type: SourceType, name:string}} = {};
 
 	constructor(public debuggerService: DebuggerService,
 				private fileSystemService: FileSystemService,
@@ -108,6 +111,25 @@ export class DebuggerComponent {
 			});
 			return;
 		}
+
+		if (trace.data.tType === 'line' && this.sourceFunction && this.debuggerService.currentDebuggerState) {
+        	let ds = this.debuggerService.currentDebuggerState;
+        	for(let id of Object.keys(trace.data.state)) {
+        		let variable = this.sourceFunction.locals.concat(this.sourceFunction.parameters).find(v => v.address === parseInt(id));
+        		let value:Value = trace.data.state[id];
+        		if(variable && value.value) {
+					let pt = ds.sourceTypes.get(variable.sType)!;
+					let v = parseInt(value.value.toString());
+					if(pt.data.tType === 'pointer') {
+						let dt = ds.sourceTypes.get(pt.data.sType)!;
+						this.pointerTypes[v] = {type: dt, name: variable.name + '*'}
+					}
+				}
+
+
+			}
+		}
+
 
 		//This naive implementation doesn't properly handle "early exit" of loops (break, continue)/assumes loops have some kind of "loop closing" trace
 		//In order to handle early exists, we need to go back and reorganize previous loops

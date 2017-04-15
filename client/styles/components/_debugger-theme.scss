@@ -7,6 +7,11 @@
 	$background: map-get($theme, background);
 
 	.debugger-container {
+		.custom-param-value {
+			border-left: rgba(0,0,0,0.2);
+			padding-left: 10px;
+		}
+
 		.debugger-display {
 			.trace-col {
 				.iteration-col {

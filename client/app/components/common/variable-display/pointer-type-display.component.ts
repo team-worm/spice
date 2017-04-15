@@ -12,7 +12,7 @@ import {FunctionTypeDisplay} from "./function-type-display.component";
                 class="pointer"  
                 title="{{expanded ? 'Hide pointer contents.' : 'Show pointer contents.'}}"
                 [ngClass]="{'expanded':expanded}">
-            {{type.toString(types)}}<md-icon>keyboard_arrow_right</md-icon>
+            {{type.toString(types)}}<md-icon *ngIf="expanded">keyboard_arrow_right</md-icon>
         </span>
         <span class="pointer-contents" *ngIf="expanded && types && type" [ngSwitch]="types.get(type.data.sType).data.tType">
             <spice-struct-type-display

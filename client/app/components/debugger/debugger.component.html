@@ -4,9 +4,9 @@
 		<md-card-subtitle *ngIf="!sourceFunction">Select functions and set breakpoints from the <span class="functions-keyword" (click)="GoToFunctionsView()">functions</span> view.</md-card-subtitle>
 		<md-card-content *ngIf="!!sourceFunction">
 			<table class="width-100" cellspacing="0">
-				<tr>
-					<td *ngFor="let par of sourceFunction.parameters">
-						<span>{{par.name}}:</span>
+				<tr *ngFor="let par of sourceFunction.parameters">
+					<td class="custom-param-name">{{par.name}}:</td>
+					<td class="custom-param-value">
 						<spice-variable-display
 								#varDisplay
 								[type]="debuggerService.currentDebuggerState ? debuggerService.currentDebuggerState.sourceTypes.get(par.sType) : null"
@@ -36,7 +36,9 @@
 					<spice-trace-loop *ngIf="debuggerService.currentDebuggerState"
 						[debuggerState]="debuggerService.currentDebuggerState"
 						[sourceFunction]="sourceFunction"
-						[loopData]="traceData" [oddStartLine]="traceData.startLine%2===1"></spice-trace-loop>
+						[loopData]="traceData"
+									  [pointerTypes]="pointerTypes"
+									  [oddStartLine]="traceData.startLine%2===1"></spice-trace-loop>
 				</div>
 			</div>
 		</md-card-content>

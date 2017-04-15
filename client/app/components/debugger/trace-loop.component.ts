@@ -2,6 +2,7 @@ import { Component, Input } from "@angular/core";
 import { Trace } from "../../models/Trace";
 import { DebuggerState } from "../../models/DebuggerState";
 import { SourceFunction } from "../../models/SourceFunction";
+import {SourceType} from "../../models/SourceType";
 
 
 export interface TraceData {
@@ -35,6 +36,8 @@ export class TraceLoopComponent {
 	@Input() public sourceFunction: SourceFunction;
 	@Input() public loopData: LoopData;
 	@Input() public oddStartLine: boolean = true; //set by the parent component and propegated down nesting as needed
+	@Input() pointerTypes: {[address:number]:{type: SourceType, name:string}} = {};
+
 	constructor() {
 	}
 

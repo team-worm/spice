@@ -2,8 +2,8 @@
 	<div *ngIf="trace.data.tType==='line'" class="trace-instruction">
 		<ul>
 			<li *ngFor="let state of stateEntries">
-				<span *ngIf="state.variable">
-					{{state.variable.name}} =
+				<span *ngIf="state.sType">
+					{{state.name}} =
 					<spice-variable-display
 							[type]="state.sType"
 							[value]="state.value"
@@ -12,7 +12,6 @@
 							[compact]="true"
 							[debugState]="debuggerState"></spice-variable-display>
 				</span>
-
 			</li>
 		</ul>
 	</div>

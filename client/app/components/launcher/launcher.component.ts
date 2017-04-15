@@ -126,5 +126,10 @@ export class LauncherComponent implements AfterContentChecked {
 	public onDetach(event: DetachEvent) {
 		this.debugProcessName = '';
 		this.launchedFile = null;
+		setTimeout(()=> {
+            this.launcherCardHeight = (window.innerHeight - this.element.nativeElement.getBoundingClientRect().top) - 34;
+            this.fileBrowserHeight = (window.innerHeight - this.fileBrowser.element.nativeElement.getBoundingClientRect().top) - 93;
+            this.processListHeight = (window.innerHeight - this.processList.element.nativeElement.getBoundingClientRect().top) - 93;
+        }, 1);
 	}
 }
