@@ -1,8 +1,8 @@
 <md-toolbar class="toolbar center-text" color="primary">
     <span class="title" (click)="openAboutSpiceDialog()"><h2>Spice Debugger</h2></span>
     <span class="target-area">
-        <span *ngIf="!debugState"  class="no-target">Not Attached</span>
-        <span *ngIf="!!debugState" class="target-name">{{processName()}}</span>
+        <span *ngIf="!isAttached()"  class="no-target">Not Attached</span>
+        <span *ngIf="!!isAttached()" class="target-name">{{processName()}}</span>
     </span>
     <span class="flex-pusher"></span>
     <span [hidden]="IsInLauncherView()">

@@ -119,6 +119,10 @@ export class ToolbarComponent {
 		return !!this.debuggerService.currentDebuggerState;
 	}
 
+    public isAttached(): boolean {
+        return !!this.debuggerService.currentDebuggerState;
+    }
+
 	public canStart(): boolean {
 		return !!this.debuggerService.currentDebuggerState && !this.debuggerService.currentExecution;
 	}
