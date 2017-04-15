@@ -2,15 +2,17 @@
 	<div *ngIf="trace.data.tType==='line'" class="trace-instruction">
 		<ul>
 			<li *ngFor="let state of stateEntries">
-				{{state.variable ? state.variable.name : state.address}} =
-				<!--<span (click)="viewStruct(state)" style="cursor:pointer">{{stringifyStateValue(state)}}</span>-->
-				<spice-variable-display
-					[type]="state.sType"
-					[value]="state.value"
-					[valueMap]="trace.data.state"
-					[editable]="false"
-					[compact]="true"
-					[debugState]="debuggerState"></spice-variable-display>
+				<span *ngIf="state.variable">
+					{{state.variable.name}} =
+					<spice-variable-display
+							[type]="state.sType"
+							[value]="state.value"
+							[valueMap]="trace.data.state"
+							[editable]="false"
+							[compact]="true"
+							[debugState]="debuggerState"></spice-variable-display>
+				</span>
+
 			</li>
 		</ul>
 	</div>
