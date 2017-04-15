@@ -205,7 +205,7 @@ impl SymbolHandler {
             Ok(Type::Pointer { type_index: target })
         } else if tag == winapi::SymTagArrayType {
             let TypeIndex(element) = self.get_type_info(module, type_index)?;
-            let TypeChildren(count) = self.get_type_info(module, type_index)?;
+            let TypeCount(count) = self.get_type_info(module, type_index)?;
             Ok(Type::Array { type_index: element, count: count as usize })
         } else if tag == winapi::SymTagFunctionType {
             let TypeCallingConvention(cc) = self.get_type_info(module, type_index)?;
@@ -485,6 +485,11 @@ debug_property!(BasicType, winapi::TI_GET_BASETYPE);
 #[allow(dead_code)]
 struct TypeOffset(winapi::DWORD);
 debug_property!(TypeOffset, winapi::TI_GET_OFFSET);
+
+#[repr(C)]
+#[allow(dead_code)]
+struct TypeCount(winapi::DWORD);
+debug_property!(TypeCount, winapi::TI_GET_COUNT);
 
 #[repr(C)]
 #[allow(dead_code)]
