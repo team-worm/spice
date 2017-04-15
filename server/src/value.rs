@@ -160,6 +160,8 @@ impl debug::IntoValue for api::Value {
                 pointers.push_back((value as usize, type_index));
             }
 
+            (&Pointer { .. }, api::Value::Null) => {}
+
             (&Array { type_index, count }, api::Value::Array(values)) => {
                 if count != values.len() {
                     return Err(io::Error::from(io::ErrorKind::InvalidInput));
