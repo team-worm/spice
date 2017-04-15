@@ -14,7 +14,6 @@ import { SourceVariable, SourceVariableId } from "../../models/SourceVariable";
 import { Subscriber } from "rxjs/Subscriber";
 import { LoopData, TraceGroup } from "./trace-loop.component";
 import { DebuggerService, ExecutionEvent, PreCallFunctionEvent, DisplayTraceEvent, ProcessEndedEvent, DetachEvent, AttachEvent } from "../../services/debugger.service";
-import {Value} from "../../models/Value";
 import {VariableDisplayComponent} from "../common/variable-display/variable-display.component";
 import * as Prism from 'prismjs';
 import { GraphDisplayComponent, GraphData, DataNode } from "../common/graph-display.component";
@@ -305,17 +304,22 @@ export class DebuggerComponent {
 					(t: Trace) => {
 						if(t.data.tType === 'line') {
 							let lineData: LineData = t.data;
+							let rootStructAddress: PointerValue | null = null;
+							if(lineData.state[this.nodeGraphVariable!]) {
+								rootStructAddress = lineData.state[this.nodeGraphVariable!].value as PointerValue;
+							}
 							//for all nodes in the graph changed in this trace (and the root), remove old edges and nodes, add new edges and nodes
 							let updatedNodes = Object.keys(t.data.state)
-								.filter(s => parseInt(s) === this.nodeGraphVariable || !!this.nodeGraphData.nodes.find(n => n.id === parseInt(s)));
+								.filter(s => parseInt(s) === rootStructAddress || !!this.nodeGraphData.nodes.find(n => n.id === parseInt(s)));
 
-							function addNode(nodePointerAddress: number) {
+							function addNode(nodeStructAddress: number) {
 								//assume a node is always a pointer to a struct
 								//TODO: make this generalized (using spice types)
-								let nodeStructAddress = lineData.state[nodePointerAddress].value as PointerValue;
+
 								//if this node doesn't exist in the graph, add it
 								if(!this.nodeGraphData.nodes.find((n:DataNode) => n.id === nodeStructAddress)) {
-									this.nodeGraphData.nodes.push({id: nodeStructAddress});
+									//TODO: make this data field not hardcoded
+									this.nodeGraphData.nodes.push({id: nodeStructAddress, data: (lineData.state[nodeStructAddress].value as StructValue)[0].value});
 								}
 
 								let nodeStructValue = lineData.state[nodeStructAddress].value as StructValue;
@@ -323,10 +327,10 @@ export class DebuggerComponent {
 									let nodeEdgePointer = nodeStructValue[offset].value as PointerValue;
 									if(nodeEdgePointer) {
 										//add missing children
-										addNode(nodeEdgePointer);
+										addNode.call(this, nodeEdgePointer);
+										//add edges to new children
+										this.nodeGraphData.edges.push({id: `${nodeStructAddress},${nodeEdgePointer}`, source: nodeStructAddress, target: nodeEdgePointer});
 									}
-									//add edges to new children
-									this.nodeGraphData.edges.push({id: `${nodeStructAddress},${nodeEdgePointer}`, source: nodeStructAddress, target: nodeEdgePointer});
 								});
 							}
 

@@ -3,7 +3,7 @@ import { Observable } from "rxjs/Observable";
 import * as d3 from 'd3';
 
 export type GraphData = {nodes: DataNode[], edges: DataEdge[]};
-export type DataNode = {id: number};
+export type DataNode = {id: number, data: string};
 export type DataEdge = {id: number, source: DataNode & d3.SimulationNodeDatum, target: DataNode & d3.SimulationNodeDatum};
 
 @Component({
@@ -18,6 +18,8 @@ export class GraphDisplayComponent implements OnInit, AfterViewInit, OnChanges, 
 	protected svg: d3.Selection<any,any,any,any>;
 	protected margin: { top: number, right: number, bottom: number, left: number};
 	protected simulation: d3.Simulation<d3.SimulationNodeDatum,d3.SimulationLinkDatum<d3.SimulationNodeDatum>>;
+	protected edgesGroup: d3.Selection<any, any, any, any>;
+	protected nodesGroup: d3.Selection<any, any, any, any>;
 	protected allNodes: d3.Selection<any, any, any, any>;
 	protected allEdges: d3.Selection<any, any, any, any>;
 	protected linkForce: d3.ForceLink<d3.SimulationNodeDatum, d3.SimulationLinkDatum<d3.SimulationNodeDatum>>;
@@ -88,6 +90,12 @@ export class GraphDisplayComponent implements OnInit, AfterViewInit, OnChanges, 
 			.append("path")
 				.attr("d", "M0,-5L10,0L0,5");
 
+		this.edgesGroup = this.svg.append('g')
+				.attr('class', 'edges');
+
+		this.nodesGroup = this.svg.append('g')
+				.attr('class', 'nodes');
+
 
 		this.simulation = d3.forceSimulation();
 		this.linkForce = d3.forceLink().id((d:DataNode) => ''+d.id).distance(60);
@@ -105,10 +113,8 @@ export class GraphDisplayComponent implements OnInit, AfterViewInit, OnChanges, 
 
 		this.simulation.alphaTarget(0.3).restart();
 
-		let edge = this.svg.append('g')
-				.attr('class', 'link')
-			.selectAll('g')
-				.data(this.data.edges, (e:DataEdge) => ''+e.id);
+		let edge = this.edgesGroup.selectAll('g')
+			.data(this.data.edges, (e:DataEdge) => ''+e.id);
 
 		let newEdge = edge.enter().append('g');
 		
@@ -119,23 +125,22 @@ export class GraphDisplayComponent implements OnInit, AfterViewInit, OnChanges, 
 
 		edge.exit().remove();
 
-		let node = this.svg.append('g')
-				.attr('class', 'nodes')
-			.selectAll('g')
-				.data(this.data.nodes, (d:DataNode) => ''+d.id);
+		let node = this.nodesGroup.selectAll('g')
+			.data(this.data.nodes, (d:DataNode) => ''+d.id);
 
 		let newNode = node.enter().append('g');
 		
 		newNode.append('circle')
 			.attr('r', 5)
-			.attr('fill', '#4f4');
-		//newNode.append('text')
-			//.text((d:DataNode) => d.id)
-			//.attr('fill', '#0f0');
-			//.call(d3.drag()
-				//.on("start", dragstarted)
-				//.on("drag", dragged)
-				//.on("end", dragended));
+			.attr('fill', '#4f4')
+			.call(d3.drag()
+				.on("start", (d) => {this.onDragStart(d);})
+				.on("drag",  (d) => {this.onDrag(d);})
+				.on("end",   (d) => {this.onDragEnd(d);}) as any);
+
+		newNode.append('text')
+			.text((d:DataNode) => d.data)
+			.attr('fill', '#000');
 
 		node.exit().remove();
 
@@ -152,6 +157,29 @@ export class GraphDisplayComponent implements OnInit, AfterViewInit, OnChanges, 
 
 		this.allNodes
 			.attr('transform', (d:DataNode & d3.SimulationNodeDatum) => `translate(${d.x},${d.y})`);
+	}
+
+	protected onDragStart(d: d3.SimulationNodeDatum) {
+		if (!d3.event.active) {
+			this.simulation.alphaTarget(0.3).restart();
+		}
+		d.fx = d.x;
+		d.fy = d.y;
+	}
+
+	protected onDrag(d: d3.SimulationNodeDatum) {
+		console.log(d3.event.x);
+		d.fx = d3.event.x;
+		d.fy = d3.event.y;
+		//this.nodeClickHandler.apply(this, arguments);
+	}
+
+	protected onDragEnd(d: d3.SimulationNodeDatum) {
+		if (!d3.event.active) {
+			this.simulation.alphaTarget(0.3);
+		}
+		d.fx = null;
+		d.fy = null;
 	}
 }
 
