@@ -159,7 +159,6 @@ impl Event {
 
         self.continue_status(status)?;
 
-        mem::forget(self);
         Ok(())
     }
 
@@ -173,11 +172,5 @@ impl Event {
         }
 
         Ok(())
-    }
-}
-
-impl Drop for Event {
-    fn drop(&mut self) {
-        let _ = self.continue_status(winapi::DBG_EXCEPTION_NOT_HANDLED as winapi::DWORD);
     }
 }
