@@ -79,7 +79,6 @@ impl Call {
         }
 
         // fixup pointers to their actual targets
-        addresses.insert(0, 0);
         for (&address, &target) in &offsets {
             let bytes = addresses[&target].as_bytes();
             child.write_memory(address, bytes)?;
