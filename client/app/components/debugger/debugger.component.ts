@@ -170,10 +170,7 @@ export class DebuggerComponent {
 		if(this.sourceFunction) {
 			for(let i = 0; i < this.variableDisplays.length; i++) {
 				let vdc:VariableDisplayComponent = this.variableDisplays.toArray()[i];
-				let val = vdc.getValue();
-				if(val !== undefined) {
-					this.setParameters[vdc.address] = val;
-				}
+				let val = vdc.applyValue(this.setParameters);
 			}
 			this.debuggerService.callFunction(this.sourceFunction, this.setParameters)
 				.subscribe((ex:Execution)=>{

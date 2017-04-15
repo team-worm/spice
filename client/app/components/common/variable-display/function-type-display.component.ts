@@ -31,7 +31,10 @@ export class FunctionTypeDisplay {
     @Input()
     public types:Map<SourceTypeId, SourceType>;
 
-    public getValue():Value | undefined {
+    public getValue(parameters:{[address: number]: Value}):Value | undefined {
+        /* Not implemented by final release of Spice.
+        *  Modifying functions in Spice could be very complicated and definitely out of scope by graduation.
+        * */
         return this.value ? this.value : {value: null};
     }
 

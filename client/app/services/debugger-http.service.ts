@@ -163,7 +163,7 @@ export class DebuggerHttpService {
 					observer.error(DebuggerHttpService.handleServerDataError('Trace')(e));
 				}
 			}).fail((thrown: any, statusCode: number, body: any, jsonBody: any) => {
-				observer.error(new Error(`GetTrace failed: ${thrown || {status: statusCode}}`));
+				observer.error(new Error(`GetTrace failed: ${(thrown && thrown.message) || {status: statusCode}}`));
 			});
 		}).publishReplay().refCount();
 	}

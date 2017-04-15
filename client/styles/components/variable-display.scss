@@ -4,7 +4,7 @@
       margin: 8px;
       cursor: pointer;
       md-icon {
-        font-size: 20px;
+        font-size: 14px;
         vertical-align: sub;
       }
       &:hover {
@@ -12,7 +12,7 @@
       }
     }
     .pointer-contents {
-      margin: 8px;
+      display: block;
     }
     .primitive {
       &.null {
@@ -78,7 +78,7 @@
     .pointer {
       cursor: pointer;
       md-icon {
-        font-size: 18px;
+        font-size: 14px;
         vertical-align: sub;
       }
       &:hover {

@@ -9,7 +9,7 @@ import {FunctionTypeDisplay} from "./function-type-display.component";
     selector: 'spice-array-type-display',
     template: `        
         <span class="array" *ngIf="types && type && baseType">
-            (<b>{{sizeIterator.length}}</b>) [
+            [
             <span class="elements" *ngFor="let i of sizeIterator" [ngSwitch]="baseType.data.tType">
                 <spice-struct-type-display
                         #struct
@@ -116,7 +116,7 @@ export class ArrayTypeDisplay implements OnInit{
 
     }
 
-    public getValue():Value | undefined {
+    public getValue(parameters:{[address: number]: Value}):Value | undefined {
         if(this.type && this.type.data.tType === 'array' && this.baseType) {
             let outVals:Value = {value: []};
             let list: QueryList<StructTypeDisplay> | QueryList<PrimitiveTypeDisplay> | QueryList<ArrayTypeDisplay> | QueryList<PointerTypeDisplay>  | QueryList<FunctionTypeDisplay>;
@@ -141,7 +141,7 @@ export class ArrayTypeDisplay implements OnInit{
             }
             for(let i of this.sizeIterator) {
                 let disp: StructTypeDisplay|PrimitiveTypeDisplay|ArrayTypeDisplay|PointerTypeDisplay|FunctionTypeDisplay = list.toArray()[i];
-                let val = disp.getValue();
+                let val = disp.getValue(parameters);
                 if(val) {
                     if(Array.isArray(outVals.value)) {
                         outVals.value.push(val);

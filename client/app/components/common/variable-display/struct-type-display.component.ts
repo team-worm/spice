@@ -94,7 +94,7 @@ export class StructTypeDisplay{
     @ViewChildren(FunctionTypeDisplay)
     private functionDisplays: QueryList<FunctionTypeDisplay>;
 
-    public getValue():Value | undefined {
+    public getValue(parameters:{[address: number]: Value}):Value | undefined {
         if(this.type && this.type.data.tType === 'struct') {
             let outVal = {value: {}};
             let primDs = this.primitiveDisplays.toArray().reverse();
@@ -106,19 +106,19 @@ export class StructTypeDisplay{
                 let t = this.types.get(f.sType)!;
                 switch(t.data.tType) {
                     case "primitive":
-                        outVal.value[f.offset] = primDs.pop()!.getValue();
+                        outVal.value[f.offset] = primDs.pop()!.getValue(parameters);
                         break;
                     case "pointer":
-                        outVal.value[f.offset] = poinDs.pop()!.getValue();
+                        outVal.value[f.offset] = poinDs.pop()!.getValue(parameters);
                         break;
                     case "array":
-                        outVal.value[f.offset] = arraDs.pop()!.getValue();
+                        outVal.value[f.offset] = arraDs.pop()!.getValue(parameters);
                         break;
                     case "struct":
-                        outVal.value[f.offset] = struDs.pop()!.getValue();
+                        outVal.value[f.offset] = struDs.pop()!.getValue(parameters);
                         break;
                     case "function":
-                        outVal.value[f.offset] = funcDs.pop()!.getValue();
+                        outVal.value[f.offset] = funcDs.pop()!.getValue(parameters);
 
                 }
             }

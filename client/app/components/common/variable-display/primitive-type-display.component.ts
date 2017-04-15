@@ -50,7 +50,7 @@ export class PrimitiveTypeDisplay {
     constructor(){
     }
 
-    public getValue():Value | undefined {
+    public getValue(parameters:{[address: number]: Value}):Value | undefined {
         if(this.type && this.type.data.tType === 'primitive') {
             let inputVal = (<HTMLInputElement> this.inputEl.nativeElement).value;
             switch(this.type.data.base) {
