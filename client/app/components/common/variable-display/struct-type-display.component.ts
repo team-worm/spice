@@ -1,45 +1,61 @@
-import {Component, Input} from "@angular/core";
+import {Component, Input, OnInit, QueryList, ViewChild, ViewChildren} from "@angular/core";
+import {SourceType, SourceTypeId} from "../../../models/SourceType";
+import {Value} from "../../../models/Value";
+import {PrimitiveTypeDisplay} from "./primitive-type-display.component";
+import {ArrayTypeDisplay} from "./array-type-display.component";
+import {PointerTypeDisplay} from "./pointer-type-display.component";
+import {FunctionTypeDisplay} from "./function-type-display.component";
 @Component({
     selector: 'spice-struct-type-display',
     template: `
         <div class="struct">
-            <div class="variable-header">
-                <span class="variable-subname">{{type.name}}</span>
+            <div class="struct-header">
+                {{type.data.tType === 'struct' ? type.data.name : 'Type Error'}}
             </div>
-            <table>
-                <tr *ngFor="let f of type.fields" [ngSwitch]="types[f.sType].tType">
+            <!--<table *ngIf="type.data.tType === 'struct'">-->
+            <table >
+                <tr *ngFor="let f of type.data.fields" [ngSwitch]="types.get(f.sType).data.tType">
                     <td>
                         <div class="fieldName">{{f.name}}</div>
-                        <div class="fieldType">{{getTypeName(types[f.sType])}}</div>
+                        <div class="fieldType">{{types.get(f.sType).toString(types)}}</div>
                     </td>
                     <td>
                         <spice-struct-type-display
                                 *ngSwitchCase="'struct'"
-                                [type]="types[f.sType]"
+                                [type]="types.get(f.sType)"
                                 [types]="types"
-                                [editable]="editable"></spice-struct-type-display>
+                                [value]="getStructValue(f.offset)"
+                                [valueMap]="valueMap"
+                                [editable]="editable"
+                                [compact]="compact && !editable"></spice-struct-type-display>
                         <spice-primitive-type-display
                                 *ngSwitchCase="'primitive'"
-                                [type]="types[f.sType]"
-                                [value]="value"
-                                [editable]="editable"></spice-primitive-type-display>
+                                [type]="types.get(f.sType)"
+                                [value]="getStructValue(f.offset)"
+                                [editable]="editable"
+                                [compact]="compact && !editable"></spice-primitive-type-display>
                         <spice-array-type-display
                                 *ngSwitchCase="'array'"
-                                [type]="types[f.sType]"
-                                [value]="value"
+                                [type]="types.get(f.sType)"
+                                [value]="getStructValue(f.offset)"
+                                [valueMap]="valueMap"
                                 [editable]="editable"
+                                [compact]="compact && !editable"
                                 [types]="types"></spice-array-type-display>
                         <spice-pointer-type-display
                                 *ngSwitchCase="'pointer'"
-                                [type]="types[f.sType]"
-                                [value]="value"
+                                [type]="types.get(f.sType)"
+                                [value]="getStructValue(f.offset)"
+                                [valueMap]="valueMap"
                                 [editable]="editable"
+                                [compact]="compact && !editable"
                                 [types]="types"></spice-pointer-type-display>
                         <spice-function-type-display
                                 *ngSwitchCase="'function'"
-                                [type]="types[f.sType]"
-                                [value]="value"
+                                [type]="types.get(f.sType)"
+                                [value]="getStructValue(f.offset)"
                                 [editable]="editable"
+                                [compact]="compact && !editable"
                                 [types]="types"></spice-function-type-display>
                     </td>
                 </tr>
@@ -50,62 +66,77 @@ import {Component, Input} from "@angular/core";
 export class StructTypeDisplay{
 
     @Input()
-    public type:any;
+    public type:SourceType;
 
     @Input()
-    public value:any;
+    public value:Value = {value:null};
 
     @Input()
-    public editable:boolean;
+    public valueMap:{ [sVariable: number]: Value};
 
-    /* Delete Mes */
     @Input()
-    public types: {[id: number]: any};
-    /* END Delete Mes*/
+    public editable:boolean = false;
+
+    @Input()
+    public compact:boolean = false;
+
+    @Input()
+    public types:Map<SourceTypeId, SourceType>;
+
+    @ViewChildren(StructTypeDisplay)
+    private structDisplays: QueryList<StructTypeDisplay>;
+    @ViewChildren(PrimitiveTypeDisplay)
+    private primitiveDisplays: QueryList<PrimitiveTypeDisplay>;
+    @ViewChildren(ArrayTypeDisplay)
+    private arrayDisplays: QueryList<ArrayTypeDisplay>;
+    @ViewChildren(PointerTypeDisplay)
+    private pointerDisplays: QueryList<PointerTypeDisplay>;
+    @ViewChildren(FunctionTypeDisplay)
+    private functionDisplays: QueryList<FunctionTypeDisplay>;
+
+    public getValue():Value | undefined {
+        if(this.type && this.type.data.tType === 'struct') {
+            let outVal = {value: {}};
+            let primDs = this.primitiveDisplays.toArray().reverse();
+            let poinDs = this.pointerDisplays.toArray().reverse();
+            let arraDs = this.arrayDisplays.toArray().reverse();
+            let struDs = this.structDisplays.toArray().reverse();
+            let funcDs = this.functionDisplays.toArray().reverse();
+            for(let f of this.type.data.fields) {
+                let t = this.types.get(f.sType)!;
+                switch(t.data.tType) {
+                    case "primitive":
+                        outVal.value[f.offset] = primDs.pop()!.getValue();
+                        break;
+                    case "pointer":
+                        outVal.value[f.offset] = poinDs.pop()!.getValue();
+                        break;
+                    case "array":
+                        outVal.value[f.offset] = arraDs.pop()!.getValue();
+                        break;
+                    case "struct":
+                        outVal.value[f.offset] = struDs.pop()!.getValue();
+                        break;
+                    case "function":
+                        outVal.value[f.offset] = funcDs.pop()!.getValue();
+
+                }
+            }
+            return outVal;
+        }
+        return undefined;
+    }
+
+    public getStructValue(offset:number):Value | null {
+        if(this.value && this.value.value) {
+            let val = this.value.value[offset];
+            if(val) {
+                return val;
+            }
+        }
+        return null;
+    }
 
     constructor(){
     }
-
-    public getFullFunctionSignature(type:any):string {
-        return (this.getFunctionParametersSignature(type) + ' -> ' + this.getTypeName(this.types[type.sType]));
-    }
-
-    public getFunctionParametersSignature(type:any):string {
-        let str:string = '( ';
-        let first:boolean = true;
-
-        let params:number[] = type.parameters;
-        for(let par of params){
-            if(first) {
-                first = false;
-            } else {
-                str += ' , ';
-            }
-            let parType = this.types[par];
-            str += this.getTypeName(parType);
-        }
-        str += ' )';
-
-        return str;
-    }
-
-    public getTypeName(type:any):string {
-        switch(type.tType) {
-            case 'primitive':
-                return type.base;
-            case 'pointer':
-                return (this.getTypeName(this.types[type.sType]) + '*');
-            case 'array':
-                return (this.getTypeName(type.sType) + '[]');
-            case 'function':
-                return this.getFullFunctionSignature(type);
-            case 'struct':
-                return type.name;
-            default:
-                return 'TypeError';
-        }
-    }
-
-
-
 }

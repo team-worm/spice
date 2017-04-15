@@ -83,10 +83,16 @@ export class DebuggerHttpService {
 			.publishLast().refCount();
 	}
 
-	public executeFunction(id: DebugId, sFunction: SourceFunctionId, parameters: {[id: number]: Value}): Observable<Execution> {
+	public callFunction(id: DebugId, sFunction: SourceFunctionId, parameters: {[id: number]: Value}): Observable<Execution> {
+		let mappedParams:{[id: number]:any} = {};
+
+		for(let par of Object.keys(parameters)) {
+			let v:Value = parameters[par];
+			mappedParams[par] = Value.getSerialized(v);
+		}
 		return this.http.post(
 			`http://${host}:${port}/api/v1/debug/${id}/functions/${sFunction}/execute`,
-			{arguments: parameters}
+			{arguments: mappedParams}
 		)
 			.map(res => fromJSON(res.json(), Execution))
 			.catch(DebuggerHttpService.handleServerDataError('Execution'))
@@ -144,7 +150,10 @@ export class DebuggerHttpService {
 					//insert the 'value' field we need for the typing system to work
 					let trace = fromJSON(t, Trace) as Trace;
 					if(trace.data.tType === 'line') {
-						trace.data.state = Object.keys(trace.data.state).reduce((o, s) => { o[s] = {value: (trace.data as LineData).state[s]}; return o;}, {});
+						trace.data.state = Object.keys(trace.data.state).reduce((o, s) => { o[s] = Value.deserialize((trace.data as LineData).state[s]); return o;}, {});
+					}
+					if(trace.data.tType === 'return') {
+						trace.data.value = Value.deserialize(trace.data.value);
 					}
 					observer.next(trace);
 					if (['return', 'break', 'exit', 'crash', 'error'].indexOf(t.data.tType) > -1) {

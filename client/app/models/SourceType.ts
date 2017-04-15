@@ -1,4 +1,5 @@
 import { Deserialize } from "../util/SpiceValidator";
+import {Value} from "./Value";
 
 export type SourceTypeId = number;
 
@@ -41,10 +42,31 @@ export class SourceType {
 					return 'TypeError';
 			}
 		} catch (error) {
-    		console.error('TYPES ERROR', error); //TODO: Clean this up.
-    		return '';
+    		return 'Type Map Error';
 		}
 
+	}
+
+	public getDefaultValue():Value {
+    	switch(this.data.tType) {
+			case "primitive":
+				switch(this.data.base) {
+					case "void":
+						return {value: null};
+					case "bool":
+						return {value: false};
+					default:
+						return {value: 0};
+				}
+			case "pointer":
+				return {value: null};
+			case "array":
+				return {value: []};
+			case "struct":
+				return {value: {}};
+			case "function":
+				return {value: null};
+		}
 	}
 }
 

@@ -1,39 +1,58 @@
-import {Component, Input, OnInit} from "@angular/core";
+import {Component, Input, OnInit, ViewChild} from "@angular/core";
+import {SourceType, SourceTypeId} from "../../../models/SourceType";
+import {Value} from "../../../models/Value";
+import {StructTypeDisplay} from "./struct-type-display.component";
+import {PrimitiveTypeDisplay} from "./primitive-type-display.component";
+import {ArrayTypeDisplay} from "./array-type-display.component";
+import {FunctionTypeDisplay} from "./function-type-display.component";
 @Component({
     selector: 'spice-pointer-type-display',
     template: `
-        <div class="pointer" (click)="expanded = !expanded" [ngClass]="{'expanded':expanded}">
-            {{getTypeName(type)}}<md-icon>{{expanded ? 'keyboard_arrow_down' : 'keyboard_arrow_right'}}</md-icon>
-        </div>
-        <div class="pointer-contents" *ngIf="expanded" [ngSwitch]="types[type.sType].tType">
+        <span   *ngIf="types && type" (click)="expanded = !expanded"
+                class="pointer"  
+                title="{{expanded ? 'Hide pointer contents.' : 'Show pointer contents.'}}"
+                [ngClass]="{'expanded':expanded}">
+            {{type.toString(types)}}<md-icon>{{expanded ? 'keyboard_arrow_down' : 'keyboard_arrow_right'}}</md-icon>
+        </span>
+        <div class="pointer-contents" *ngIf="expanded && types && type" [ngSwitch]="types.get(type.data.sType).data.tType">
             <spice-struct-type-display
+                    #struct
                     *ngSwitchCase="'struct'"
-                    [type]="types[type.sType]"
+                    [type]="types.get(type.data.sType)"
                     [value]="value"
+                    [valueMap]="valueMap"
                     [editable]="editable"
+                    [compact]="compact && !editable"
                     [types]="types"></spice-struct-type-display>
             <spice-primitive-type-display
-                    *ngSwitchCase="'primative'"
-                    [type]="types[type.sType]"
-                    [value]="value"
-                    [editable]="editable"></spice-primitive-type-display>
-            <spice-array-type-display
-                    *ngSwitchCase="'array'"
-                    [type]="types[type.sType]"
+                    *ngSwitchCase="'primitive'"
+                    [type]="types.get(type.data.sType)"
                     [value]="value"
                     [editable]="editable"
+                    [compact]="compact && !editable"></spice-primitive-type-display>
+            <spice-array-type-display
+                    #array
+                    *ngSwitchCase="'array'"
+                    [type]="types.get(type.data.sType)"
+                    [value]="value"
+                    [valueMap]="valueMap"
+                    [editable]="editable"
+                    [compact]="compact && !editable"
                     [types]="types"></spice-array-type-display>
             <spice-pointer-type-display
                     *ngSwitchCase="'pointer'"
-                    [type]="types[type.sType]"
+                    [type]="types.get(type.data.sType)"
                     [value]="value"
+                    [valueMap]="valueMap"
                     [editable]="editable"
+                    [compact]="compact && !editable"
                     [types]="types"></spice-pointer-type-display>
             <spice-function-type-display
                     *ngSwitchCase="'function'"
-                    [type]="types[type.sType]"
+                    [type]="types.get(type.data.sType)"
                     [value]="value"
                     [editable]="editable"
+                    [compact]="compact && !editable"
                     [types]="types"></spice-function-type-display>
         </div>
     `
@@ -41,60 +60,64 @@ import {Component, Input, OnInit} from "@angular/core";
 export class PointerTypeDisplay {
 
     @Input()
-    public type:any;
+    public type:SourceType;
 
     @Input()
-    public value:any;
+    public value:Value;
 
     @Input()
-    public editable:boolean;
+    public valueMap:{ [sVariable: number]: Value};
 
-    /* Delete Mes */
     @Input()
-    public types: {[id: number]: any};
-    /* END Delete Mes*/
+    public editable:boolean = false;
+
+    @Input()
+    public compact:boolean = false;
+
+    @Input()
+    public types:Map<SourceTypeId, SourceType>;
+
+    @ViewChild('struct')
+    private structDisplay: StructTypeDisplay;
+    @ViewChild(PrimitiveTypeDisplay)
+    private primitiveDisplay: PrimitiveTypeDisplay;
+    @ViewChild('array')
+    private arrayDisplay: ArrayTypeDisplay;
+    @ViewChild(PointerTypeDisplay)
+    private pointerDisplay: PointerTypeDisplay;
+    @ViewChild(FunctionTypeDisplay)
+    private functionDisplay: FunctionTypeDisplay;
 
     public expanded:boolean = false;
 
-    constructor() {}
+    public getValue():Value | undefined {
+        if(this.type && this.types && this.type.data.tType === 'pointer') {
+            let targetType = this.types.get(this.type.data.sType)!;
 
-    public getFullFunctionSignature(type:any):string {
-        return (this.getFunctionParametersSignature(type) + ' -> ' + this.getTypeName(this.types[type.sType]));
-    }
-
-    public getFunctionParametersSignature(type:any):string {
-        let str:string = '( ';
-        let first:boolean = true;
-
-        let params:number[] = type.parameters;
-        for(let par of params){
-            if(first) {
-                first = false;
-            } else {
-                str += ' , ';
+            switch(targetType.data.tType) {
+                case "primitive":
+                    if(this.primitiveDisplay)
+                        return this.primitiveDisplay.getValue();
+                    break;
+                case "pointer":
+                    if(this.pointerDisplay)
+                        return this.pointerDisplay.getValue();
+                    break;
+                case "array":
+                    if(this.arrayDisplay)
+                        return this.arrayDisplay.getValue();
+                    break;
+                case "struct":
+                    if(this.structDisplay)
+                        return this.structDisplay.getValue();
+                    break;
+                case "function":
+                    if(this.functionDisplay)
+                        return this.functionDisplay.getValue();
+                    break;
             }
-            let parType = this.types[par];
-            str += this.getTypeName(parType);
-        }
-        str += ' )';
-
-        return str;
-    }
-
-    public getTypeName(type:any):string {
-        switch(type.tType) {
-            case 'primitive':
-                return type.base;
-            case 'pointer':
-                return (this.getTypeName(this.types[type.sType]) + '*');
-            case 'array':
-                return (this.getTypeName(type.sType) + '[]');
-            case 'function':
-                return this.getFullFunctionSignature(type);
-            case 'struct':
-                return type.name;
-            default:
-                return 'TypeError';
         }
     }
+
+    constructor() {}
 }

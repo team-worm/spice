@@ -6,6 +6,7 @@ import {MdDialogRef} from "@angular/material";
     template: `        
         <h2 md-dialog-title><b>{{func.name}}</b> Locals</h2>
     <md-dialog-content>
+        <img src="https://i.imgur.com/OvMZBs9.jpg">
         <div *ngFor="let local of func.locals">
             {{local.name}}
         </div>

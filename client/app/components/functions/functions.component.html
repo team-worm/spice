@@ -1,5 +1,5 @@
 <div id="FunctionsContainer">
-    <div fxLayout="row">
+    <div fxLayout="row" *ngIf="!isHidden">
         <div fxFlex="30" >
         <md-card class="smallerMargin" [style.height.px]="GetFullCardHeight()">
             <md-card-title class="smallBottomMargin">
@@ -19,7 +19,9 @@
         </div>
         <div fxFlex="70">
             <md-card class="smallerMargin">
-                <md-card-title>Selected Function: <i>{{GetSelectedFunctionAsString()}}</i> <button class="types-button" md-raised-button (click)="OpenSpiceTypeDialog()" [disabled]="!selectedFunction"><md-icon [color]="'primary'">compare_arrows</md-icon> Type Mapping</button></md-card-title>
+                <md-card-title>Selected Function: <i>{{GetSelectedFunctionAsString()}}</i>
+                    <!--<button class="types-button" md-raised-button (click)="OpenSpiceTypeDialog()" [disabled]="!selectedFunction"><md-icon [color]="'primary'">compare_arrows</md-icon> Type Mapping</button>-->
+                </md-card-title>
                 <md-card-subtitle *ngIf="!selectedFunction">Select a function from the list to the left.</md-card-subtitle>
                 <md-card-subtitle *ngIf="!!selectedFunction">Line {{selectedFunction.lineStart}} of {{selectedFunction.sourcePath}}</md-card-subtitle>
                 <md-card-actions>
@@ -28,7 +30,7 @@
                         <md-icon>bookmark_border</md-icon>Set Breakpoint
                     </button>
                     <button md-button [disabled]="!selectedFunction"
-						*ngIf="!selectedFunction || !!debuggerService.currentDebuggerState && debuggerService.currentDebuggerState.breakpoints.has(selectedFunction.address)" (click)="ToggleBreakpoint()">
+						*ngIf="!!selectedFunction && !!debuggerService.currentDebuggerState && debuggerService.currentDebuggerState.breakpoints.has(selectedFunction.address)" (click)="ToggleBreakpoint()">
                         <md-icon>bookmark</md-icon>Remove Breakpoint
                     </button>
                     <i>or</i>

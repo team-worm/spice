@@ -1,4 +1,4 @@
-import { Component, ViewChild } from "@angular/core";
+import {Component, QueryList, ViewChild, ViewChildren} from "@angular/core";
 import { DebuggerState } from "../../models/DebuggerState";
 import { Execution, ExecutionId, FunctionData } from "../../models/Execution";
 import { Trace, LineData } from "../../models/Trace";
@@ -14,6 +14,8 @@ import { SourceVariable, SourceVariableId } from "../../models/SourceVariable";
 import { Subscriber } from "rxjs/Subscriber";
 import { LoopData, TraceGroup } from "./trace-loop.component";
 import { DebuggerService, ExecutionEvent, PreCallFunctionEvent, DisplayTraceEvent, ProcessEndedEvent, DetachEvent, AttachEvent } from "../../services/debugger.service";
+import {Value} from "../../models/Value";
+import {VariableDisplayComponent} from "../common/variable-display/variable-display.component";
 import * as Prism from 'prismjs';
 import { GraphDisplayComponent, GraphData, DataNode } from "../common/graph-display.component";
 import { SourceType, Field } from "../../models/SourceType";
@@ -32,7 +34,11 @@ export class DebuggerComponent {
 	public traceLoopStack: LoopData[] = [];
 
 	public sourceFunction: SourceFunction | null = null;
-	public setParameters:{[id: string]: any} = {};
+
+	@ViewChildren('varDisplay')
+	private variableDisplays:QueryList<VariableDisplayComponent>;
+
+	public setParameters:{[address: number]: Value} = {};
 
 	@ViewChild('lineGraph') lineGraph: LineGraphComponent;
 	@ViewChild('graphDisplay') graphDisplay: GraphDisplayComponent;
@@ -45,7 +51,7 @@ export class DebuggerComponent {
 
 	public currentExecution: Execution | null = null;
 
-	constructor(private debuggerService: DebuggerService,
+	constructor(public debuggerService: DebuggerService,
 				private fileSystemService: FileSystemService,
 				private viewService: ViewService,
 				private snackBar: MdSnackBar) {
@@ -163,11 +169,23 @@ export class DebuggerComponent {
 
 	public onPreCallFunction(event: PreCallFunctionEvent) {
 		this.setParameters = {};
+		if(this.debuggerService.currentDebuggerState) {
+			for(let par of event.sourceFunction.parameters) {
+				this.setParameters[par.address] = this.debuggerService.currentDebuggerState.sourceTypes.get(par.sType)!.getDefaultValue();
+			}
+		}
 		this.setSourceFunction(event.sourceFunction).subscribe(() => {}); //TODO: error handling
 	}
 
-	public ExecuteFunction() {
+	public CallFunction() {
 		if(this.sourceFunction) {
+			for(let i = 0; i < this.variableDisplays.length; i++) {
+				let vdc:VariableDisplayComponent = this.variableDisplays.toArray()[i];
+				let val = vdc.getValue();
+				if(val !== undefined) {
+					this.setParameters[vdc.address] = val;
+				}
+			}
 			this.debuggerService.callFunction(this.sourceFunction, this.setParameters)
 				.subscribe((ex:Execution)=>{
 					this.DisplayTrace(ex);
@@ -350,9 +368,18 @@ export class DebuggerComponent {
 
 	public onExecution(event: ExecutionEvent) {
 		this.setParameters = {};
+		if(this.debuggerService.currentDebuggerState && this.sourceFunction) {
+			for(let par of this.sourceFunction.parameters) {
+				this.setParameters[par.address] = this.debuggerService.currentDebuggerState.sourceTypes.get(par.sType)!.getDefaultValue();
+			}
+		}
 		if(event.reason === 'break') {
 			this.DisplayTrace(event.execution!);
 		}
+	}
+
+	public onCustomParameterChange(event: { address:number, val:Value}) {
+		this.setParameters[event.address] = event.val;
 	}
 
 	protected onDisplayTrace(event: DisplayTraceEvent) {
@@ -367,6 +394,7 @@ export class DebuggerComponent {
 
 		this.sourceFunction = null;
 		this.setParameters = {};
+
 
 		this.graphData = [];
 		this.graphVariable = null;

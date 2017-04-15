@@ -136,8 +136,8 @@ export class DebuggerState {
 			});
 	}
 
-	public executeFunction(id: SourceFunctionId, parameters: {[address: number]: Value}): Observable<Execution> {
-		return this.debuggerHttp.executeFunction(this.info.id, id, parameters)
+	public callFunction(id: SourceFunctionId, parameters: {[address: number]: Value}): Observable<Execution> {
+		return this.debuggerHttp.callFunction(this.info.id, id, parameters)
 			.map(e => {
 				this.executions.set(e.id, e);
 				return e;

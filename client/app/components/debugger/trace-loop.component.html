@@ -1,6 +1,11 @@
 <div class="trace-loop iteration-col" fxLayout="row">
-	<div *ngIf="loopData.iterations.length > 1" (click)=toggleShowAllIterations() fxFlex="nogrow" class="expand-loop-button"
-		fxLayout="column" fxLayoutAlign="center center">
+	<div *ngIf="loopData.iterations.length > 1"
+		 class="expand-loop-button"
+		 title="{{showAllIterations ? 'Hide loop contents.' : 'Show loop contents.'}}"
+		 (click)=toggleShowAllIterations()
+		 fxFlex="nogrow"
+		 fxLayout="column"
+		 fxLayoutAlign="center center">
 		<div fxFlex="nogrow">
 			<span [hidden]="!showAllIterations" class="expand-icon">&lt;</span>
 			<span [hidden]="showAllIterations">+{{loopData.iterations.length-1}}<span class="expand-icon">&gt;</span></span>

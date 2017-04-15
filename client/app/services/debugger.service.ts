@@ -179,7 +179,7 @@ export class DebuggerService {
 	}
 
 	public callFunction(sourceFunction: SourceFunction, parameters: { [varId: number]: Value}): Observable<Execution> {
-		return this.currentDebuggerState!.executeFunction(sourceFunction.address, parameters)
+		return this.currentDebuggerState!.callFunction(sourceFunction.address, parameters)
 			.map(ex => {
 				this.currentExecution = ex;
 				this.debuggerEventsObserver.next({eType: 'execution', execution: ex, reason: 'call'});

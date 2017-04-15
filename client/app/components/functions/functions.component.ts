@@ -1,4 +1,4 @@
-import {Component, OnInit, ViewChild} from "@angular/core";
+import {Component, Input, OnInit, ViewChild} from "@angular/core";
 import {Http, Response} from "@angular/http";
 import {MdDialog, MdSnackBar} from "@angular/material";
 import {SourceFunction, SourceFunctionId } from "../../models/SourceFunction";
@@ -21,7 +21,7 @@ import { displaySnackbarError } from "../../util/SnackbarError";
 
 @Component({
     moduleId: module.id,
-    selector: 'spice-configuration',
+    selector: 'spice-functions',
     templateUrl: './functions.component.html'
 })
 export class FunctionsComponent implements OnInit {
@@ -34,14 +34,15 @@ export class FunctionsComponent implements OnInit {
     public listedFunctions: SourceFunction[] = [];
     public defaultFuncCollections: {collection: SourceFunctionCollection, doFilter: boolean}[] = [];
 
+    @Input()
+    public isHidden:boolean;
+
     private _functionsContentBody: HTMLElement | null;
     private coreSourceFunctions: SourceFunction[] = [];
 
 	constructor(public debuggerService: DebuggerService,
 				private snackBar: MdSnackBar,
-				private viewService: ViewService,
 				private fileSystemService: FileSystemService,
-				private http: Http,
                 private dialog: MdDialog) {
 		this.debuggerService.getEventStream(['attach']).subscribe((event: AttachEvent) => this.onAttach(event));
 		this.debuggerService.getEventStream(['displayFunction']).subscribe((event: DisplayFunctionEvent) => this.onDisplayFunction(event));
