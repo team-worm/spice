@@ -94,8 +94,11 @@ pub fn trace_pointers(
     pointers: &mut VecDeque<(usize, u32)>, values: &mut HashMap<usize, api::Value>
 ) {
     while let Some((address, type_index)) = pointers.pop_front() {
-        let offset = address - base;
-        if values.contains_key(&address) || values.contains_key(&offset) {
+        let offset = address.checked_sub(base);
+        if
+            values.contains_key(&address) ||
+            offset.map(|offset| values.contains_key(&offset)).unwrap_or(false)
+        {
             continue;
         }
 
