@@ -112,6 +112,10 @@ export class GraphDisplayComponent implements OnInit, AfterViewInit, OnChanges, 
 		this.linkForce.links(this.data.edges);
 
 		this.simulation.alphaTarget(0.3).restart();
+		//fast forward simulation until it settles
+		for (let i = 0, n = Math.ceil(Math.log(this.simulation.alphaMin()) / Math.log(1 - this.simulation.alphaDecay())); i < n; ++i) {
+			this.simulation.tick();
+		}
 
 		let edge = this.edgesGroup.selectAll('g')
 			.data(this.data.edges, (e:DataEdge) => ''+e.id);
