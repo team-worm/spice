@@ -37,6 +37,11 @@ export class ToolbarComponent {
         return this.viewService.activeView === 'launcher';
     }
 
+    public IsFunctionExecution(): boolean {
+        return !!this.debuggerService.currentExecution
+            && this.debuggerService.currentExecution.data.eType === 'function';
+    }
+
     public GoToFunctionsView() {
     	this.debuggerService.displayFunction(null);
     }

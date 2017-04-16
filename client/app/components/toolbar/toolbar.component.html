@@ -8,7 +8,10 @@
     <span [hidden]="IsInLauncherView()">
         <button md-button *ngIf="!canContinue()" [disabled]="!canStart()" (click)="ContinueExecution()"><md-icon [color]="'accent'">play_arrow</md-icon> Start</button>
         <button md-button *ngIf="canContinue()" [disabled]="!canContinue()" (click)="ContinueExecution()"><md-icon [color]="'accent'">skip_next</md-icon> Continue</button>
+        <button *ngIf="IsFunctionExecution(); else processExecution" md-button [disabled]="!canStopExecution()" (click)="StopExecution()"><md-icon [color]="'accent'">pause</md-icon> Cancel</button>
+        <ng-template #processExecution>
         <button md-button [disabled]="!canStopExecution()" (click)="StopExecution()"><md-icon [color]="'accent'">pause</md-icon> Pause</button>
+        </ng-template>
         <button md-button [disabled]="!canKillProcess()" (click)="KillProcess()"><md-icon [color]="'accent'">stop</md-icon> Stop</button>
         <button md-button [disabled]="!canDetach()" (click)="Detach()"><md-icon [color]="'accent'">close</md-icon>Detach</button>
 	</span>
