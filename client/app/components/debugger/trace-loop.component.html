@@ -22,7 +22,8 @@
 									[trace]="getTraceGroupAtLine(iteration, i+loopData.startLine).trace"
 									[debuggerState]="debuggerState"
 									[sourceFunction]="sourceFunction"
-									[pointerTypes]="pointerTypes"></spice-trace>
+									[pointerTypes]="pointerTypes"
+									[pointerValues]="pointerValues"></spice-trace>
 						</div>
 						<span *ngSwitchCase="'loop'">
 							<spice-trace-loop *ngIf="(i+loopData.startLine) === getTraceGroupAtLine(iteration, i+loopData.startLine).startLine"
@@ -30,7 +31,8 @@
 								[sourceFunction]="sourceFunction"
 								[loopData]="getTraceGroupAtLine(iteration, i+loopData.startLine)"
 								[oddStartLine]="oddStartLine"
-								[pointerTypes]="pointerTypes"></spice-trace-loop>
+								[pointerTypes]="pointerTypes"
+								  [pointerValues]="pointerValues"></spice-trace-loop>
 						</span>
 					</span>
 					<div *ngIf="!getTraceGroupAtLine(iteration, i+loopData.startLine)" class="row trace"

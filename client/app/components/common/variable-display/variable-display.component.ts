@@ -90,6 +90,9 @@ export class VariableDisplayComponent implements OnInit {
     constructor(){}
 
     public ngOnInit() {
+
+        console.log('VAR DISPLAY TYPE', this.type, this.value, this.valueMap);
+
         if(this.compact && this.editable) {
             console.log('Both "compact" and "editable" not supported, not displaying compactly.');
         }

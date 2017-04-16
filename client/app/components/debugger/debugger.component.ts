@@ -44,6 +44,7 @@ export class DebuggerComponent {
 	public currentExecution: Execution | null = null;
 
 	public pointerTypes:{[address:number]:{type: SourceType, name:string}} = {};
+	public pointerValues: { [sVariable: number]: Value} = {};
 
 	constructor(public debuggerService: DebuggerService,
 				private fileSystemService: FileSystemService,
@@ -122,8 +123,12 @@ export class DebuggerComponent {
 					let v = parseInt(value.value.toString());
 					if(pt.data.tType === 'pointer') {
 						let dt = ds.sourceTypes.get(pt.data.sType)!;
-						this.pointerTypes[v] = {type: dt, name: variable.name + '*'}
+						this.pointerTypes[v] = {type: dt, name: variable.name + '*'};
+
 					}
+
+				} else if(this.pointerTypes[id]) {
+					this.pointerValues[id] = value;
 				}
 
 

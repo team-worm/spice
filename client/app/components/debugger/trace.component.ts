@@ -17,6 +17,7 @@ export class TraceComponent implements OnChanges {
 	@Input() debuggerState: DebuggerState;
 	@Input() sourceFunction: SourceFunction;
 	@Input() pointerTypes: {[address:number]:{type: SourceType, name:string}} = {};
+	@Input() pointerValues: { [sVariable: number]: Value} = {};
 
 	public functionReturnType: SourceType;
 
@@ -41,7 +42,7 @@ export class TraceComponent implements OnChanges {
 				sType = this.debuggerState.sourceTypes.get(variable.sType);
 				name = variable.name
 			} else if(this.pointerTypes[parseInt(id)]) {
-				let info = this.pointerTypes[parseInt(id)]
+				let info = this.pointerTypes[parseInt(id)];
 				name = info.name;
 				sType = info.type;
 			}
