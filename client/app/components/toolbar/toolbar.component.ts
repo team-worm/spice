@@ -70,6 +70,7 @@ export class ToolbarComponent {
 				});
     }
 	public KillProcess() {
+        this.StopExecution();
 		this.debuggerService.killProcess().subscribe(
 			() => {},
 			(e:any)=> {
