@@ -168,11 +168,17 @@ export class DebuggerComponent {
         }
     }
 
-    public ActivateCall(): boolean {
+    public CheckParamsAndCall(event: KeyboardEvent) {
+        if (event.key == 'Enter' && this.areParamsEntered()) {
+            this.ExecuteFunction();
+        }
+    }
+
+    public areParamsEntered(): boolean {
         if (this.sourceFunction && this.sourceFunction.parameters) {
             for (var key in this.setParameters) {
-                if (this.setParameters.hasOwnProperty(key)) {
-                    return this.setParameters[key] != "";
+                if (this.setParameters.hasOwnProperty(key) && this.setParameters[key] == "") {
+                    return false;
                 }
             }
             return (this.sourceFunction.parameters.length > 0 &&

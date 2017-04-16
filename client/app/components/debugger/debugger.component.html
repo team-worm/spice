@@ -13,13 +13,13 @@
 				<tr>
 					<td *ngFor="let par of sourceFunction.parameters; let i = index">
 						<md-input-container class="width-100">
-						    <input mdInput paramFocus [(ngModel)]="setParameters[par.name]" placeholder="{{par.sType}} {{par.name}}">
+						    <input mdInput paramFocus (keydown)="CheckParamsAndCall($event)" [(ngModel)]="setParameters[par.name]" placeholder="{{par.sType}} {{par.name}}">
 
 						</md-input-container>
 					</td>
 				</tr>
 			</table>
-			<button md-button [disabled]="!sourceFunction" (click)="ExecuteFunction()"><md-icon class="md-accent">play_circle_outline</md-icon> Call</button>
+			<button md-button [disabled]="!areParamsEntered()" (click)="ExecuteFunction()"><md-icon class="md-accent">play_circle_outline</md-icon> Call</button>
 		</md-card-content>
 	</md-card>
 	<md-card class="smallerMargin source-card">
