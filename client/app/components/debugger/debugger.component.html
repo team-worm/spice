@@ -13,7 +13,17 @@
 				<tr>
 					<td *ngFor="let par of sourceFunction.parameters; let i = index">
 						<md-input-container class="width-100">
-						    <input mdInput paramFocus (keydown)="CheckParamsAndCall($event)" [(ngModel)]="setParameters[par.name]" placeholder="{{par.sType}} {{par.name}}">
+						    <input *ngIf="i == 0; else noFocus"
+                                                           mdInput paramFocus
+                                                           (keydown)="CheckParamsAndCall($event)"
+                                                           [(ngModel)]="setParameters[par.name]"
+                                                           placeholder="{{par.sType}} {{par.name}}">
+                                                    <ng-template #noFocus>
+                                                        <input mdInput 
+                                                               (keydown)="CheckParamsAndCall($event)"
+                                                               [(ngModel)]="setParameters[par.name]"
+                                                               placeholder="{{par.sType}} {{par.name}}">
+                                                    </ng-template>
 
 						</md-input-container>
 					</td>
