@@ -35,7 +35,7 @@
 	<md-card class="smallerMargin source-card">
 		<md-card-content>
 			<div class="debugger-display source-code" fxFlex fxLayout="row">
-				<div class="source-code-viewer" fxFlex="40" fxLayout="row">
+				<div class="source-code-viewer" fxFlex="50" fxLayout="row">
 					<div class="line-number-col" fxFlex="nogrow">
 					    <div class="row" fxLayoutAlign="end center" [matchMaxHeight]="'debugger-'+(sourceFunction.lineStart+i)" *ngFor="let line of lines; let i=index;">
 							<span>{{sourceFunction.lineStart + i}}</span>
