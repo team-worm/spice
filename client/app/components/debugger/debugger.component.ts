@@ -74,39 +74,25 @@ export class DebuggerComponent {
             });
     }
 
-    public DisplayTrace(execution: Execution) {
-        if (execution.data.eType !== 'function') {
-            throw new Error('Cannot display trace for execution ${execution.id}: Only function traces can be displayed');
-        }
-        this.currentExecution = execution;
-        this.debuggerService.currentDebuggerState!.ensureSourceFunctions([execution.data.sFunction])
-            .mergeMap((sfMap: Map<SourceFunctionId, SourceFunction>) => {
-                let sf = this.debuggerService.currentDebuggerState!.sourceFunctions.get((this.currentExecution!.data as FunctionData).sFunction) !;
-                return Observable.forkJoin(
-                    this.setSourceFunction(sf),
-                    this.debuggerService.currentDebuggerState!.ensureTrace(execution.id));
-            }).mergeMap(([fileContents, trace]: [null, Observable<Trace>]) => {
-                return trace;
-            }).subscribe(
-            (t: Trace) => { this.addTrace(t); },
-            (error: any) => { console.error(error); }
-            );
-    }
-
-    public DisplayOldTrace(execution: Execution, sessId: number) {
+    public DisplayTrace(execution: Execution, sessId?: number) {
         if (execution.data.eType !== 'function') {
             throw new Error('Cannot display trace for execution ${execution.id}: Only function traces can be displayed');
         }
 
         this.currentExecution = execution;
+        if (!sessId) {
+            this.currentSess = this.debuggerService.currentDebuggerState!.info.id;
+        } else {
         this.currentSess = sessId;
+        }
 
-        this.debuggerService.debuggerStates.get(sessId) !.ensureSourceFunctions([execution.data.sFunction])
+
+        this.debuggerService.debuggerStates.get(this.currentSess) !.ensureSourceFunctions([execution.data.sFunction])
             .mergeMap((sfMap: Map<SourceFunctionId, SourceFunction>) => {
-                let sf = this.debuggerService.debuggerStates.get(sessId) !.sourceFunctions.get((this.currentExecution!.data as FunctionData).sFunction) !;
+                let sf = this.debuggerService.debuggerStates.get(this.currentSess) !.sourceFunctions.get((this.currentExecution!.data as FunctionData).sFunction) !;
                 return Observable.forkJoin(
                     this.setSourceFunction(sf),
-                    this.debuggerService.debuggerStates.get(sessId) !.ensureTrace(execution.id));
+                    this.debuggerService.debuggerStates.get(this.currentSess) !.ensureTrace(execution.id));
             }).mergeMap(([fileContents, trace]: [null, Observable<Trace>]) => {
                 return trace;
             }).subscribe(

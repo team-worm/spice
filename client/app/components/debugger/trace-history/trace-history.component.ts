@@ -87,7 +87,7 @@ export class TraceHistoryComponent {
     }
 
     public ReplayTrace(e: { ex: Execution, func: SourceFunction | null, debugSessId: number }) {
-        this.viewService.debuggerComponent!.DisplayOldTrace(e.ex, e.debugSessId);
+        this.viewService.debuggerComponent!.DisplayTrace(e.ex, e.debugSessId);
         //this.debuggerService.displayTrace(e.ex);
     }
 
