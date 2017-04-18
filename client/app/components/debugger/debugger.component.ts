@@ -16,7 +16,7 @@ import { LoopData, TraceGroup } from "./trace-loop.component";
 import { DebuggerService, ExecutionEvent, PreCallFunctionEvent, DisplayTraceEvent, ProcessEndedEvent, DetachEvent, AttachEvent } from "../../services/debugger.service";
 import {VariableDisplayComponent} from "../common/variable-display/variable-display.component";
 import * as Prism from 'prismjs';
-import { GraphDisplayComponent, GraphData, DataNode } from "../common/graph-display.component";
+import { GraphDisplayComponent, GraphData, DataNode, DataEdge } from "../common/graph-display.component";
 import { SourceType, Field } from "../../models/SourceType";
 import { StructValue, Value, PointerValue } from "../../models/Value";
 
@@ -308,58 +308,70 @@ export class DebuggerComponent {
 							if(lineData.state[this.nodeGraphVariable!]) {
 								rootStructAddress = lineData.state[this.nodeGraphVariable!].value as PointerValue;
 							}
+							let processedNodes = new Set<number>();
 							//for all nodes in the graph changed in this trace (and the root), remove old edges and nodes, add new edges and nodes
 							let updatedNodes = Object.keys(t.data.state)
 								.filter(s => parseInt(s) === rootStructAddress || !!this.nodeGraphData.nodes.find(n => n.id === parseInt(s)));
 
-							function addNode(nodeStructAddress: number) {
+							function updateNode(nodeStructAddress: number) {
+								if(!lineData.state[nodeStructAddress]) {
+									//the pointer is probably garbage from initialization, just skip it
+									return;
+								}
+								if(processedNodes.has(nodeStructAddress)) {
+									return;
+								}
+
+								processedNodes.add(nodeStructAddress);
 								//assume a node is always a pointer to a struct
 								//TODO: make this generalized (using spice types)
 
-								//if this node doesn't exist in the graph, add it
-								if(!this.nodeGraphData.nodes.find((n:DataNode) => n.id === nodeStructAddress)) {
+								let nodeIdx = this.nodeGraphData.nodes.findIndex((n:DataNode) => n.id === nodeStructAddress);
+								let nodeData = ''+(lineData.state[nodeStructAddress].value as StructValue)[0].value!;
+								let nodeObj: DataNode;
+								if(nodeIdx === -1) {
+									//if this node doesn't exist in the graph, add it
 									//TODO: make this data field not hardcoded
-									this.nodeGraphData.nodes.push({id: nodeStructAddress, data: (lineData.state[nodeStructAddress].value as StructValue)[0].value});
+									nodeObj = {id: nodeStructAddress, data: nodeData, edgesOut: {}};
+									this.nodeGraphData.nodes.push(nodeObj);
+
+								} else {
+									nodeObj = this.nodeGraphData.nodes[nodeIdx]
+									nodeObj.data = nodeData;
 								}
 
 								let nodeStructValue = lineData.state[nodeStructAddress].value as StructValue;
 								Array.from(this.nodeGraphFieldOffsets.values()).forEach((offset: number) => {
 									let nodeEdgePointer = nodeStructValue[offset].value as PointerValue;
-									if(nodeEdgePointer) {
-										//add missing children
-										addNode.call(this, nodeEdgePointer);
-										//add edges to new children
-										this.nodeGraphData.edges.push({id: `${nodeStructAddress},${nodeEdgePointer}`, source: nodeStructAddress, target: nodeEdgePointer});
+									let edgeId = `${nodeStructAddress},${nodeEdgePointer}`;
+
+									if(nodeObj.edgesOut[offset] && nodeObj.edgesOut[offset].target.id !== nodeEdgePointer) {
+										//remove the old edge, mark node for deletion
+										//TODO:
+									}
+									//if there is no state for this edge, it's probably a garbage pointer so we wouldn't process it
+									if(nodeEdgePointer && lineData.state[nodeEdgePointer]) {
+										//update/create children
+										updateNode.call(this, nodeEdgePointer);
+
+										//update edges
+										let edgeIdx = this.nodeGraphData.edges.findIndex((n:DataEdge) => n.id === edgeId);
+										let edgeObj: DataEdge;
+										if(edgeIdx === -1) {
+											//add
+											edgeObj = {id: edgeId, source: nodeStructAddress as any, target: nodeEdgePointer as any};
+											this.nodeGraphData.edges.push(edgeObj);
+											nodeObj.edgesOut[offset] = edgeObj;
+										} else {
+											// update
+											//edgeObj = this.nodeGraphData.edges[edgeIdx];
+										}
 									}
 								});
 							}
 
-							updatedNodes.forEach(address => addNode.call(this, parseInt(address)));
+							updatedNodes.forEach(address => updateNode.call(this, parseInt(address)));
 							observer.next();
-
-							//updatedNodes.forEach(id => {
-								////assume we have a point to struct
-								//let baseValue = 
-								//let pointedValue = 
-								//console.log((this.nodeGraphFieldOffsets.values()));
-								//console.log((t.data as LineData).state);
-								//let watchedValues = Array.from(this.nodeGraphFieldOffsets.values()).map(offset => (t.data as LineData).state[id].fields[offset]);
-								////add new edges & nodes
-								//watchedValues.forEach((v: Value) => {
-									//if(!this.nodeGraphData.nodes.find(n => n.id === ''+v.value)) {
-										//console.log('new node', v.value);
-									//}
-								//});
-							//});
-
-							//let stateChange = t.data.state[variableId];
-							//if(stateChange) {
-								//let value = stateChange.value;
-								//if(typeof value === 'number') {
-									//this.graphData.push({x: this.graphData.length, y: value as number});
-								//}
-								//observer.next();
-							//}
 						}
 					},
                         (error: Response) => {

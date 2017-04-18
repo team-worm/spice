@@ -3,8 +3,8 @@ import { Observable } from "rxjs/Observable";
 import * as d3 from 'd3';
 
 export type GraphData = {nodes: DataNode[], edges: DataEdge[]};
-export type DataNode = {id: number, data: string};
-export type DataEdge = {id: number, source: DataNode & d3.SimulationNodeDatum, target: DataNode & d3.SimulationNodeDatum};
+export type DataNode = {id: number, data: string, edgesOut: {[offset: number]: DataEdge}};
+export type DataEdge = {id: string, source: DataNode & d3.SimulationNodeDatum, target: DataNode & d3.SimulationNodeDatum};
 
 @Component({
 	selector: 'spice-graph-display',
@@ -118,7 +118,7 @@ export class GraphDisplayComponent implements OnInit, AfterViewInit, OnChanges, 
 		}
 
 		let edge = this.edgesGroup.selectAll('g')
-			.data(this.data.edges, (e:DataEdge) => ''+e.id);
+			.data(this.data.edges, (e:DataEdge) => e.id);
 
 		let newEdge = edge.enter().append('g');
 		
