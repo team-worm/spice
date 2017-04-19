@@ -11,8 +11,7 @@ import { MatchMaxHeightDirective } from "../../../directives/MatchMaxHeight.dire
 
 @Component({
     selector: 'spice-pointer-type-display',
-    template: `
-        <span (click)="printPtr()">V</span>
+    template: `        
         <span   *ngIf="types && type && canExpand()" (click)="expanded = !expanded"
                 class="pointer"  
                 title="{{expanded ? 'Hide pointer contents.' : 'Show pointer contents.'}}"
@@ -20,7 +19,7 @@ import { MatchMaxHeightDirective } from "../../../directives/MatchMaxHeight.dire
             {{type.toString(types)}}<md-icon *ngIf="expanded">keyboard_arrow_right</md-icon>
         </span>
         <span *ngIf="types && type && !canExpand()" class="pointer empty">
-            {{type.toString(types)}}<md-icon>keyboard_arrow_right</md-icon>NULL
+            NULL
         </span>
         <span class="pointer-contents" *ngIf="expanded && types && type && canExpand()" [ngSwitch]="types.get(type.data.sType).data.tType">
             <spice-struct-type-display
@@ -113,10 +112,6 @@ export class PointerTypeDisplay implements OnInit {
             MatchMaxHeightDirective.markDirty(`debugger-${this.lineNum}`)
         }
         this._expanded = val;
-    }
-
-    public printPtr() {
-        console.log(this.value, this.valueMap);
     }
 
     public getValue(parameters:{[address: number]: Value}):Value | undefined {

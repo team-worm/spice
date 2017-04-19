@@ -9,15 +9,14 @@ import {FunctionTypeDisplay} from "./function-type-display.component";
     selector: 'spice-struct-type-display',
     template: `
         <div class="struct">
-            <div class="struct-header">
+            <div *ngIf="!compact" class="struct-header">
                 {{type.data.tType === 'struct' ? type.data.name : 'Type Error'}}
             </div>
-            <!--<table *ngIf="type.data.tType === 'struct'">-->
             <table >
                 <tr *ngFor="let f of type.data.fields" [ngSwitch]="types.get(f.sType).data.tType">
                     <td>
                         <div class="fieldName">{{f.name}}</div>
-                        <div class="fieldType">{{types.get(f.sType).toString(types)}}</div>
+                        <div class="fieldType" *ngIf="!compact">{{types.get(f.sType).toString(types)}}</div>
                     </td>
                     <td>
                         <spice-struct-type-display

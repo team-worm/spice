@@ -131,7 +131,7 @@ export class DebuggerComponent {
 
 					}
 
-				} else if(this.pointerTypes[id]) {
+				} else {
 					this.pointerValues[id] = value;
 				}
 
@@ -228,7 +228,7 @@ export class DebuggerComponent {
 	}
 
 	public GoToFunctionsView() {
-		this.viewService.activeView = 'functions';
+		this.debuggerService.displayFunction(null);
 	}
 
 	public SetGraphVariable(variableAddress: SourceVariableId): void {

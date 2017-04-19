@@ -83,6 +83,14 @@
     .array {
       .hide-show {
         font-weight: 600;
+        md-icon {
+          font-size:14px;
+          width: 14px;
+          height: 14px;
+          vertical-align: sub;
+          margin-top: 16px;
+          margin-bottom: 6px;
+        }
         &:hover {
           cursor:pointer;
           text-decoration: underline;
@@ -151,6 +159,12 @@
       overflow-x: scroll;
       .hide-show {
         font-weight: 600;
+        md-icon {
+          font-size:14px;
+          width: 14px;
+          height: 14px;
+          vertical-align: sub;
+        }
         &:hover {
           cursor:pointer;
           text-decoration: underline;

@@ -21,7 +21,7 @@ export class TraceComponent implements OnChanges {
 
 	public functionReturnType: SourceType;
 
-	public stateEntries:{ address: number, name:string, value: Value, sType: SourceType | undefined}[];
+	public stateEntries:{ address: number, name:string, value: Value, sType: SourceType | undefined, valueMap:{[sVariable: number]: Value}}[];
 
 
 	public expandMap:{[id:number]:boolean} = {};
@@ -33,8 +33,23 @@ export class TraceComponent implements OnChanges {
 	constructor() {
 	}
 
-	public getStateEntries(trace: Trace): { address: number, name: string, value: Value, sType: SourceType | undefined}[] {
-		let entries = Object.keys((trace.data as LineData).state).map(id => {
+	public getStateEntries(trace: Trace): { address: number, name: string, value: Value, sType: SourceType | undefined, valueMap:{[sVariable: number]: Value}}[] {
+
+		/* Build mapping of pointer values up until this point. */
+		let traceState = (trace.data as LineData).state;
+		let vm:{[sVariable: number]: Value} = {};
+
+		for(let k of Object.keys(traceState)) {
+			vm[k] = traceState[k];
+		}
+
+		for(let v of Object.keys(this.pointerValues)) {
+			if(!vm[v]) {
+				vm[v] = {... this.pointerValues[v]}; //Deep copy
+			}
+		}
+		/* Build individual trace entries */
+		return Object.keys(traceState).map(id => {
 			let variable = this.sourceFunction.locals.concat(this.sourceFunction.parameters).find(v => v.address === parseInt(id));
 			let sType: SourceType | undefined = undefined;
 			let name = '__';
@@ -50,18 +65,11 @@ export class TraceComponent implements OnChanges {
 				address: parseInt(id),
 				name: name,
 				sType: sType,
-				value: (trace.data as LineData).state[id],
+				value: traceState[id],
+				valueMap: vm,
 
 			};
 		});
-
-		for(let v of Object.keys(this.pointerValues)) {
-			if(!(trace.data as LineData).state[v]) {
-				(trace.data as LineData).state[v] = this.pointerValues[v];
-			}
-		}
-
-		return entries;
 	}
 
 	public stringifyStateValue(state: { address: number, variable: SourceVariable | undefined, value: Value, sType: SourceType | undefined}):any {

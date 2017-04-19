@@ -10,8 +10,8 @@ import {MatchMaxHeightDirective} from "../../../directives/MatchMaxHeight.direct
     selector: 'spice-array-type-display',
     template: `        
         <span class="array" *ngIf="types && type && baseType">
-            <span *ngIf="!expanded" class="hide-show" (click)="expanded=true">({{sizeIterator.length}})[...]</span>
-            <span *ngIf="expanded" class="hide-show" (click)="expanded=false">(Hide)</span>
+            <span *ngIf="!expanded" class="hide-show" (click)="expanded=true" title="show array">(<md-icon>visibility</md-icon>)[...]</span>
+            <span *ngIf="expanded" class="hide-show" (click)="expanded=false" title="hide array">(<md-icon>visibility_off</md-icon>)</span>
             <span *ngIf="expanded">
                 [
                 <span class="elements" *ngFor="let i of sizeIterator" [ngSwitch]="baseType.data.tType">

@@ -158,7 +158,7 @@ export class DebuggerService {
 		ds.ensureAllSourceFunctions()
 			.mergeMap(sfs => {
 				if(sfs.length === 0) {
-					return Observable.of(new Observable<Map<SourceTypeId, SourceType>>());
+					return Observable.of(new Map<SourceTypeId, SourceType>());
 				}
 				return ds.ensureSourceTypes(Array.from(
 					sfs.reduce((o, sf) => {
