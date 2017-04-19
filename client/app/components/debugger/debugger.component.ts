@@ -41,6 +41,7 @@ export class DebuggerComponent {
 	public graphData: DataXY[] = [];
 	public graphVariable: SourceVariableId | null = null;
 	public currentExecution: Execution | null = null;
+	public currentSess: number;
 
 	public pointerTypes:{[address:number]:{type: SourceType, name:string}} = {};
 	public pointerValues: { [sVariable: number]: Value} = {};
@@ -81,11 +82,16 @@ export class DebuggerComponent {
 			});
 	}
 
-	public DisplayTrace(execution: Execution) {
+	public DisplayTrace(execution: Execution, sessId?: number) {
 		if(execution.data.eType !== 'function') {
 			throw new Error('Cannot display trace for execution ${execution.id}: Only function traces can be displayed');
 		}
 		this.currentExecution = execution;
+		if (!sessId) {
+			this.currentSess = this.debuggerService.currentDebuggerState!.info.id;
+		} else {
+			this.currentSess = sessId;
+		}
 		this.debuggerService.currentDebuggerState!.ensureSourceFunctions([execution.data.sFunction])
 			.mergeMap((sfMap: Map<SourceFunctionId, SourceFunction>) => {
 				let sf = this.debuggerService.currentDebuggerState!.sourceFunctions.get((this.currentExecution!.data as FunctionData).sFunction)!;
@@ -214,12 +220,19 @@ export class DebuggerComponent {
 	}
 
     public GetFunctionAsString(): string {
-        if (!this.sourceFunction) {
+		if (!this.sourceFunction) {
 			return 'No Function Selected';
-		} else if(this.debuggerService.currentDebuggerState && this.debuggerService.currentDebuggerState.sourceTypes) {
+		} else if (this.debuggerService.debuggerStates.get(this.currentSess)) {
+			let stMap = this.debuggerService.debuggerStates.get(this.currentSess) !.sourceTypes;
+			const parameters = this.sourceFunction.parameters
+                .map(parameter => stMap.get(parameter.sType)
+				&& `${stMap.get(parameter.sType) !.toString(stMap)} ${parameter.name}`)
+                .join(", ");
+			return `${this.sourceFunction.name}(${parameters})`;
+		} else if (this.debuggerService.currentDebuggerState && this.debuggerService.currentDebuggerState.sourceTypes) {
 			let stMap = this.debuggerService.currentDebuggerState.sourceTypes;
 			const parameters = this.sourceFunction.parameters
-                .map(parameter => `${stMap.get(parameter.sType)!.toString(stMap)} ${parameter.name}`)
+                .map(parameter => `${stMap.get(parameter.sType) !.toString(stMap)} ${parameter.name}`)
                 .join(", ");
 			return `${this.sourceFunction.name}(${parameters})`;
 		} else {
