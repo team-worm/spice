@@ -104,7 +104,8 @@ export class DebuggerComponent {
             return;
         }
         if (['return', 'cancel', 'exit', 'crash', 'error'].indexOf(trace.data.tType) > -1) {
-            this.debuggerService.executionStopped(trace.data.tType);
+            let reason: any = trace.data.tType;
+            this.debuggerService.executionStopped(reason);
         }
 
         //This naive implementation doesn't properly handle "early exit" of loops (break, continue)/assumes loops have some kind of "loop closing" trace

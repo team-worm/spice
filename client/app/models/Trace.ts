@@ -11,7 +11,7 @@ export class Trace {
     line: number;
 
     @Deserialize()
-    data: LineData | ReturnData | BreakData | ExitData | CrashData | CallData | ErrorData;
+    data: LineData | CallData | ReturnData | BreakData | ExitData | CancelData | CrashData | ErrorData;
 }
 
 export interface LineData {
@@ -24,6 +24,11 @@ export interface ReturnData {
     value: Value;
 }
 
+export interface CallData {
+    tType: "call";
+    sFunction: number;
+}
+
 export interface BreakData {
     tType: "break";
     nextExecution: ExecutionId;
@@ -34,14 +39,13 @@ export interface ExitData {
     code: number;
 }
 
+export interface CancelData {
+    tType: "cancel";
+}
+
 export interface CrashData {
     tType: "crash";
     stack: string;
-}
-
-export interface CallData {
-    tType: "call";
-    sFunction: number;
 }
 
 export interface ErrorData {
