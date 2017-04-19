@@ -147,7 +147,7 @@ export class DebuggerHttpService {
 						trace.data.state = Object.keys(trace.data.state).reduce((o, s) => { o[s] = {value: (trace.data as LineData).state[s]}; return o;}, {});
 					}
 					observer.next(trace);
-					if (['return', 'break', 'exit', 'crash', 'error'].indexOf(t.data.tType) > -1) {
+					if (['return', 'cancel', 'break', 'exit', 'crash', 'error'].indexOf(t.data.tType) > -1) {
 						observer.complete();
 					}
 				} catch(e) {
