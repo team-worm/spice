@@ -41,7 +41,6 @@ import {PrimitiveTypeDisplay} from "./components/common/variable-display/primiti
 import {ArrayTypeDisplay} from "./components/common/variable-display/array-type-display.component";
 import {PointerTypeDisplay} from "./components/common/variable-display/pointer-type-display.component";
 import {FunctionTypeDisplay} from "./components/common/variable-display/function-type-display.component";
-import {TypeMappingComponent} from "./components/common/type-mapping.component";
 
 @NgModule({
     imports: [MaterialModule.forRoot(), FormsModule, RouterModule, BrowserModule, HttpModule, FlexLayoutModule, BrowserAnimationsModule],
@@ -70,7 +69,6 @@ import {TypeMappingComponent} from "./components/common/type-mapping.component";
         ArrayTypeDisplay,
         PointerTypeDisplay,
         FunctionTypeDisplay,
-        TypeMappingComponent
     ],
     providers: [
         //BEGIN MOCK PROVIDERS--Comment these out to disable backend mocking!
@@ -85,8 +83,7 @@ import {TypeMappingComponent} from "./components/common/type-mapping.component";
         DebuggerService],
     entryComponents: [
         AboutComponent,
-        HelpComponent,
-        TypeMappingComponent],
+        HelpComponent],
     bootstrap: [SpiceRootComponent]
 
 })
