@@ -48,6 +48,7 @@ export class DebuggerComponent {
 	public nodeGraphVariable: SourceVariableId | null = null;
 	public nodeGraphFieldOffsets: Set<number>;
 	public nodeGraphDataOffset: number | null = null;
+	public nodeGraphTrackedNode: SourceVariableId | null = null;
 
 	public currentExecution: Execution | null = null;
 
@@ -298,7 +299,8 @@ export class DebuggerComponent {
 		if(this.sourceFunction) {
 			this.nodeGraphData = {nodes: [], edges: []};
 			this.nodeGraphVariable = variableId;
-			this.graphDisplay.onDataUpdated();
+			let trackedNodeCount = 0;
+			this.graphDisplay.onDataUpdated(trackedNodeCount);
 
 			let graphUpdates = Observable.create((observer: Subscriber<Trace>) => {
 				this.debuggerService.currentDebuggerState!.ensureTrace(this.currentExecution!.id).mergeMap(tObservable => tObservable).subscribe(
@@ -335,7 +337,7 @@ export class DebuggerComponent {
 								let nodeObj: DataNode;
 								if(nodeIdx === -1) {
 									//if this node doesn't exist in the graph, add it
-									nodeObj = {id: nodeStructAddress, data: nodeData, edgesOut: {}};
+									nodeObj = {id: nodeStructAddress, data: nodeData, trackedNodeValue: null, edgesOut: {}};
 									this.nodeGraphData.nodes.push(nodeObj);
 
 								} else {
@@ -374,6 +376,15 @@ export class DebuggerComponent {
 							}
 
 							updatedNodes.forEach(address => updateNode.call(this, parseInt(address)));
+
+							if(this.nodeGraphTrackedNode && lineData.state[this.nodeGraphTrackedNode]) {
+								let nodeObj = this.nodeGraphData.nodes.find((n:DataNode) => n.id === lineData.state[this.nodeGraphTrackedNode!].value);
+								if(nodeObj) {
+									nodeObj.trackedNodeValue = trackedNodeCount;
+									trackedNodeCount++;
+								}
+							}
+
 							observer.next();
 						}
 					},
@@ -381,7 +392,7 @@ export class DebuggerComponent {
 						console.error(error);
 					});
 			}).debounceTime(100).subscribe(
-				() => this.graphDisplay.onDataUpdated());
+				() => this.graphDisplay.onDataUpdated(trackedNodeCount));
 		}
 	}
 

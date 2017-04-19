@@ -20,6 +20,9 @@
 				stroke: mat-color($primary);
 				stroke-width: 1;
 			}
+			.node-tracked-circle {
+				fill: none;
+			}
 			.node-text {
 				fill: mat-color($foreground, text);
 			}

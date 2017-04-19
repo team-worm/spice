@@ -71,6 +71,13 @@
 							</md-option>
 						</md-select>
 					</div>
+					<div class="tracked-node-selector">
+					<md-select placeholder="Tracked Node" *ngIf="!!sourceFunction" [(ngModel)]="nodeGraphTrackedNode">
+						<md-option *ngFor="let sf of sourceFunction.locals.concat(sourceFunction.parameters)" [value]="sf.address">
+							{{sf.name}}
+						</md-option>
+					</md-select>
+					</div>
 				</div>
 				<button md-raised-button [disabled]="!nodeGraphVariable" (click)="SetNodeGraphVariable(nodeGraphVariable)"><md-icon>timeline</md-icon> Display</button>
 			</div>

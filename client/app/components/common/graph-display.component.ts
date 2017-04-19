@@ -3,7 +3,7 @@ import { Observable } from "rxjs/Observable";
 import * as d3 from 'd3';
 
 export type GraphData = {nodes: DataNode[], edges: DataEdge[]};
-export type DataNode = {id: number, data: string | null, edgesOut: {[offset: number]: DataEdge}};
+export type DataNode = {id: number, data: string | null, trackedNodeValue: number | null; edgesOut: {[offset: number]: DataEdge}};
 export type DataEdge = {id: string, source: DataNode & d3.SimulationNodeDatum, target: DataNode & d3.SimulationNodeDatum};
 
 const targetAlpha = 0.0;
@@ -28,11 +28,15 @@ export class GraphDisplayComponent implements OnInit, AfterViewInit, OnChanges, 
 	protected allNodes: d3.Selection<any, any, any, any>;
 	protected allEdges: d3.Selection<any, any, any, any>;
 	protected linkForce: d3.ForceLink<d3.SimulationNodeDatum, d3.SimulationLinkDatum<d3.SimulationNodeDatum>>;
+	protected trackedNodeCount: number = 0;
+	protected trackedNodeColorInterpolator: any;
 
 	constructor(protected el: ElementRef) {
+		this.trackedNodeColorInterpolator = d3.interpolateRgb.gamma(2.2)('rgb(255,0,0)','rgb(0,255,0)');
 	}
 
-	public onDataUpdated() {
+	public onDataUpdated(maxTrackedNodeValue: number) {
+		this.trackedNodeCount = maxTrackedNodeValue;
 		this.populate();
 	}
 
@@ -162,6 +166,10 @@ export class GraphDisplayComponent implements OnInit, AfterViewInit, OnChanges, 
 			.attr('class', 'node-circle')
 			.attr('r', '15')
 
+		newNode.append('circle')
+			.attr('class', 'node-tracked-circle')
+			.attr('r', '20')
+
 		newNode.append('text')
 			.attr('class', 'node-text')
 			.attr('text-anchor', 'middle')
@@ -171,6 +179,14 @@ export class GraphDisplayComponent implements OnInit, AfterViewInit, OnChanges, 
 
 		this.allEdges = edge.merge(newEdge);
 		this.allNodes = node.merge(newNode);
+
+		this.allNodes.select('.node-tracked-circle')
+			.style('stroke', (d:DataNode) => {
+				if(d.trackedNodeValue === null) {
+					return 'none';
+				}
+				return this.trackedNodeColorInterpolator(d.trackedNodeValue/(this.trackedNodeCount-1));
+			});
 	}
 
 	protected onSimulationTick() {
