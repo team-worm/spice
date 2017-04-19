@@ -10,6 +10,7 @@ import { Trace, BreakData } from "../models/Trace";
 import { SourceFunction } from "../models/SourceFunction";
 import { Value } from "../models/Value";
 import { Response } from "@angular/http";
+import {SourceType, SourceTypeId} from "../models/SourceType";
 
 export type DebuggerEvent = ErrorEvent | AttachEvent | DetachEvent | ExecutionEvent | ProcessEndedEvent | PreCallFunctionEvent | DisplayTraceEvent | DisplayFunctionEvent;
 
@@ -31,7 +32,7 @@ export interface DetachEvent {
 export interface ExecutionEvent {
 	eType: 'execution';
 	execution: Execution | null;
-	reason: 'continue' | 'call' | 'break' | 'exit' | 'cancel' | 'crash' | 'error';
+	reason: 'continue' | 'call' | 'return' | 'break' | 'exit' | 'cancel' | 'crash' | 'error';
 }
 
 export interface ProcessEndedEvent {
@@ -114,6 +115,9 @@ export class DebuggerService {
 								this.debuggerEventsObserver.next({eType: 'execution', execution: ex, reason: 'break'});
 							});
 					break;
+                    case 'cancel':
+                        this.executionStopped('cancel');
+                    break;
 					case 'crash':
 					case 'exit':
 					case 'error':
@@ -139,11 +143,13 @@ export class DebuggerService {
 
 	public stopCurrentExecution(): Observable<{}> {
 		return this.currentDebuggerState!.stopExecution(this.currentExecution!.id)
-			.map(() => {
-				this.currentExecution = null;
-				this.debuggerEventsObserver.next({eType: 'execution', execution: null, reason: 'cancel'});
-			}).catch(DebuggerService.makeErrorHandler(this, 'Failed to stop execution'));
+			.catch(DebuggerService.makeErrorHandler(this, 'Failed to stop execution'));
 	}
+
+    public executionStopped(reason: 'return' | 'cancel' | 'exit' | 'crash' | 'error') {
+        this.currentExecution = null;
+        this.debuggerEventsObserver.next({eType: 'execution', execution: null, reason: reason});
+    }
 
 	protected onAttach(ds: DebuggerState, name: string, binaryPath: string, isBinary: boolean) {
 		ds.name = name;
@@ -151,6 +157,9 @@ export class DebuggerService {
 		ds.isBinary = isBinary;
 		ds.ensureAllSourceFunctions()
 			.mergeMap(sfs => {
+				if(sfs.length === 0) {
+					return Observable.of(new Map<SourceTypeId, SourceType>());
+				}
 				return ds.ensureSourceTypes(Array.from(
 					sfs.reduce((o, sf) => {
 						sf.parameters.concat(sf.locals).forEach(sv => o.add(sv.sType));

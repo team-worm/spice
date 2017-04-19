@@ -86,6 +86,11 @@ export class LauncherComponent implements AfterContentChecked {
         this.selectedFileOrProcess = $event;
         this.processList.ResetSelectedProcess();
     }
+    public OnDoubleClickFile($event: SourceFile) {
+        this.selectedFileOrProcess = $event;
+        this.processList.ResetSelectedProcess();
+        this.Attach();
+    }
     public OnProcessSelected($event:Process) {
         this.selectedFileOrProcess = $event;
         this.fileBrowser.ResetSelectedFile();
@@ -126,5 +131,10 @@ export class LauncherComponent implements AfterContentChecked {
 	public onDetach(event: DetachEvent) {
 		this.debugProcessName = '';
 		this.launchedFile = null;
+		setTimeout(()=> {
+            this.launcherCardHeight = (window.innerHeight - this.element.nativeElement.getBoundingClientRect().top) - 34;
+            this.fileBrowserHeight = (window.innerHeight - this.fileBrowser.element.nativeElement.getBoundingClientRect().top) - 93;
+            this.processListHeight = (window.innerHeight - this.processList.element.nativeElement.getBoundingClientRect().top) - 93;
+        }, 1);
 	}
 }

@@ -3,16 +3,23 @@
     .pointer {
       margin: 8px;
       cursor: pointer;
+      font-weight: 600;
       md-icon {
-        font-size: 20px;
+        font-size: 14px;
         vertical-align: sub;
       }
       &:hover {
-        font-weight: 600;
+        text-decoration: underline;
+      }
+      &.empty {
+        cursor: default;
+        &:hover {
+          text-decoration: none;
+        }
       }
     }
     .pointer-contents {
-      margin: 8px;
+      display: block;
     }
     .primitive {
       &.null {
@@ -56,7 +63,6 @@
 
           }
         }
-        width: 100%;
       }
     }
     .function {
@@ -73,16 +79,40 @@
         font-weight: 500;
       }
     }
+    .array {
+      .hide-show {
+        font-weight: 600;
+        md-icon {
+          font-size:14px;
+          width: 14px;
+          height: 14px;
+          vertical-align: sub;
+          margin-top: 16px;
+          margin-bottom: 6px;
+        }
+        &:hover {
+          cursor:pointer;
+          text-decoration: underline;
+        }
+      }
+    }
   }
   &.compact-size{
     .pointer {
+      font-weight: 600;
       cursor: pointer;
       md-icon {
-        font-size: 18px;
+        font-size: 14px;
         vertical-align: sub;
       }
       &:hover {
-        font-weight: 600;
+        text-decoration: underline;
+      }
+      &.empty {
+        cursor: default;
+        &:hover {
+          text-decoration: none;
+        }
       }
     }
     .pointer-contents {
@@ -126,6 +156,19 @@
     }
     .array {
       overflow-x: scroll;
+      .hide-show {
+        font-weight: 600;
+        md-icon {
+          font-size:14px;
+          width: 14px;
+          height: 14px;
+          vertical-align: sub;
+        }
+        &:hover {
+          cursor:pointer;
+          text-decoration: underline;
+        }
+      }
       .elements {
 
       }

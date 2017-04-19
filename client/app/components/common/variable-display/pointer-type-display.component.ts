@@ -5,59 +5,69 @@ import {StructTypeDisplay} from "./struct-type-display.component";
 import {PrimitiveTypeDisplay} from "./primitive-type-display.component";
 import {ArrayTypeDisplay} from "./array-type-display.component";
 import {FunctionTypeDisplay} from "./function-type-display.component";
+
+import { MatchMaxHeightDirective } from "../../../directives/MatchMaxHeight.directive";
+
+
 @Component({
     selector: 'spice-pointer-type-display',
-    template: `
-        <span   *ngIf="types && type" (click)="expanded = !expanded"
+    template: `        
+        <span   *ngIf="types && type && canExpand()" (click)="expanded = !expanded"
                 class="pointer"  
                 title="{{expanded ? 'Hide pointer contents.' : 'Show pointer contents.'}}"
                 [ngClass]="{'expanded':expanded}">
-            {{type.toString(types)}}<md-icon>{{expanded ? 'keyboard_arrow_down' : 'keyboard_arrow_right'}}</md-icon>
+            {{type.toString(types)}}<md-icon *ngIf="expanded">keyboard_arrow_right</md-icon>
         </span>
-        <div class="pointer-contents" *ngIf="expanded && types && type" [ngSwitch]="types.get(type.data.sType).data.tType">
+        <span *ngIf="types && type && !canExpand()" class="pointer empty">
+            NULL
+        </span>
+        <span class="pointer-contents" *ngIf="expanded && types && type && canExpand()" [ngSwitch]="types.get(type.data.sType).data.tType">
             <spice-struct-type-display
                     #struct
                     *ngSwitchCase="'struct'"
                     [type]="types.get(type.data.sType)"
-                    [value]="value"
+                    [value]="childValue"
                     [valueMap]="valueMap"
                     [editable]="editable"
+                    [lineNum]="lineNum"
                     [compact]="compact && !editable"
                     [types]="types"></spice-struct-type-display>
             <spice-primitive-type-display
                     *ngSwitchCase="'primitive'"
                     [type]="types.get(type.data.sType)"
-                    [value]="value"
+                    [value]="childValue"
                     [editable]="editable"
                     [compact]="compact && !editable"></spice-primitive-type-display>
             <spice-array-type-display
                     #array
                     *ngSwitchCase="'array'"
                     [type]="types.get(type.data.sType)"
-                    [value]="value"
+                    [value]="childValue"
                     [valueMap]="valueMap"
                     [editable]="editable"
+                    [lineNum]="lineNum"
                     [compact]="compact && !editable"
                     [types]="types"></spice-array-type-display>
             <spice-pointer-type-display
                     *ngSwitchCase="'pointer'"
                     [type]="types.get(type.data.sType)"
-                    [value]="value"
+                    [value]="childValue"
                     [valueMap]="valueMap"
                     [editable]="editable"
+                    [lineNum]="lineNum"
                     [compact]="compact && !editable"
                     [types]="types"></spice-pointer-type-display>
             <spice-function-type-display
                     *ngSwitchCase="'function'"
                     [type]="types.get(type.data.sType)"
-                    [value]="value"
+                    [value]="childValue"
                     [editable]="editable"
                     [compact]="compact && !editable"
                     [types]="types"></spice-function-type-display>
-        </div>
+        </span>
     `
 })
-export class PointerTypeDisplay {
+export class PointerTypeDisplay implements OnInit {
 
     @Input()
     public type:SourceType;
@@ -66,13 +76,16 @@ export class PointerTypeDisplay {
     public value:Value;
 
     @Input()
-    public valueMap:{ [sVariable: number]: Value};
+    public valueMap:{ [sVariable: number]: Value} = {};
 
     @Input()
     public editable:boolean = false;
 
     @Input()
     public compact:boolean = false;
+
+    @Input()
+    public lineNum:number = -1;
 
     @Input()
     public types:Map<SourceTypeId, SourceType>;
@@ -88,33 +101,79 @@ export class PointerTypeDisplay {
     @ViewChild(FunctionTypeDisplay)
     private functionDisplay: FunctionTypeDisplay;
 
-    public expanded:boolean = false;
+    public childValue:Value | null = null;
 
-    public getValue():Value | undefined {
+    private _expanded:boolean;
+    public get expanded() {
+        return this._expanded;
+    }
+    public set expanded(val:boolean) {
+        if(this.lineNum !== -1) {
+            MatchMaxHeightDirective.markDirty(`debugger-${this.lineNum}`)
+        }
+        this._expanded = val;
+    }
+
+    public getValue(parameters:{[address: number]: Value}):Value | undefined {
+
+        let targetVal:Value|undefined = undefined;
+
         if(this.type && this.types && this.type.data.tType === 'pointer') {
             let targetType = this.types.get(this.type.data.sType)!;
 
             switch(targetType.data.tType) {
                 case "primitive":
                     if(this.primitiveDisplay)
-                        return this.primitiveDisplay.getValue();
+                        targetVal = this.primitiveDisplay.getValue(parameters);
                     break;
                 case "pointer":
                     if(this.pointerDisplay)
-                        return this.pointerDisplay.getValue();
+                        targetVal = this.pointerDisplay.getValue(parameters);
                     break;
                 case "array":
                     if(this.arrayDisplay)
-                        return this.arrayDisplay.getValue();
+                        targetVal = this.arrayDisplay.getValue(parameters);
                     break;
                 case "struct":
                     if(this.structDisplay)
-                        return this.structDisplay.getValue();
+                        targetVal = this.structDisplay.getValue(parameters);
                     break;
                 case "function":
                     if(this.functionDisplay)
-                        return this.functionDisplay.getValue();
+                        targetVal = this.functionDisplay.getValue(parameters);
                     break;
+            }
+        }
+
+        if(targetVal != undefined) {
+            //Find available key
+            let i:number;
+            for(i = 3; i < Math.pow(2,31); i++) {
+                if(!parameters[i]) {
+                   break;
+                }
+            }
+            parameters[i] = targetVal;
+            return {value: i};
+
+        } else {
+            return undefined;
+        }
+    }
+
+    public canExpand():boolean {
+        if(!this.editable) {
+            if(!this.value || !this.value.value) {
+                return false;
+            }
+        }
+        return true
+    }
+    public ngOnInit() {
+        if(this.value && this.valueMap) {
+            if(this.value.value !== null) {
+                let n = parseInt(this.value.value.toString());
+                this.childValue = this.valueMap[n];
             }
         }
     }

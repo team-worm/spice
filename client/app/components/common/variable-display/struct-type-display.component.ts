@@ -9,15 +9,14 @@ import {FunctionTypeDisplay} from "./function-type-display.component";
     selector: 'spice-struct-type-display',
     template: `
         <div class="struct">
-            <div class="struct-header">
+            <div *ngIf="!compact" class="struct-header">
                 {{type.data.tType === 'struct' ? type.data.name : 'Type Error'}}
             </div>
-            <!--<table *ngIf="type.data.tType === 'struct'">-->
             <table >
                 <tr *ngFor="let f of type.data.fields" [ngSwitch]="types.get(f.sType).data.tType">
                     <td>
                         <div class="fieldName">{{f.name}}</div>
-                        <div class="fieldType">{{types.get(f.sType).toString(types)}}</div>
+                        <div class="fieldType" *ngIf="!compact">{{types.get(f.sType).toString(types)}}</div>
                     </td>
                     <td>
                         <spice-struct-type-display
@@ -27,6 +26,7 @@ import {FunctionTypeDisplay} from "./function-type-display.component";
                                 [value]="getStructValue(f.offset)"
                                 [valueMap]="valueMap"
                                 [editable]="editable"
+                                [lineNum]="lineNum"
                                 [compact]="compact && !editable"></spice-struct-type-display>
                         <spice-primitive-type-display
                                 *ngSwitchCase="'primitive'"
@@ -40,6 +40,7 @@ import {FunctionTypeDisplay} from "./function-type-display.component";
                                 [value]="getStructValue(f.offset)"
                                 [valueMap]="valueMap"
                                 [editable]="editable"
+                                [lineNum]="lineNum"
                                 [compact]="compact && !editable"
                                 [types]="types"></spice-array-type-display>
                         <spice-pointer-type-display
@@ -48,6 +49,7 @@ import {FunctionTypeDisplay} from "./function-type-display.component";
                                 [value]="getStructValue(f.offset)"
                                 [valueMap]="valueMap"
                                 [editable]="editable"
+                                [lineNum]="lineNum"
                                 [compact]="compact && !editable"
                                 [types]="types"></spice-pointer-type-display>
                         <spice-function-type-display
@@ -83,6 +85,9 @@ export class StructTypeDisplay{
     @Input()
     public types:Map<SourceTypeId, SourceType>;
 
+    @Input()
+    public lineNum:number = -1;
+
     @ViewChildren(StructTypeDisplay)
     private structDisplays: QueryList<StructTypeDisplay>;
     @ViewChildren(PrimitiveTypeDisplay)
@@ -94,7 +99,7 @@ export class StructTypeDisplay{
     @ViewChildren(FunctionTypeDisplay)
     private functionDisplays: QueryList<FunctionTypeDisplay>;
 
-    public getValue():Value | undefined {
+    public getValue(parameters:{[address: number]: Value}):Value | undefined {
         if(this.type && this.type.data.tType === 'struct') {
             let outVal = {value: {}};
             let primDs = this.primitiveDisplays.toArray().reverse();
@@ -106,19 +111,19 @@ export class StructTypeDisplay{
                 let t = this.types.get(f.sType)!;
                 switch(t.data.tType) {
                     case "primitive":
-                        outVal.value[f.offset] = primDs.pop()!.getValue();
+                        outVal.value[f.offset] = primDs.pop()!.getValue(parameters);
                         break;
                     case "pointer":
-                        outVal.value[f.offset] = poinDs.pop()!.getValue();
+                        outVal.value[f.offset] = poinDs.pop()!.getValue(parameters);
                         break;
                     case "array":
-                        outVal.value[f.offset] = arraDs.pop()!.getValue();
+                        outVal.value[f.offset] = arraDs.pop()!.getValue(parameters);
                         break;
                     case "struct":
-                        outVal.value[f.offset] = struDs.pop()!.getValue();
+                        outVal.value[f.offset] = struDs.pop()!.getValue(parameters);
                         break;
                     case "function":
-                        outVal.value[f.offset] = funcDs.pop()!.getValue();
+                        outVal.value[f.offset] = funcDs.pop()!.getValue(parameters);
 
                 }
             }

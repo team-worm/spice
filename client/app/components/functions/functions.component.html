@@ -19,9 +19,7 @@
         </div>
         <div fxFlex="70">
             <md-card class="smallerMargin">
-                <md-card-title>Selected Function: <i>{{GetSelectedFunctionAsString()}}</i>
-                    <!--<button class="types-button" md-raised-button (click)="OpenSpiceTypeDialog()" [disabled]="!selectedFunction"><md-icon [color]="'primary'">compare_arrows</md-icon> Type Mapping</button>-->
-                </md-card-title>
+                <md-card-title>Selected Function: <i>{{GetSelectedFunctionAsString()}}</i></md-card-title>
                 <md-card-subtitle *ngIf="!selectedFunction">Select a function from the list to the left.</md-card-subtitle>
                 <md-card-subtitle *ngIf="!!selectedFunction">Line {{selectedFunction.lineStart}} of {{selectedFunction.sourcePath}}</md-card-subtitle>
                 <md-card-actions>
@@ -44,7 +42,7 @@
                 <div class="source-code" *ngIf="!!lines && linesLoaded">
                     <div class="source-code-viewer" fxFlex fxLayout="row">
                         <div class="line-number-col" fxFlex="nogrow">
-                            <div class="row"
+                            <div class="row" fxLayoutAlign="end center" (click)="ToggleBreakpoint()"
 								 [ngClass]="{breakpoint: HasBreakpoint(i+1)}"
                                  [matchMaxHeight]="'functions-'+i"
                                  *ngFor="let line of lines; let i=index;">
@@ -52,7 +50,7 @@
                             </div>
                         </div>
                         <div class="source-code-col" fxFlex>
-                            <pre class="language-clike"><code class="language-clike"><div class="row" [matchMaxHeight]="'functions-'+i"*ngFor="let line of lines; let i=index;"><div [innerHTML]="line"></div></div></code></pre>
+                            <pre class="language-clike"><code class="language-clike"><div class="row" (click)="ToggleBreakpoint()" [matchMaxHeight]="'functions-'+i"*ngFor="let line of lines; let i=index;"><div [innerHTML]="line"></div></div></code></pre>
                         </div>
                     </div>
                 </div>

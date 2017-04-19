@@ -4,13 +4,12 @@ import { Execution, ExecutionId, FunctionData } from "../../models/Execution";
 import { Trace, LineData } from "../../models/Trace";
 import { Observable } from "rxjs/Observable";
 import { SourceFunction, SourceFunctionId } from "../../models/SourceFunction";
-import { MatchMaxHeightDirective } from "../../directives/MatchMaxHeight.directive";
 import { Response } from "@angular/http";
 import { ViewService } from "../../services/view.service";
 import { FileSystemService } from "../../services/file-system.service";
 import { MdSnackBar } from "@angular/material";
 import { LineGraphComponent, DataXY } from "../common/line-graph.component";
-import { SourceVariable, SourceVariableId } from "../../models/SourceVariable";
+import { SourceVariableId } from "../../models/SourceVariable";
 import { Subscriber } from "rxjs/Subscriber";
 import { LoopData, TraceGroup } from "./trace-loop.component";
 import { DebuggerService, ExecutionEvent, PreCallFunctionEvent, DisplayTraceEvent, ProcessEndedEvent, DetachEvent, AttachEvent } from "../../services/debugger.service";
@@ -19,6 +18,7 @@ import * as Prism from 'prismjs';
 import { GraphDisplayComponent, GraphData, DataNode, DataEdge } from "../common/graph-display.component";
 import { SourceType, Field } from "../../models/SourceType";
 import { StructValue, Value, PointerValue } from "../../models/Value";
+import {MatchMaxHeightDirective} from "../../directives/MatchMaxHeight.directive";
 
 @Component({
     moduleId: module.id,
@@ -51,6 +51,10 @@ export class DebuggerComponent {
 	public nodeGraphTrackedNode: SourceVariableId | null = null;
 
 	public currentExecution: Execution | null = null;
+	public currentSess: number;
+
+	public pointerTypes:{[address:number]:{type: SourceType, name:string}} = {};
+	public pointerValues: { [sVariable: number]: Value} = {};
 
 	constructor(public debuggerService: DebuggerService,
 				private fileSystemService: FileSystemService,
@@ -90,11 +94,16 @@ export class DebuggerComponent {
 			});
 	}
 
-	public DisplayTrace(execution: Execution) {
+	public DisplayTrace(execution: Execution, sessId?: number) {
 		if(execution.data.eType !== 'function') {
 			throw new Error('Cannot display trace for execution ${execution.id}: Only function traces can be displayed');
 		}
 		this.currentExecution = execution;
+		if (!sessId) {
+			this.currentSess = this.debuggerService.currentDebuggerState!.info.id;
+		} else {
+			this.currentSess = sessId;
+		}
 		this.debuggerService.currentDebuggerState!.ensureSourceFunctions([execution.data.sFunction])
 			.mergeMap((sfMap: Map<SourceFunctionId, SourceFunction>) => {
 				let sf = this.debuggerService.currentDebuggerState!.sourceFunctions.get((this.currentExecution!.data as FunctionData).sFunction)!;
@@ -120,6 +129,34 @@ export class DebuggerComponent {
 			});
 			return;
 		}
+
+        if (['return', 'cancel', 'exit', 'crash', 'error'].indexOf(trace.data.tType) > -1) {
+            let reason: any = trace.data.tType;
+            this.debuggerService.executionStopped(reason);
+        }
+
+		if (trace.data.tType === 'line' && this.sourceFunction && this.debuggerService.currentDebuggerState) {
+        	let ds = this.debuggerService.currentDebuggerState;
+        	for(let id of Object.keys(trace.data.state)) {
+        		let variable = this.sourceFunction.locals.concat(this.sourceFunction.parameters).find(v => v.address === parseInt(id));
+        		let value:Value = trace.data.state[id];
+        		if(variable && value.value) {
+					let pt = ds.sourceTypes.get(variable.sType)!;
+					let v = parseInt(value.value.toString());
+					if(pt.data.tType === 'pointer') {
+						let dt = ds.sourceTypes.get(pt.data.sType)!;
+						this.pointerTypes[v] = {type: dt, name: variable.name + '*'};
+
+					}
+
+				} else {
+					this.pointerValues[id] = value;
+				}
+
+
+			}
+		}
+
 
 		//This naive implementation doesn't properly handle "early exit" of loops (break, continue)/assumes loops have some kind of "loop closing" trace
 		//In order to handle early exists, we need to go back and reorganize previous loops
@@ -182,10 +219,7 @@ export class DebuggerComponent {
 		if(this.sourceFunction) {
 			for(let i = 0; i < this.variableDisplays.length; i++) {
 				let vdc:VariableDisplayComponent = this.variableDisplays.toArray()[i];
-				let val = vdc.getValue();
-				if(val !== undefined) {
-					this.setParameters[vdc.address] = val;
-				}
+				let val = vdc.applyValue(this.setParameters);
 			}
 			this.debuggerService.callFunction(this.sourceFunction, this.setParameters)
 				.subscribe((ex:Execution)=>{
@@ -198,12 +232,19 @@ export class DebuggerComponent {
 	}
 
     public GetFunctionAsString(): string {
-        if (!this.sourceFunction) {
+		if (!this.sourceFunction) {
 			return 'No Function Selected';
-		} else if(this.debuggerService.currentDebuggerState && this.debuggerService.currentDebuggerState.sourceTypes) {
+		} else if (this.debuggerService.debuggerStates.get(this.currentSess)) {
+			let stMap = this.debuggerService.debuggerStates.get(this.currentSess) !.sourceTypes;
+			const parameters = this.sourceFunction.parameters
+                .map(parameter => stMap.get(parameter.sType)
+				&& `${stMap.get(parameter.sType) !.toString(stMap)} ${parameter.name}`)
+                .join(", ");
+			return `${this.sourceFunction.name}(${parameters})`;
+		} else if (this.debuggerService.currentDebuggerState && this.debuggerService.currentDebuggerState.sourceTypes) {
 			let stMap = this.debuggerService.currentDebuggerState.sourceTypes;
 			const parameters = this.sourceFunction.parameters
-                .map(parameter => `${stMap.get(parameter.sType)!.toString(stMap)} ${parameter.name}`)
+                .map(parameter => `${stMap.get(parameter.sType) !.toString(stMap)} ${parameter.name}`)
                 .join(", ");
 			return `${this.sourceFunction.name}(${parameters})`;
 		} else {
@@ -212,7 +253,7 @@ export class DebuggerComponent {
 	}
 
 	public GoToFunctionsView() {
-		this.viewService.activeView = 'functions';
+		this.debuggerService.displayFunction(null);
 	}
 
 	public SetGraphVariable(variableAddress: SourceVariableId): void {

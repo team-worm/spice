@@ -19,6 +19,7 @@ import {FunctionTypeDisplay} from "./function-type-display.component";
                     [valueMap]="valueMap"
                     [editable]="editable"
                     [compact]="compact && !editable"
+                    [lineNum]="lineNum"
                     [types]="debugState.sourceTypes"></spice-struct-type-display>
             <spice-primitive-type-display
                     *ngSwitchCase="'primitive'"
@@ -33,6 +34,7 @@ import {FunctionTypeDisplay} from "./function-type-display.component";
                     [valueMap]="valueMap"
                     [editable]="editable"
                     [compact]="compact && !editable"
+                    [lineNum]="lineNum"
                     [types]="debugState.sourceTypes"></spice-array-type-display>
             <spice-pointer-type-display
                     *ngSwitchCase="'pointer'"
@@ -41,6 +43,7 @@ import {FunctionTypeDisplay} from "./function-type-display.component";
                     [valueMap]="valueMap"
                     [editable]="editable"
                     [compact]="compact && !editable"
+                    [lineNum]="lineNum"
                     [types]="debugState.sourceTypes"></spice-pointer-type-display>
             <spice-function-type-display
                     *ngSwitchCase="'function'"
@@ -75,6 +78,9 @@ export class VariableDisplayComponent implements OnInit {
     @Input()
     public debugState:DebuggerState;
 
+    @Input()
+    public lineNum:number = -1;
+
     @ViewChild(StructTypeDisplay)
     private structDisplay: StructTypeDisplay;
     @ViewChild(PrimitiveTypeDisplay)
@@ -95,31 +101,34 @@ export class VariableDisplayComponent implements OnInit {
         }
     }
 
-    public getValue():Value | undefined {
+    public applyValue(parameters:{[address: number]: Value}) {
+        let val:Value|undefined = undefined;
         if(this.debugState && this.type) {
             switch(this.type.data.tType) {
                 case "primitive":
                     if(this.primitiveDisplay)
-                        return this.primitiveDisplay.getValue();
+                        val = this.primitiveDisplay.getValue(parameters);
                     break;
                 case "pointer":
                     if(this.pointerDisplay)
-                        return this.pointerDisplay.getValue();
+                        val = this.pointerDisplay.getValue(parameters);
                     break;
                 case "array":
                     if(this.arrayDisplay)
-                        return this.arrayDisplay.getValue();
+                        val = this.arrayDisplay.getValue(parameters);
                     break;
                 case "struct":
                     if(this.structDisplay)
-                        return this.structDisplay.getValue();
+                        val = this.structDisplay.getValue(parameters);
                     break;
                 case "function":
                     if(this.functionDisplay)
-                        return this.functionDisplay.getValue();
+                        val = this.functionDisplay.getValue(parameters);
                     break;
             }
         }
-        return undefined;
+        if(val !== undefined) {
+            parameters[this.address] = val;
+        }
     }
 }

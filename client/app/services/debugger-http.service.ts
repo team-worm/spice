@@ -89,6 +89,7 @@ export class DebuggerHttpService {
 		for(let par of Object.keys(parameters)) {
 			let v:Value = parameters[par];
 			mappedParams[par] = Value.getSerialized(v);
+
 		}
 		return this.http.post(
 			`http://${host}:${port}/api/v1/debug/${id}/functions/${sFunction}/execute`,
@@ -156,14 +157,14 @@ export class DebuggerHttpService {
 						trace.data.value = Value.deserialize(trace.data.value);
 					}
 					observer.next(trace);
-					if (['return', 'break', 'exit', 'crash', 'error'].indexOf(t.data.tType) > -1) {
+					if (['return', 'cancel', 'break', 'exit', 'crash', 'error'].indexOf(t.data.tType) > -1) {
 						observer.complete();
 					}
 				} catch(e) {
 					observer.error(DebuggerHttpService.handleServerDataError('Trace')(e));
 				}
 			}).fail((thrown: any, statusCode: number, body: any, jsonBody: any) => {
-				observer.error(new Error(`GetTrace failed: ${thrown || {status: statusCode}}`));
+				observer.error(new Error(`GetTrace failed: ${(thrown && thrown.message) || {status: statusCode}}`));
 			});
 		}).publishReplay().refCount();
 	}

@@ -31,6 +31,7 @@ import {FilterByStringPipe} from "./pipes/filter-by-string.pipe";
 import {VariableDisplayComponent} from "./components/common/variable-display/variable-display.component";
 
 import { MatchMaxHeightDirective } from "./directives/MatchMaxHeight.directive";
+import { ParameterFocusDirective } from "./directives/ParameterFocus.directive";
 import { TraceComponent } from "./components/debugger/trace.component";
 import { LineGraphComponent } from "./components/common/line-graph.component";
 import { TraceLoopComponent } from "./components/debugger/trace-loop.component";
@@ -40,7 +41,6 @@ import {PrimitiveTypeDisplay} from "./components/common/variable-display/primiti
 import {ArrayTypeDisplay} from "./components/common/variable-display/array-type-display.component";
 import {PointerTypeDisplay} from "./components/common/variable-display/pointer-type-display.component";
 import {FunctionTypeDisplay} from "./components/common/variable-display/function-type-display.component";
-import {TypeMappingComponent} from "./components/common/type-mapping.component";
 import {GraphDisplayComponent} from "./components/common/graph-display.component";
 
 @NgModule({
@@ -61,6 +61,7 @@ import {GraphDisplayComponent} from "./components/common/graph-display.component
         ProcessListComponent,
         FilterByStringPipe,
         MatchMaxHeightDirective,
+        ParameterFocusDirective,
         LineGraphComponent,
         TraceHistoryComponent,
         VariableDisplayComponent,
@@ -69,7 +70,6 @@ import {GraphDisplayComponent} from "./components/common/graph-display.component
         ArrayTypeDisplay,
         PointerTypeDisplay,
         FunctionTypeDisplay,
-        TypeMappingComponent,
         GraphDisplayComponent,
     ],
     providers: [
@@ -85,8 +85,7 @@ import {GraphDisplayComponent} from "./components/common/graph-display.component
         DebuggerService],
     entryComponents: [
         AboutComponent,
-        HelpComponent,
-        TypeMappingComponent],
+        HelpComponent],
     bootstrap: [SpiceRootComponent]
 
 })
