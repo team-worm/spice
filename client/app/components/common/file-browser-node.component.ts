@@ -1,14 +1,15 @@
-import {Component, Input, ViewChild, ElementRef, OnInit, Output, EventEmitter} from "@angular/core";
+import { Component, Input, ViewChild, ElementRef, OnInit, Output, EventEmitter } from "@angular/core";
 import { SourceFile } from "../../models/SourceFile";
 import { FileSystemService } from "../../services/file-system.service";
-import {SourceFunction} from "../../models/SourceFunction";
+import { SourceFunction } from "../../models/SourceFunction";
 @Component({
     selector: 'spice-file-browser-node',
     template: `
 <md-list-item #ListItemElement 
     class="file-system-node" 
     *ngIf="!filtered && !IsRootContainer()"
-    (click)="Clicked()" 
+    (click)="Clicked()"
+(dblclick)="DoubleClicked()" 
     [ngClass]="{'selected': !!file && selectedFileRef.file === file, 'searched': inCustomPath()}"
     [style.paddingLeft]="(this.fileDepth*1.5) + 'em'">
     <md-icon md-list-avatar class="file-icon" *ngIf="!!file" >{{IconName()}}</md-icon>
@@ -23,6 +24,7 @@ import {SourceFunction} from "../../models/SourceFunction";
          [fileDepth]="fileDepth + 1" 
          [selectedFileRef]="selectedFileRef" 
          [onSelected]="onSelected"
+[onDoubleClickFile]="onDoubleClickFile"
          [customPath]="customPath"
          [filterNameChangeEmitter]="filterNameChangeEmitter"></spice-file-browser-node>
     </span>
@@ -42,13 +44,15 @@ export class FileBrowserNodeComponent implements OnInit {
     @Input()
     public onSelected: (file: SourceFile) => void;
     @Input()
+    public onDoubleClickFile: (file: SourceFile) => void;
+    @Input()
     public customPath: string;
     @Input()
-    public filterNameChangeEmitter:EventEmitter<string>;
+    public filterNameChangeEmitter: EventEmitter<string>;
 
     public expanded: boolean;
 
-    public filtered:boolean; //True means hide.
+    public filtered: boolean; //True means hide.
 
     @ViewChild('ListItemElement') DomElement: any;
 
@@ -59,20 +63,20 @@ export class FileBrowserNodeComponent implements OnInit {
 
     ngOnInit(): void {
         if (this.inCustomPath()) {
-            if(this.file && this.file.data.fType === 'file') {
-                setTimeout(()=> {
-                    if(this.file) {
+            if (this.file && this.file.data.fType === 'file') {
+                setTimeout(() => {
+                    if (this.file) {
                         this.onSelected(this.file);
                     }
 
-                },50);
+                }, 50);
 
             }
         }
 
-        if(this.filterNameChangeEmitter) {
-            this.filterNameChangeEmitter.subscribe((filter:string)=> {
-                if(this.file) {
+        if (this.filterNameChangeEmitter) {
+            this.filterNameChangeEmitter.subscribe((filter: string) => {
+                if (this.file) {
                     this.filtered = this.file.name.toLowerCase().indexOf(filter) === -1;
                 }
             });
@@ -129,8 +133,16 @@ export class FileBrowserNodeComponent implements OnInit {
             }
         }
     }
+    public DoubleClicked() {
+        if (!!this.file) {
+            if (this.file.data.fType === 'file') {
+                this.onSelected(this.file);
+                this.onDoubleClickFile(this.file);
+            }
+        }
+    }
 
-    public IsRootContainer():boolean {
+    public IsRootContainer(): boolean {
         return this.file === this.fSS.filesystem;
     }
 

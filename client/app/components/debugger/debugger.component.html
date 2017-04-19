@@ -1,26 +1,43 @@
 <div class="debugger-container">
-	<md-card class="smallerMargin">
+    <span class="smallerMargin" >
+    <button md-raised-button (click)="GoToFunctionsView()">
+        <md-icon [color]="'primary'">arrow_back</md-icon>
+        Back to functions
+    </button>
+    </span>
+    <md-card class="smallerMargin">
 		<md-card-title><i>{{GetFunctionAsString()}}</i> <button class="types-button" md-raised-button><md-icon [color]="'primary'">compare_arrows</md-icon> Type Mapping</button></md-card-title>
 		<md-card-subtitle *ngIf="!sourceFunction">Select functions and set breakpoints from the <span class="functions-keyword" (click)="GoToFunctionsView()">functions</span> view.</md-card-subtitle>
 		<md-card-content *ngIf="!!sourceFunction">
 			<table class="width-100" cellspacing="0">
 				<tr>
-					<td *ngFor="let par of sourceFunction.parameters">
+					<td *ngFor="let par of sourceFunction.parameters; let i = index">
 						<md-input-container class="width-100">
-							<input mdInput [(ngModel)]="setParameters[par.name]" placeholder="{{par.sType}} {{par.name}}">
+						    <input *ngIf="i == 0; else noFocus"
+                                                           mdInput paramFocus
+                                                           (keydown)="CheckParamsAndCall($event)"
+                                                           [(ngModel)]="setParameters[par.name]"
+                                                           placeholder="{{par.sType}} {{par.name}}">
+                                                    <ng-template #noFocus>
+                                                        <input mdInput 
+                                                               (keydown)="CheckParamsAndCall($event)"
+                                                               [(ngModel)]="setParameters[par.name]"
+                                                               placeholder="{{par.sType}} {{par.name}}">
+                                                    </ng-template>
+
 						</md-input-container>
 					</td>
 				</tr>
 			</table>
-			<button md-button [disabled]="!sourceFunction" (click)="ExecuteFunction()"><md-icon class="md-accent">play_circle_outline</md-icon> Call</button>
+			<button md-button [disabled]="!areParamsEntered()" (click)="ExecuteFunction()"><md-icon class="md-accent">play_circle_outline</md-icon> Call</button>
 		</md-card-content>
 	</md-card>
 	<md-card class="smallerMargin source-card">
 		<md-card-content>
 			<div class="debugger-display source-code" fxFlex fxLayout="row">
-				<div class="source-code-viewer" fxFlex="40" fxLayout="row">
+				<div class="source-code-viewer" fxFlex="50" fxLayout="row">
 					<div class="line-number-col" fxFlex="nogrow">
-						<div class="row" [matchMaxHeight]="'debugger-'+(sourceFunction.lineStart+i)" *ngFor="let line of lines; let i=index;">
+					    <div class="row" fxLayoutAlign="end center" [matchMaxHeight]="'debugger-'+(sourceFunction.lineStart+i)" *ngFor="let line of lines; let i=index;">
 							<span>{{sourceFunction.lineStart + i}}</span>
 						</div>
 					</div>

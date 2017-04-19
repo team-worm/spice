@@ -31,7 +31,7 @@ export interface DetachEvent {
 export interface ExecutionEvent {
 	eType: 'execution';
 	execution: Execution | null;
-	reason: 'continue' | 'call' | 'break' | 'exit' | 'cancel' | 'crash' | 'error';
+	reason: 'continue' | 'call' | 'return' | 'break' | 'exit' | 'cancel' | 'crash' | 'error';
 }
 
 export interface ProcessEndedEvent {
@@ -114,6 +114,9 @@ export class DebuggerService {
 								this.debuggerEventsObserver.next({eType: 'execution', execution: ex, reason: 'break'});
 							});
 					break;
+                    case 'cancel':
+                        this.executionStopped('cancel');
+                    break;
 					case 'crash':
 					case 'exit':
 					case 'error':
@@ -139,11 +142,13 @@ export class DebuggerService {
 
 	public stopCurrentExecution(): Observable<{}> {
 		return this.currentDebuggerState!.stopExecution(this.currentExecution!.id)
-			.map(() => {
-				this.currentExecution = null;
-				this.debuggerEventsObserver.next({eType: 'execution', execution: null, reason: 'cancel'});
-			}).catch(DebuggerService.makeErrorHandler(this, 'Failed to stop execution'));
+			.catch(DebuggerService.makeErrorHandler(this, 'Failed to stop execution'));
 	}
+
+    public executionStopped(reason: 'return' | 'cancel' | 'exit' | 'crash' | 'error') {
+        this.currentExecution = null;
+        this.debuggerEventsObserver.next({eType: 'execution', execution: null, reason: reason});
+    }
 
 	protected onAttach(ds: DebuggerState, name: string, binaryPath: string, isBinary: boolean) {
 		ds.name = name;
