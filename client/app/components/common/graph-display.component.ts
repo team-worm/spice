@@ -3,19 +3,24 @@ import { Observable } from "rxjs/Observable";
 import * as d3 from 'd3';
 
 export type GraphData = {nodes: DataNode[], edges: DataEdge[]};
-export type DataNode = {id: number, data: string, edgesOut: {[offset: number]: DataEdge}};
+export type DataNode = {id: number, data: string | null, edgesOut: {[offset: number]: DataEdge}};
 export type DataEdge = {id: string, source: DataNode & d3.SimulationNodeDatum, target: DataNode & d3.SimulationNodeDatum};
+
+const targetAlpha = 0.0;
+const minAlpha = 0.001;
 
 @Component({
 	selector: 'spice-graph-display',
 	template: `<div></div>`
 })
+
 export class GraphDisplayComponent implements OnInit, AfterViewInit, OnChanges, OnDestroy {
 	@Input('width') width: number;
 	@Input('height') height: number;
 	@Input('data') data: GraphData;
 
 	protected svg: d3.Selection<any,any,any,any>;
+	protected view: d3.Selection<any,any,any,any>;
 	protected margin: { top: number, right: number, bottom: number, left: number};
 	protected simulation: d3.Simulation<d3.SimulationNodeDatum,d3.SimulationLinkDatum<d3.SimulationNodeDatum>>;
 	protected edgesGroup: d3.Selection<any, any, any, any>;
@@ -68,17 +73,31 @@ export class GraphDisplayComponent implements OnInit, AfterViewInit, OnChanges, 
 		let root = d3.select(this.el.nativeElement);
 		root.html('');
 
-		this.svg = root.append('svg')
+		root.append('svg')
 			.attr('class', 'graph-display')
 			.attr('width', this.width + this.margin.left + this.margin.right)
 			.attr('height', this.height + this.margin.top + this.margin.bottom)
+			.call(d3.zoom().on('zoom', () => {this.onZoomed();}))
+
+		root.select('svg').append('rect') //used for zoom mouse detection
+			.attr('x', 0.5)
+			.attr('y', 0.5)
+			.attr('width', this.width + this.margin.left + this.margin.right)
+			.attr('height', this.height + this.margin.top + this.margin.bottom)
+			.attr('fill', 'none')
+			.attr('pointer-events', 'all');
+
+		this.svg = root.select('svg')
 			.append('g')
 			.attr('transform', 'translate(' + this.margin.left + ',' + this.margin.top + ')');
 
+		this.view = this.svg.append('g');
 
-		this.svg.append('defs').selectAll('marker')
+
+		this.view.append('defs').selectAll('marker')
 			.data(['link'])
 			.enter().append('marker')
+				.attr('class', 'edge-end-marker')
 				.attr('id', d => d)
 				.attr("viewBox", "0 -5 10 10")
 				.attr("refX", 15)
@@ -86,14 +105,13 @@ export class GraphDisplayComponent implements OnInit, AfterViewInit, OnChanges, 
 				.attr("markerWidth", 6)
 				.attr("markerHeight", 6)
 				.attr("orient", "auto")
-				.attr('fill', '#aaa')
 			.append("path")
 				.attr("d", "M0,-5L10,0L0,5");
 
-		this.edgesGroup = this.svg.append('g')
+		this.edgesGroup = this.view.append('g')
 				.attr('class', 'edges');
 
-		this.nodesGroup = this.svg.append('g')
+		this.nodesGroup = this.view.append('g')
 				.attr('class', 'nodes');
 
 
@@ -111,7 +129,7 @@ export class GraphDisplayComponent implements OnInit, AfterViewInit, OnChanges, 
 		this.simulation.nodes(this.data.nodes).on('tick', () => {this.onSimulationTick();});
 		this.linkForce.links(this.data.edges);
 
-		this.simulation.alphaTarget(0.3).restart();
+		this.simulation.alphaTarget(0).alphaMin(minAlpha).alpha(1).restart();
 		//fast forward simulation until it settles
 		for (let i = 0, n = Math.ceil(Math.log(this.simulation.alphaMin()) / Math.log(1 - this.simulation.alphaDecay())); i < n; ++i) {
 			this.simulation.tick();
@@ -120,31 +138,34 @@ export class GraphDisplayComponent implements OnInit, AfterViewInit, OnChanges, 
 		let edge = this.edgesGroup.selectAll('g')
 			.data(this.data.edges, (e:DataEdge) => e.id);
 
-		let newEdge = edge.enter().append('g');
+		let newEdge = edge.enter()
+			.append('g')
+				.attr('class', 'edge');
 		
 		newEdge.append('line')
-			.attr('marker-end', 'url(#edge)')
-			.attr("stroke", "#aaa")
-			.attr("stroke-width", '1');
+			.attr('marker-end', 'url(#edge)');
 
 		edge.exit().remove();
 
 		let node = this.nodesGroup.selectAll('g')
 			.data(this.data.nodes, (d:DataNode) => ''+d.id);
 
-		let newNode = node.enter().append('g');
-		
+		let newNode = node.enter()
+			.append('g')
+			.attr('class', 'node')
+				.call(d3.drag()
+					.on("start", (d) => {this.onDragStart(d);})
+					.on("drag",  (d) => {this.onDrag(d);})
+					.on("end",   (d) => {this.onDragEnd(d);}) as any);
+
 		newNode.append('circle')
-			.attr('r', 5)
-			.attr('fill', '#4f4')
-			.call(d3.drag()
-				.on("start", (d) => {this.onDragStart(d);})
-				.on("drag",  (d) => {this.onDrag(d);})
-				.on("end",   (d) => {this.onDragEnd(d);}) as any);
+			.attr('class', 'node-circle')
+			.attr('r', '15')
 
 		newNode.append('text')
-			.text((d:DataNode) => d.data)
-			.attr('fill', '#000');
+			.attr('class', 'node-text')
+			.attr('text-anchor', 'middle')
+			.text((d:DataNode) => d.data || '');
 
 		node.exit().remove();
 
@@ -165,14 +186,13 @@ export class GraphDisplayComponent implements OnInit, AfterViewInit, OnChanges, 
 
 	protected onDragStart(d: d3.SimulationNodeDatum) {
 		if (!d3.event.active) {
-			this.simulation.alphaTarget(0.3).restart();
+			this.simulation.alphaTarget(0.3).alphaMin(0).alpha(1).restart();
 		}
 		d.fx = d.x;
 		d.fy = d.y;
 	}
 
 	protected onDrag(d: d3.SimulationNodeDatum) {
-		console.log(d3.event.x);
 		d.fx = d3.event.x;
 		d.fy = d3.event.y;
 		//this.nodeClickHandler.apply(this, arguments);
@@ -180,10 +200,14 @@ export class GraphDisplayComponent implements OnInit, AfterViewInit, OnChanges, 
 
 	protected onDragEnd(d: d3.SimulationNodeDatum) {
 		if (!d3.event.active) {
-			this.simulation.alphaTarget(0.3);
+			this.simulation.alphaTarget(targetAlpha).alphaMin(minAlpha);
 		}
 		d.fx = null;
 		d.fy = null;
+	}
+
+	protected onZoomed() {
+		this.view.attr('transform', d3.event.transform);
 	}
 }
 

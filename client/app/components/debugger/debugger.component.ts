@@ -47,6 +47,7 @@ export class DebuggerComponent {
 	public nodeGraphData: GraphData = {nodes: [], edges: []};
 	public nodeGraphVariable: SourceVariableId | null = null;
 	public nodeGraphFieldOffsets: Set<number>;
+	public nodeGraphDataOffset: number | null = null;
 
 	public currentExecution: Execution | null = null;
 
@@ -327,11 +328,13 @@ export class DebuggerComponent {
 								//TODO: make this generalized (using spice types)
 
 								let nodeIdx = this.nodeGraphData.nodes.findIndex((n:DataNode) => n.id === nodeStructAddress);
-								let nodeData = ''+(lineData.state[nodeStructAddress].value as StructValue)[0].value!;
+								let nodeData = null;
+								if(this.nodeGraphDataOffset !== null) {
+									nodeData = ''+(lineData.state[nodeStructAddress].value as StructValue)[this.nodeGraphDataOffset].value;
+								}
 								let nodeObj: DataNode;
 								if(nodeIdx === -1) {
 									//if this node doesn't exist in the graph, add it
-									//TODO: make this data field not hardcoded
 									nodeObj = {id: nodeStructAddress, data: nodeData, edgesOut: {}};
 									this.nodeGraphData.nodes.push(nodeObj);
 

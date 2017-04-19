@@ -52,16 +52,25 @@
 						</md-option>
 					</md-select>
 				</div>
-				<div class="node-selector" *ngIf="variableBaseTypeIsStruct(nodeGraphVariable)">
-					<ul>
-						<li *ngFor="let field of getVariableBaseType(nodeGraphVariable).data.fields">
-							<button md-button (click)="toggleNodeGraphFieldIndex(field.offset)">
-								<md-icon [color]="'accent'" *ngIf="nodeGraphFieldOffsets.has(field.offset)">check</md-icon>
-								<md-icon [color]="'warn'" *ngIf="!nodeGraphFieldOffsets.has(field.offset)">close</md-icon>
+				<div *ngIf="variableBaseTypeIsStruct(nodeGraphVariable)">
+					<div class="node-selector">
+						<ul>
+							<li *ngFor="let field of getVariableBaseType(nodeGraphVariable).data.fields">
+								<button md-button (click)="toggleNodeGraphFieldIndex(field.offset)">
+									<md-icon [color]="'accent'" *ngIf="nodeGraphFieldOffsets.has(field.offset)">check</md-icon>
+									<md-icon [color]="'warn'" *ngIf="!nodeGraphFieldOffsets.has(field.offset)">close</md-icon>
+									{{field.name}}
+								</button>
+							</li>
+						</ul>
+					</div>
+					<div class="data-selector">
+						<md-select placeholder="Data" [(ngModel)]="nodeGraphDataOffset">
+							<md-option *ngFor="let field of getVariableBaseType(nodeGraphVariable).data.fields" [value]="field.offset">
 								{{field.name}}
-							</button>
-						</li>
-					</ul>
+							</md-option>
+						</md-select>
+					</div>
 				</div>
 				<button md-raised-button [disabled]="!nodeGraphVariable" (click)="SetNodeGraphVariable(nodeGraphVariable)"><md-icon>timeline</md-icon> Display</button>
 			</div>

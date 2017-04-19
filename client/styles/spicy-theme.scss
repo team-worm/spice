@@ -6,6 +6,7 @@
 @import 'components/_trace-loop-theme';
 @import 'components/_launcher-theme';
 @import 'components/_line-graph-theme';
+@import 'components/_graph-display-theme';
 @import 'components/_variable-display-theme';
 @import '_spice-theme';
 
@@ -37,6 +38,7 @@ $desert-spice-theme: mat-light-theme($desert-spice-primary, $desert-spice-accent
 @include launcher-theme($desert-spice-theme);
 @include trace-loop-theme($desert-spice-theme);
 @include line-graph-theme($desert-spice-theme);
+@include graph-display-theme($desert-spice-theme);
 @include variable-display-theme($desert-spice-theme);
 
 .spicy-dark {
@@ -62,6 +64,6 @@ $desert-spice-theme: mat-light-theme($desert-spice-primary, $desert-spice-accent
   @include process-list-theme($moonlight-spice-theme);
   @include launcher-theme($moonlight-spice-theme);
   @include trace-loop-theme($moonlight-spice-theme);
-  @include line-graph-theme($moonlight-spice-theme);
+  @include graph-display-theme($moonlight-spice-theme);
   @include variable-display-theme($moonlight-spice-theme);
 }

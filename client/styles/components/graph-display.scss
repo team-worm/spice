@@ -1,0 +1,14 @@
+.graph-display {
+	cursor: move;
+	.edge {
+		stroke-width: 1.5;
+	}
+	.node {
+		cursor: pointer;
+		.node-circle {
+			stroke-width: 1.5;
+		}
+		.node-text {
+		}
+	}
+}
