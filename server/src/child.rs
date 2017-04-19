@@ -1,6 +1,6 @@
 use std::{io, mem};
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, ATOMIC_USIZE_INIT, Ordering};
 use std::sync::mpsc::{sync_channel, SyncSender, Receiver};
 use std::cell::RefCell;
 use std::collections::{HashMap, VecDeque};
@@ -16,6 +16,8 @@ use value;
 use api;
 
 pub struct Thread {
+    pub session: usize,
+
     pub thread: JoinHandle<()>,
     pub tx: SyncSender<ServerMessage>,
     pub rx: Receiver<DebugMessage>,
@@ -68,6 +70,10 @@ pub enum ServerMessage {
     Quit,
 }
 
+lazy_static! {
+    static ref SESSION: AtomicUsize = ATOMIC_USIZE_INIT;
+}
+
 impl Thread {
     pub fn launch(path: PathBuf) -> (Thread, Arc<AtomicBool>) {
         Thread::spawn(move |debug_tx, server_rx, cancel| {
@@ -104,6 +110,8 @@ impl Thread {
         });
 
         let thread = Thread {
+            session: SESSION.fetch_add(1, Ordering::Relaxed),
+
             thread: thread,
             tx: server_tx,
             rx: debug_rx,

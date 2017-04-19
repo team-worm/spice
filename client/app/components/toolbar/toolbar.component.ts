@@ -162,11 +162,14 @@ export class ToolbarComponent {
     }
 
     public executionCount(): number {
-        if (this.debuggerService.currentDebuggerState) {
-            return Array.from(this.debuggerService.currentDebuggerState.executions.values())
-                .filter(ex => ex.data.eType === 'function').length;
-        } else {
-            return 0;
+        let executionCount = 0;
+        for (const debugState of this.debuggerService.debuggerStates.values()) {
+            for (const execution of debugState.executions.values()) {
+                if (execution.data.eType === 'function') {
+                    executionCount += 1;
+                }
+            }
         }
+        return executionCount;
 	}
 }

@@ -14,15 +14,11 @@
         <button md-button [disabled]="!canDetach()" (click)="Detach()"><md-icon [color]="'accent'">close</md-icon>Detach</button>
 	</span>
     <span class="left-divider">
-        <button md-button *ngIf="breakpointCount() === 0" [disabled]="!debuggerService.currentDebuggerState || IsInFunctionView()" (click)="GoToFunctionsView()">
+        <button md-button [disabled]="breakpointCount() === 0" [mdMenuTriggerFor]="breakpointMenu" (click)="GetBpFunctions()">
             <md-icon>library_books</md-icon>
         Breakpoints [{{breakpointCount()}}]
         </button>
-        <button md-button *ngIf="breakpointCount() > 0" [mdMenuTriggerFor]="breakpointMenu" (click)="GetBpFunctions()">
-            <md-icon>library_books</md-icon>
-        Breakpoints [{{breakpointCount()}}]
-        </button>
-        <button md-button [disabled]="breakpointCount() === 0" (click)="ToggleTraceHistory()">
+        <button md-button [disabled]="executionCount() === 0" (click)="ToggleTraceHistory()">
             <md-icon>bug_report</md-icon>
         Trace History [{{executionCount()}}]
         </button>
