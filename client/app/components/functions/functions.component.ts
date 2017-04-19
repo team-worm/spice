@@ -1,22 +1,17 @@
 import {Component, Input, OnInit, ViewChild} from "@angular/core";
-import {Http, Response} from "@angular/http";
 import {MdDialog, MdSnackBar} from "@angular/material";
 import {SourceFunction, SourceFunctionId } from "../../models/SourceFunction";
 import {DebuggerService, AttachEvent, DisplayFunctionEvent } from "../../services/debugger.service";
 import {DebuggerState} from "../../models/DebuggerState";
 import {Breakpoint} from "../../models/Breakpoint";
-import {ViewService} from "../../services/view.service";
 import {FileSystemService} from "../../services/file-system.service";
 import {MatchMaxHeightDirective} from "../../directives/MatchMaxHeight.directive";
 import {FunctionListComponent} from "../common/function-list.component";
 import {fromJSON} from "../../util/SpiceValidator";
 import {SourceFunctionCollection} from "../../models/SourceFunctionCollection";
-import { Observable } from "rxjs/Observable";
 import * as Prism from 'prismjs';
-
 import cRuntime from "./cRuntime";
 import cStandardLib from "./cStandardLib";
-import {TypeMappingComponent} from "../common/type-mapping.component";
 import { displaySnackbarError } from "../../util/SnackbarError";
 
 @Component({
@@ -75,14 +70,6 @@ export class FunctionsComponent implements OnInit {
         } else {
             this.snackBar.open('No function selected.', undefined, {
                 duration: 3000
-            });
-        }
-    }
-
-    public OpenSpiceTypeDialog() {
-	    if(this.selectedFunction) {
-            this.dialog.open(TypeMappingComponent, {
-                data: this.selectedFunction
             });
         }
     }
