@@ -14,7 +14,7 @@ import { DebuggerService } from "../../../services/debugger.service";
     <md-list>
         <md-list-item *ngFor="let e of executions.reverse()" (click)="ReplayTrace(e)">
             <md-icon md-list-icon>{{GetListIcon(e)}}</md-icon>
-            <h3 md-line><b>#{{e.debugSessId}}</b> : {{GetListTitle(e)}}</h3>
+            <h3 md-line><b>#{{e.id}}</b> : {{GetListTitle(e)}}</h3>
         </md-list-item>
     </md-list>
 </div>`,
@@ -24,7 +24,7 @@ export class TraceHistoryComponent {
     public debugState:DebuggerState | null = null;
     public sidenav:MdSidenav | null;
 
-    public executions: { ex: Execution, func: SourceFunction | null, debugSessId: number }[] = [];
+    public executions: { id: number, ex: Execution, func: SourceFunction | null, debugSessId: number }[] = [];
 
 	constructor(private debuggerService: DebuggerService,
 				private viewService:ViewService) {
@@ -37,8 +37,10 @@ export class TraceHistoryComponent {
 			} else {
                 this.executions = [];
 
+                let id = 0;
                 var createExecution = function(e: Execution, sessid: number, ds: DebuggerService) {
                     return {
+                        id: id++,
                         ex: e,
                         func: ds!.debuggerStates!.get(sessid) !.sourceFunctions!.get((e.data as FunctionData).sFunction) || null, debugSessId: sessid
                     }
@@ -87,8 +89,7 @@ export class TraceHistoryComponent {
     }
 
     public ReplayTrace(e: { ex: Execution, func: SourceFunction | null, debugSessId: number }) {
-        this.viewService.debuggerComponent!.DisplayTrace(e.ex, e.debugSessId);
-        //this.debuggerService.displayTrace(e.ex);
+        this.debuggerService.displayTrace(e.ex);
     }
 
 }
