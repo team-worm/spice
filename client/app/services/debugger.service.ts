@@ -10,6 +10,7 @@ import { Trace, BreakData } from "../models/Trace";
 import { SourceFunction } from "../models/SourceFunction";
 import { Value } from "../models/Value";
 import { Response } from "@angular/http";
+import {SourceType, SourceTypeId} from "../models/SourceType";
 
 export type DebuggerEvent = ErrorEvent | AttachEvent | DetachEvent | ExecutionEvent | ProcessEndedEvent | PreCallFunctionEvent | DisplayTraceEvent | DisplayFunctionEvent;
 
@@ -156,6 +157,9 @@ export class DebuggerService {
 		ds.isBinary = isBinary;
 		ds.ensureAllSourceFunctions()
 			.mergeMap(sfs => {
+				if(sfs.length === 0) {
+					return Observable.of(new Map<SourceTypeId, SourceType>());
+				}
 				return ds.ensureSourceTypes(Array.from(
 					sfs.reduce((o, sf) => {
 						sf.parameters.concat(sf.locals).forEach(sv => o.add(sv.sType));
@@ -184,7 +188,7 @@ export class DebuggerService {
 	}
 
 	public callFunction(sourceFunction: SourceFunction, parameters: { [varId: number]: Value}): Observable<Execution> {
-		return this.currentDebuggerState!.executeFunction(sourceFunction.address, parameters)
+		return this.currentDebuggerState!.callFunction(sourceFunction.address, parameters)
 			.map(ex => {
 				this.currentExecution = ex;
 				this.debuggerEventsObserver.next({eType: 'execution', execution: ex, reason: 'call'});

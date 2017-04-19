@@ -1,5 +1,11 @@
 .debugger-container {
 	margin: 1em;
+
+	.custom-param-name {
+		width: 1%;
+		white-space: nowrap;
+		font-weight: 700;
+	}
 	.functions-keyword {
 		cursor: pointer;
 		text-decoration: underline;

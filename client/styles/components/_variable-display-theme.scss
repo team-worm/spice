@@ -7,19 +7,33 @@
   $background: map-get($theme, background);
 
   .variable-display {
+
+    text-shadow: 1px 1px 2px map-get($background, background);
+
     .pointer {
       &.expanded {
-        border-bottom: 1px map-get($background, default-contrast) solid;
+        border-bottom: 1px rgba(0,0,0,0.3) solid;
+      }
+    }
+    .primitive {
+      .mat-input-element:disabled {
+        color: black;
       }
     }
     .struct {
+      .struct-header {
+        padding-left: 3px;
+        border-left: 1px map-get($background, default-contrast) solid;
+      }
 
       table {
         tr:nth-child(even) {
-          background-color: mat-color($primary, 200);
+          background-color: rgba(0,0,0,0.03);
+          //background-color: mat-color($primary, 100);
         }
         tr:nth-child(odd) {
-          background-color: mat-color($primary, 100);
+          background-color: rgba(0,0,0,0.06);
+          //background-color: mat-color($primary, 50);
         }
         td:first-child {
           border-right: 1px map-get($background, default-contrast) solid;

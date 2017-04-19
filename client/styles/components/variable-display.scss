@@ -1,84 +1,179 @@
 .variable-display {
-  .variable-header {
-    .variable-name {
+  &.normal-size{
+    .pointer {
+      margin: 8px;
+      cursor: pointer;
       font-weight: 600;
-      font-size: larger;
-    }
-    .variable-subname{
-
-    }
-    .save-button {
-
-    }
-  }
-  .pointer {
-    margin: 8px;
-    cursor: pointer;
-    md-icon {
-      font-size: 18px;
-      vertical-align: sub;
-    }
-    &:hover {
-      font-weight: 600;
-    }
-  }
-  .pointer-contents {
-    margin: 8px;
-  }
-  .primitive {
-    &.null {
-      font-weight: 600;
-      font-style: italic;
-      margin-top: 8px;
-      margin-bottom: 8px;
-
-    }
-    &.bool {
-      margin-top: 8px !important;
-      margin-bottom: 8px !important;
-      .mat-slide-toggle {
-        margin: 0;
+      md-icon {
+        font-size: 14px;
+        vertical-align: sub;
       }
-    }
-    &.input {
-      margin: 16px 0 0 8px;
-      .mat-input-wrapper {
-        margin: 0;
+      &:hover {
+        text-decoration: underline;
       }
-    }
-    margin-left: 10px;
-    width: 210px;
-  }
-  .struct {
-    margin: 8px;
-    table {
-      td:first-child {
-        width: 1%;
-        white-space: nowrap;
-        .fieldName {
-          font-weight: 600;
-        }
-        .fieldType {
-          font-size: 12px;
-          font-style: italic;
-
+      &.empty {
+        cursor: default;
+        &:hover {
+          text-decoration: none;
         }
       }
-      width: 100%;
+    }
+    .pointer-contents {
+      display: block;
+    }
+    .primitive {
+      &.null {
+        font-weight: 600;
+        font-style: italic;
+        margin-top: 8px;
+        margin-bottom: 8px;
+
+      }
+      &.bool {
+        margin-top: 8px !important;
+        margin-bottom: 8px !important;
+        .mat-slide-toggle {
+          margin: 0;
+        }
+      }
+      &.input {
+        margin: 16px 0 0 8px;
+        .mat-input-wrapper {
+          margin: 0;
+        }
+      }
+      margin-left: 10px;
+      //min-width: 50px;
+    }
+    .struct {
+      .struct-header {
+        font-weight: 700;
+      }
+      margin: 8px;
+      table {
+        td:first-child {
+          width: 1%;
+          white-space: nowrap;
+          .fieldName {
+            font-weight: 600;
+          }
+          .fieldType {
+            font-size: 12px;
+            font-style: italic;
+
+          }
+        }
+        width: 100%;
+      }
+    }
+    .function {
+      md-icon {
+        font-size: 18px;
+        vertical-align: sub;
+      }
+      .edit-warning {
+        font-style: italic;
+        font-size: 12px;
+        vertical-align: text-top;
+      }
+      span {
+        font-weight: 500;
+      }
+    }
+    .array {
+      .hide-show {
+        font-weight: 600;
+        md-icon {
+          font-size:14px;
+          width: 14px;
+          height: 14px;
+          vertical-align: sub;
+          margin-top: 16px;
+          margin-bottom: 6px;
+        }
+        &:hover {
+          cursor:pointer;
+          text-decoration: underline;
+        }
+      }
     }
   }
-  .function {
-    md-icon {
-      font-size: 18px;
-      vertical-align: sub;
+  &.compact-size{
+    .pointer {
+      font-weight: 600;
+      cursor: pointer;
+      md-icon {
+        font-size: 14px;
+        vertical-align: sub;
+      }
+      &:hover {
+        text-decoration: underline;
+      }
+      &.empty {
+        cursor: default;
+        &:hover {
+          text-decoration: none;
+        }
+      }
     }
-    .edit-warning {
-      font-style: italic;
-      font-size: 12px;
-      vertical-align: text-top;
+    .pointer-contents {
     }
-    span {
-      font-weight: 500;
+    .primitive {
+      font-weight: 700;
+    }
+    .struct {
+      .struct-header {
+        font-weight: 700;
+      }
+      margin: 8px;
+      table {
+        td:first-child {
+          width: 1%;
+          white-space: nowrap;
+          .fieldName {
+            font-weight: 600;
+          }
+          .fieldType {
+            font-size: 12px;
+            font-style: italic;
+
+          }
+        }
+      }
+    }
+    .function {
+      md-icon {
+        font-size: 18px;
+        vertical-align: sub;
+      }
+      .edit-warning {
+        font-style: italic;
+        font-size: 12px;
+        vertical-align: text-top;
+      }
+      span {
+        font-weight: 500;
+      }
+    }
+    .array {
+      overflow-x: scroll;
+      .hide-show {
+        font-weight: 600;
+        md-icon {
+          font-size:14px;
+          width: 14px;
+          height: 14px;
+          vertical-align: sub;
+        }
+        &:hover {
+          cursor:pointer;
+          text-decoration: underline;
+        }
+      }
+      .elements {
+
+      }
     }
   }
+
 }

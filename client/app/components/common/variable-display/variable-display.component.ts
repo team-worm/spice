@@ -1,197 +1,134 @@
-import {Component, Input} from "@angular/core";
+import {Component, EventEmitter, Input, OnInit, Output, ViewChild} from "@angular/core";
 import {DebuggerState} from "../../../models/DebuggerState";
 import {SourceType, SourceTypeId} from "../../../models/SourceType";
+import {Value} from "../../../models/Value";
+import {StructTypeDisplay} from "./struct-type-display.component";
+import {PrimitiveTypeDisplay} from "./primitive-type-display.component";
+import {ArrayTypeDisplay} from "./array-type-display.component";
+import {PointerTypeDisplay} from "./pointer-type-display.component";
+import {FunctionTypeDisplay} from "./function-type-display.component";
 
 @Component({
     selector: 'spice-variable-display',
-    template: `
-        <form class="variable-display">
-            <div [ngSwitch]="getType().tType">
-                <spice-struct-type-display
-                        *ngSwitchCase="'struct'"
-                        [type]="getType()"
-                        [value]="value"
-                        [editable]="editable"
-                        [types]="types"></spice-struct-type-display>
-                <spice-primitive-type-display
-                        *ngSwitchCase="'primative'"
-                        [type]="getType()"
-                        [value]="value"
-                        [editable]="editable"></spice-primitive-type-display>
-                <spice-array-type-display
-                        *ngSwitchCase="'array'"
-                        [type]="getType()"
-                        [value]="value"
-                        [editable]="editable"
-                        [types]="types"></spice-array-type-display>
-                <spice-pointer-type-display
-                        *ngSwitchCase="'pointer'"
-                        [type]="getType()"
-                        [value]="value"
-                        [editable]="editable"
-                        [types]="types"></spice-pointer-type-display>
-                <spice-function-type-display
-                        *ngSwitchCase="'function'"
-                        [type]="getType()"
-                        [value]="value"
-                        [editable]="editable"
-                        [types]="types"></spice-function-type-display>
-            </div>
-            
-        </form>
+    template: `        
+        <span *ngIf="!!debugState && !!type" class="variable-display" [ngClass]="{'normal-size':!compact || editable, 'compact-size':compact && !editable}" [ngSwitch]="type.data.tType">
+            <spice-struct-type-display
+                    *ngSwitchCase="'struct'"
+                    [type]="type"
+                    [value]="value"
+                    [valueMap]="valueMap"
+                    [editable]="editable"
+                    [compact]="compact && !editable"
+                    [lineNum]="lineNum"
+                    [types]="debugState.sourceTypes"></spice-struct-type-display>
+            <spice-primitive-type-display
+                    *ngSwitchCase="'primitive'"
+                    [type]="type"
+                    [value]="value"
+                    [compact]="compact && !editable"
+                    [editable]="editable"></spice-primitive-type-display>
+            <spice-array-type-display
+                    *ngSwitchCase="'array'"
+                    [type]="type"
+                    [value]="value"
+                    [valueMap]="valueMap"
+                    [editable]="editable"
+                    [compact]="compact && !editable"
+                    [lineNum]="lineNum"
+                    [types]="debugState.sourceTypes"></spice-array-type-display>
+            <spice-pointer-type-display
+                    *ngSwitchCase="'pointer'"
+                    [type]="type"
+                    [value]="value"
+                    [valueMap]="valueMap"
+                    [editable]="editable"
+                    [compact]="compact && !editable"
+                    [lineNum]="lineNum"
+                    [types]="debugState.sourceTypes"></spice-pointer-type-display>
+            <spice-function-type-display
+                    *ngSwitchCase="'function'"
+                    [type]="type"
+                    [value]="value"
+                    [editable]="editable"
+                    [compact]="compact && !editable"
+                    [types]="debugState.sourceTypes"></spice-function-type-display>
+        </span>
     `
 })
-export class VariableDisplayComponent {
+export class VariableDisplayComponent implements OnInit {
 
     @Input()
-    public variable:any;
+    public type:SourceType;
 
     @Input()
-    public value:any;
+    public address:number;
 
     @Input()
-    public editable:boolean;
+    public editable:boolean = false;
+
+    @Input()
+    public value:Value;
+
+    @Input()
+    public valueMap:{ [sVariable: number]: Value};
+
+    @Input()
+    public compact:boolean = false;
 
     @Input()
     public debugState:DebuggerState;
 
-    public displayedVariables:{[name: string]:boolean};
+    @Input()
+    public lineNum:number = -1;
 
-    /* Delete Mes */
-    public types: any;
-    /* END Delete Mes*/
+    @ViewChild(StructTypeDisplay)
+    private structDisplay: StructTypeDisplay;
+    @ViewChild(PrimitiveTypeDisplay)
+    private primitiveDisplay: PrimitiveTypeDisplay;
+    @ViewChild(ArrayTypeDisplay)
+    private arrayDisplay: ArrayTypeDisplay;
+    @ViewChild(PointerTypeDisplay)
+    private pointerDisplay: PointerTypeDisplay;
+    @ViewChild(FunctionTypeDisplay)
+    private functionDisplay: FunctionTypeDisplay;
 
-    constructor(){
-        this.editable = true;
 
-        //this.debugState.sourceTypes
+    constructor(){}
 
-        this.types = {
-            1: {
-                tType:"struct",
-                name:"StuffStruct",
-                size:12,
-                fields: [
-                    {
-                        name:"VoidVar",
-                        sType:2,
-                        offset:0
-                    },
-                    {
-                        name:"BoolVar",
-                        sType:3,
-                        offset:4
-                    },
-                    {
-                        name:"Int32Var",
-                        sType:4,
-                        offset:8
-                    },
-                    {
-                        name:"UInt32Var",
-                        sType:5,
-                        offset:8
-                    },
-                    {
-                        name:"FloatVar",
-                        sType:6,
-                        offset:8
-                    },
-                    {
-                        name:"ArrayO'Nums",
-                        sType:7,
-                        offset:0
-                    },
-                    {
-                        name:"JunkFunc",
-                        sType:9,
-                        offset:0
-                    },
-                    {
-                        name:"PntrToStruct",
-                        sType:8,
-                        offset:0
-                    },
-                    {
-                        name:"NestyStruct",
-                        sType:10,
-                        offset:0
-                    }
-            ]
-            },
-            2: {
-                tType:"primitive",
-                base:"void",
-                size:4
-            },
-            3: {
-                tType:"primitive",
-                base:"bool",
-                size:4
-            },
-            4: {
-                tType:"primitive",
-                base:"int",
-                size:4
-            },
-            5: {
-                tType:"primitive",
-                base:"uint",
-                size:4
-            },
-            6: {
-                tType:"primitive",
-                base:"float",
-                size:4
-            },
-            7: {
-                tType:"array",
-                sType:4,
-                count:10
-            },
-            8: {
-                tType:"pointer",
-                sType:1
-            },
-            9: {
-                tType:"function",
-                callingConvention:0,
-                sType:1,
-                parameters:[8,3]
-            },
-            10: {
-                tType:"struct",
-                name:"SimpleStruct",
-                size:12,
-                fields: [
-                    {
-                        name:"A",
-                        sType:3,
-                        offset:0
-                    },
-                    {
-                        name:"B",
-                        sType:3,
-                        offset:0
-                    },
-                    {
-                        name:"C",
-                        sType:3,
-                        offset:0
-                    }
-                ]
-            }
-        };
-
-        this.variable = {
-            name: "myVar",
-            sType: 1,
-            address: 1
+    public ngOnInit() {
+        if(this.compact && this.editable) {
+            console.log('Both "compact" and "editable" not supported, not displaying compactly.');
         }
     }
 
-    public getType():any {
-        // this.debugState.sourceTypes.get(this.variable.sType);
-        return this.types[this.variable.sType];
+    public applyValue(parameters:{[address: number]: Value}) {
+        let val:Value|undefined = undefined;
+        if(this.debugState && this.type) {
+            switch(this.type.data.tType) {
+                case "primitive":
+                    if(this.primitiveDisplay)
+                        val = this.primitiveDisplay.getValue(parameters);
+                    break;
+                case "pointer":
+                    if(this.pointerDisplay)
+                        val = this.pointerDisplay.getValue(parameters);
+                    break;
+                case "array":
+                    if(this.arrayDisplay)
+                        val = this.arrayDisplay.getValue(parameters);
+                    break;
+                case "struct":
+                    if(this.structDisplay)
+                        val = this.structDisplay.getValue(parameters);
+                    break;
+                case "function":
+                    if(this.functionDisplay)
+                        val = this.functionDisplay.getValue(parameters);
+                    break;
+            }
+        }
+        if(val !== undefined) {
+            parameters[this.address] = val;
+        }
     }
 }

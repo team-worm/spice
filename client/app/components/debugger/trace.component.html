@@ -1,11 +1,31 @@
 <div class="trace">
 	<div *ngIf="trace.data.tType==='line'" class="trace-instruction">
 		<ul>
-			<li *ngFor="let state of getStateEntries(trace)">{{state.variable ? state.variable.name : state.address}}={{state.value}}</li>
+			<li *ngFor="let state of stateEntries">
+				<span *ngIf="state.sType">
+					{{state.name}} =
+					<spice-variable-display
+							[type]="state.sType"
+							[value]="state.value"
+							[valueMap]="state.valueMap"
+							[editable]="false"
+							[compact]="true"
+							[lineNum]="trace.line"
+							[debugState]="debuggerState"></spice-variable-display>
+				</span>
+			</li>
 		</ul>
 	</div>
 	<div *ngIf="trace.data.tType==='return'" class="trace-termination">
-		returned {{trace.data.value}}
+		returned
+		<spice-variable-display
+				[type]="functionReturnType"
+				[value]="trace.data.value"
+				[valueMap]="pointerValues"
+				[editable]="false"
+				[compact]="true"
+				[lineNum]="trace.line"
+				[debugState]="debuggerState"></spice-variable-display>
 	</div>
 	<div *ngIf="trace.data.tType==='crash'" class="trace-termination">
 		crashed {{trace.data.stack}}

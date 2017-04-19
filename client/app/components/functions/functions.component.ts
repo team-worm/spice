@@ -1,27 +1,22 @@
-import {Component, OnInit, ViewChild} from "@angular/core";
-import {Http, Response} from "@angular/http";
+import {Component, Input, OnInit, ViewChild} from "@angular/core";
 import {MdDialog, MdSnackBar} from "@angular/material";
 import {SourceFunction, SourceFunctionId } from "../../models/SourceFunction";
 import {DebuggerService, AttachEvent, DisplayFunctionEvent } from "../../services/debugger.service";
 import {DebuggerState} from "../../models/DebuggerState";
 import {Breakpoint} from "../../models/Breakpoint";
-import {ViewService} from "../../services/view.service";
 import {FileSystemService} from "../../services/file-system.service";
 import {MatchMaxHeightDirective} from "../../directives/MatchMaxHeight.directive";
 import {FunctionListComponent} from "../common/function-list.component";
 import {fromJSON} from "../../util/SpiceValidator";
 import {SourceFunctionCollection} from "../../models/SourceFunctionCollection";
-import { Observable } from "rxjs/Observable";
 import * as Prism from 'prismjs';
-
 import cRuntime from "./cRuntime";
 import cStandardLib from "./cStandardLib";
-import {TypeMappingComponent} from "../common/type-mapping.component";
 import { displaySnackbarError } from "../../util/SnackbarError";
 
 @Component({
     moduleId: module.id,
-    selector: 'spice-configuration',
+    selector: 'spice-functions',
     templateUrl: './functions.component.html'
 })
 export class FunctionsComponent implements OnInit {
@@ -34,14 +29,15 @@ export class FunctionsComponent implements OnInit {
     public listedFunctions: SourceFunction[] = [];
     public defaultFuncCollections: {collection: SourceFunctionCollection, doFilter: boolean}[] = [];
 
+    @Input()
+    public isHidden:boolean;
+
     private _functionsContentBody: HTMLElement | null;
     private coreSourceFunctions: SourceFunction[] = [];
 
 	constructor(public debuggerService: DebuggerService,
 				private snackBar: MdSnackBar,
-				private viewService: ViewService,
 				private fileSystemService: FileSystemService,
-				private http: Http,
                 private dialog: MdDialog) {
 		this.debuggerService.getEventStream(['attach']).subscribe((event: AttachEvent) => this.onAttach(event));
 		this.debuggerService.getEventStream(['displayFunction']).subscribe((event: DisplayFunctionEvent) => this.onDisplayFunction(event));
@@ -74,14 +70,6 @@ export class FunctionsComponent implements OnInit {
         } else {
             this.snackBar.open('No function selected.', undefined, {
                 duration: 3000
-            });
-        }
-    }
-
-    public OpenSpiceTypeDialog() {
-	    if(this.selectedFunction) {
-            this.dialog.open(TypeMappingComponent, {
-                data: this.selectedFunction
             });
         }
     }
