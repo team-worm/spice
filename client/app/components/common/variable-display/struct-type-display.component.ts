@@ -27,6 +27,7 @@ import {FunctionTypeDisplay} from "./function-type-display.component";
                                 [value]="getStructValue(f.offset)"
                                 [valueMap]="valueMap"
                                 [editable]="editable"
+                                [lineNum]="lineNum"
                                 [compact]="compact && !editable"></spice-struct-type-display>
                         <spice-primitive-type-display
                                 *ngSwitchCase="'primitive'"
@@ -40,6 +41,7 @@ import {FunctionTypeDisplay} from "./function-type-display.component";
                                 [value]="getStructValue(f.offset)"
                                 [valueMap]="valueMap"
                                 [editable]="editable"
+                                [lineNum]="lineNum"
                                 [compact]="compact && !editable"
                                 [types]="types"></spice-array-type-display>
                         <spice-pointer-type-display
@@ -48,6 +50,7 @@ import {FunctionTypeDisplay} from "./function-type-display.component";
                                 [value]="getStructValue(f.offset)"
                                 [valueMap]="valueMap"
                                 [editable]="editable"
+                                [lineNum]="lineNum"
                                 [compact]="compact && !editable"
                                 [types]="types"></spice-pointer-type-display>
                         <spice-function-type-display
@@ -82,6 +85,9 @@ export class StructTypeDisplay{
 
     @Input()
     public types:Map<SourceTypeId, SourceType>;
+
+    @Input()
+    public lineNum:number = -1;
 
     @ViewChildren(StructTypeDisplay)
     private structDisplays: QueryList<StructTypeDisplay>;

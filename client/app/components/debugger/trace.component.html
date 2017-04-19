@@ -10,6 +10,7 @@
 							[valueMap]="trace.data.state"
 							[editable]="false"
 							[compact]="true"
+							[lineNum]="trace.line"
 							[debugState]="debuggerState"></spice-variable-display>
 				</span>
 			</li>
@@ -23,6 +24,7 @@
 				[valueMap]="pointerValues"
 				[editable]="false"
 				[compact]="true"
+				[lineNum]="trace.line"
 				[debugState]="debuggerState"></spice-variable-display>
 	</div>
 	<div *ngIf="trace.data.tType==='crash'" class="trace-termination">

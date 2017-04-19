@@ -11,6 +11,12 @@
       &:hover {
         text-decoration: underline;
       }
+      &.empty {
+        cursor: default;
+        &:hover {
+          text-decoration: none;
+        }
+      }
     }
     .pointer-contents {
       display: block;
@@ -74,6 +80,15 @@
         font-weight: 500;
       }
     }
+    .array {
+      .hide-show {
+        font-weight: 600;
+        &:hover {
+          cursor:pointer;
+          text-decoration: underline;
+        }
+      }
+    }
   }
   &.compact-size{
     .pointer {
@@ -85,6 +100,12 @@
       }
       &:hover {
         text-decoration: underline;
+      }
+      &.empty {
+        cursor: default;
+        &:hover {
+          text-decoration: none;
+        }
       }
     }
     .pointer-contents {
@@ -128,6 +149,13 @@
     }
     .array {
       overflow-x: scroll;
+      .hide-show {
+        font-weight: 600;
+        &:hover {
+          cursor:pointer;
+          text-decoration: underline;
+        }
+      }
       .elements {
 
       }

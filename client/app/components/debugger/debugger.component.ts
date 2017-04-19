@@ -4,7 +4,6 @@ import { Execution, ExecutionId, FunctionData } from "../../models/Execution";
 import { Trace } from "../../models/Trace";
 import { Observable } from "rxjs/Observable";
 import { SourceFunction, SourceFunctionId } from "../../models/SourceFunction";
-import { MatchMaxHeightDirective } from "../../directives/MatchMaxHeight.directive";
 import { Response } from "@angular/http";
 import { ViewService } from "../../services/view.service";
 import { FileSystemService } from "../../services/file-system.service";
@@ -18,6 +17,7 @@ import {Value} from "../../models/Value";
 import {VariableDisplayComponent} from "../common/variable-display/variable-display.component";
 import * as Prism from 'prismjs';
 import {SourceType} from "../../models/SourceType";
+import {MatchMaxHeightDirective} from "../../directives/MatchMaxHeight.directive";
 
 @Component({
     moduleId: module.id,

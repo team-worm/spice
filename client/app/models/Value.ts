@@ -3,7 +3,10 @@ export class Value {
 	@Deserialize()
 	value:  PrimitiveValue | PointerValue | ArrayValue | StructValue;
 
-	static getSerialized(val:Value):any {
+	static getSerialized(val:Value | null):any {
+		if(!val) {
+			return null;
+		}
 		if(val.value !== null && typeof val.value === 'object'){
 			if(Array.isArray(val.value)) {
 				let outArr = [];

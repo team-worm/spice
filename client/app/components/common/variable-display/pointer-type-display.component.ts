@@ -5,16 +5,24 @@ import {StructTypeDisplay} from "./struct-type-display.component";
 import {PrimitiveTypeDisplay} from "./primitive-type-display.component";
 import {ArrayTypeDisplay} from "./array-type-display.component";
 import {FunctionTypeDisplay} from "./function-type-display.component";
+
+import { MatchMaxHeightDirective } from "../../../directives/MatchMaxHeight.directive";
+
+
 @Component({
     selector: 'spice-pointer-type-display',
     template: `
-        <span   *ngIf="types && type" (click)="expanded = !expanded"
+        <span (click)="printPtr()">V</span>
+        <span   *ngIf="types && type && canExpand()" (click)="expanded = !expanded"
                 class="pointer"  
                 title="{{expanded ? 'Hide pointer contents.' : 'Show pointer contents.'}}"
                 [ngClass]="{'expanded':expanded}">
             {{type.toString(types)}}<md-icon *ngIf="expanded">keyboard_arrow_right</md-icon>
         </span>
-        <span class="pointer-contents" *ngIf="expanded && types && type" [ngSwitch]="types.get(type.data.sType).data.tType">
+        <span *ngIf="types && type && !canExpand()" class="pointer empty">
+            {{type.toString(types)}}<md-icon>keyboard_arrow_right</md-icon>NULL
+        </span>
+        <span class="pointer-contents" *ngIf="expanded && types && type && canExpand()" [ngSwitch]="types.get(type.data.sType).data.tType">
             <spice-struct-type-display
                     #struct
                     *ngSwitchCase="'struct'"
@@ -22,6 +30,7 @@ import {FunctionTypeDisplay} from "./function-type-display.component";
                     [value]="childValue"
                     [valueMap]="valueMap"
                     [editable]="editable"
+                    [lineNum]="lineNum"
                     [compact]="compact && !editable"
                     [types]="types"></spice-struct-type-display>
             <spice-primitive-type-display
@@ -37,6 +46,7 @@ import {FunctionTypeDisplay} from "./function-type-display.component";
                     [value]="childValue"
                     [valueMap]="valueMap"
                     [editable]="editable"
+                    [lineNum]="lineNum"
                     [compact]="compact && !editable"
                     [types]="types"></spice-array-type-display>
             <spice-pointer-type-display
@@ -45,6 +55,7 @@ import {FunctionTypeDisplay} from "./function-type-display.component";
                     [value]="childValue"
                     [valueMap]="valueMap"
                     [editable]="editable"
+                    [lineNum]="lineNum"
                     [compact]="compact && !editable"
                     [types]="types"></spice-pointer-type-display>
             <spice-function-type-display
@@ -75,6 +86,9 @@ export class PointerTypeDisplay implements OnInit {
     public compact:boolean = false;
 
     @Input()
+    public lineNum:number = -1;
+
+    @Input()
     public types:Map<SourceTypeId, SourceType>;
 
     @ViewChild('struct')
@@ -90,7 +104,20 @@ export class PointerTypeDisplay implements OnInit {
 
     public childValue:Value | null = null;
 
-    public expanded:boolean = false;
+    private _expanded:boolean;
+    public get expanded() {
+        return this._expanded;
+    }
+    public set expanded(val:boolean) {
+        if(this.lineNum !== -1) {
+            MatchMaxHeightDirective.markDirty(`debugger-${this.lineNum}`)
+        }
+        this._expanded = val;
+    }
+
+    public printPtr() {
+        console.log(this.value, this.valueMap);
+    }
 
     public getValue(parameters:{[address: number]: Value}):Value | undefined {
 
@@ -139,6 +166,14 @@ export class PointerTypeDisplay implements OnInit {
         }
     }
 
+    public canExpand():boolean {
+        if(!this.editable) {
+            if(!this.value || !this.value.value) {
+                return false;
+            }
+        }
+        return true
+    }
     public ngOnInit() {
         if(this.value && this.valueMap) {
             if(this.value.value !== null) {
@@ -147,5 +182,6 @@ export class PointerTypeDisplay implements OnInit {
             }
         }
     }
+
     constructor() {}
 }

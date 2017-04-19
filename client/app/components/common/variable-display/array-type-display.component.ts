@@ -5,54 +5,62 @@ import {StructTypeDisplay} from "./struct-type-display.component";
 import {PrimitiveTypeDisplay} from "./primitive-type-display.component";
 import {PointerTypeDisplay} from "./pointer-type-display.component";
 import {FunctionTypeDisplay} from "./function-type-display.component";
+import {MatchMaxHeightDirective} from "../../../directives/MatchMaxHeight.directive";
 @Component({
     selector: 'spice-array-type-display',
     template: `        
         <span class="array" *ngIf="types && type && baseType">
-            [
-            <span class="elements" *ngFor="let i of sizeIterator" [ngSwitch]="baseType.data.tType">
-                <spice-struct-type-display
-                        #struct
-                    *ngSwitchCase="'struct'"
-                    [type]="baseType"
-                    [types]="types"
-                    [value]="baseValues.value[i]"
-                    [valueMap]="valueMap"
-                    [editable]="editable"
-                    [compact]="compact && !editable"></spice-struct-type-display>
-                <spice-primitive-type-display
-                    *ngSwitchCase="'primitive'"
-                    [type]="baseType"
-                    [value]="baseValues.value[i]"
-                    [editable]="editable"
-                    [compact]="compact && !editable"></spice-primitive-type-display>
-                <spice-array-type-display
-                        #array
-                    *ngSwitchCase="'array'"
-                    [type]="baseType"
-                    [value]="baseValues.value[i]"
-                    [valueMap]="valueMap"
-                    [editable]="editable"
-                    [compact]="compact && !editable"
-                    [types]="types"></spice-array-type-display>
-                <spice-pointer-type-display
-                    *ngSwitchCase="'pointer'"
-                    [type]="baseType"
-                    [value]="baseValues.value[i]"
-                    [valueMap]="valueMap"
-                    [editable]="editable"
-                    [compact]="compact && !editable"
-                    [types]="types"></spice-pointer-type-display>
-                <spice-function-type-display
-                    *ngSwitchCase="'function'"
-                    [type]="baseType"
-                    [value]="baseValues.value[i]"
-                    [editable]="editable"
-                    [compact]="compact && !editable"
-                    [types]="types"></spice-function-type-display>
-                <span *ngIf="i != (sizeIterator.length-1)">,</span>
+            <span *ngIf="!expanded" class="hide-show" (click)="expanded=true">({{sizeIterator.length}})[...]</span>
+            <span *ngIf="expanded" class="hide-show" (click)="expanded=false">(Hide)</span>
+            <span *ngIf="expanded">
+                [
+                <span class="elements" *ngFor="let i of sizeIterator" [ngSwitch]="baseType.data.tType">
+                    <spice-struct-type-display
+                            #struct
+                        *ngSwitchCase="'struct'"
+                        [type]="baseType"
+                        [types]="types"
+                        [value]="baseValues.value[i]"
+                        [valueMap]="valueMap"
+                        [editable]="editable"
+                        [lineNum]="lineNum"
+                        [compact]="compact && !editable"></spice-struct-type-display>
+                    <spice-primitive-type-display
+                        *ngSwitchCase="'primitive'"
+                        [type]="baseType"
+                        [value]="baseValues.value[i]"
+                        [editable]="editable"
+                        [compact]="compact && !editable"></spice-primitive-type-display>
+                    <spice-array-type-display
+                            #array
+                        *ngSwitchCase="'array'"
+                        [type]="baseType"
+                        [value]="baseValues.value[i]"
+                        [valueMap]="valueMap"
+                        [editable]="editable"
+                        [lineNum]="lineNum"
+                        [compact]="compact && !editable"
+                        [types]="types"></spice-array-type-display>
+                    <spice-pointer-type-display
+                        *ngSwitchCase="'pointer'"
+                        [type]="baseType"
+                        [value]="baseValues.value[i]"
+                        [valueMap]="valueMap"
+                        [editable]="editable"
+                        [lineNum]="lineNum"
+                        [compact]="compact && !editable"
+                        [types]="types"></spice-pointer-type-display>
+                    <spice-function-type-display
+                        *ngSwitchCase="'function'"
+                        [type]="baseType"
+                        [value]="baseValues.value[i]"
+                        [editable]="editable"
+                        [compact]="compact && !editable"
+                        [types]="types"></spice-function-type-display>
+                    <span *ngIf="i != (sizeIterator.length-1)">,</span>
+                </span>
+                ]
             </span>
-            ]
         </span>
     `
 })
@@ -76,6 +84,9 @@ export class ArrayTypeDisplay implements OnInit{
     @Input()
     public types:Map<SourceTypeId, SourceType>;
 
+    @Input()
+    public lineNum:number = -1;
+
     @ViewChildren('struct')
     private structDisplays: QueryList<StructTypeDisplay>;
     @ViewChildren(PrimitiveTypeDisplay)
@@ -87,10 +98,20 @@ export class ArrayTypeDisplay implements OnInit{
     @ViewChildren(FunctionTypeDisplay)
     private functionDisplays: QueryList<FunctionTypeDisplay>;
 
-    public sizeIterator:number[];
+    public sizeIterator:number[] = [];
     public baseType:SourceType | undefined;
     public baseValues:Value;
 
+    private _expanded:boolean;
+    public get expanded() {
+        return this._expanded;
+    }
+    public set expanded(val:boolean) {
+        if(this.lineNum !== -1) {
+            MatchMaxHeightDirective.markDirty(`debugger-${this.lineNum}`)
+        }
+        this._expanded = val;
+    }
     constructor() {}
 
     public ngOnInit() {
@@ -112,6 +133,10 @@ export class ArrayTypeDisplay implements OnInit{
             }
         } else {
             this.baseValues = {value: []};
+        }
+
+        if(this.sizeIterator.length <= 8) {
+            this.expanded = true;
         }
 
     }

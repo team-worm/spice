@@ -34,7 +34,7 @@ export class TraceComponent implements OnChanges {
 	}
 
 	public getStateEntries(trace: Trace): { address: number, name: string, value: Value, sType: SourceType | undefined}[] {
-		return Object.keys((trace.data as LineData).state).map(id => {
+		let entries = Object.keys((trace.data as LineData).state).map(id => {
 			let variable = this.sourceFunction.locals.concat(this.sourceFunction.parameters).find(v => v.address === parseInt(id));
 			let sType: SourceType | undefined = undefined;
 			let name = '__';
@@ -54,6 +54,14 @@ export class TraceComponent implements OnChanges {
 
 			};
 		});
+
+		for(let v of Object.keys(this.pointerValues)) {
+			if(!(trace.data as LineData).state[v]) {
+				(trace.data as LineData).state[v] = this.pointerValues[v];
+			}
+		}
+
+		return entries;
 	}
 
 	public stringifyStateValue(state: { address: number, variable: SourceVariable | undefined, value: Value, sType: SourceType | undefined}):any {

@@ -89,6 +89,7 @@ export class DebuggerHttpService {
 		for(let par of Object.keys(parameters)) {
 			let v:Value = parameters[par];
 			mappedParams[par] = Value.getSerialized(v);
+
 		}
 		return this.http.post(
 			`http://${host}:${port}/api/v1/debug/${id}/functions/${sFunction}/execute`,

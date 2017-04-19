@@ -19,6 +19,7 @@ import {FunctionTypeDisplay} from "./function-type-display.component";
                     [valueMap]="valueMap"
                     [editable]="editable"
                     [compact]="compact && !editable"
+                    [lineNum]="lineNum"
                     [types]="debugState.sourceTypes"></spice-struct-type-display>
             <spice-primitive-type-display
                     *ngSwitchCase="'primitive'"
@@ -33,6 +34,7 @@ import {FunctionTypeDisplay} from "./function-type-display.component";
                     [valueMap]="valueMap"
                     [editable]="editable"
                     [compact]="compact && !editable"
+                    [lineNum]="lineNum"
                     [types]="debugState.sourceTypes"></spice-array-type-display>
             <spice-pointer-type-display
                     *ngSwitchCase="'pointer'"
@@ -41,6 +43,7 @@ import {FunctionTypeDisplay} from "./function-type-display.component";
                     [valueMap]="valueMap"
                     [editable]="editable"
                     [compact]="compact && !editable"
+                    [lineNum]="lineNum"
                     [types]="debugState.sourceTypes"></spice-pointer-type-display>
             <spice-function-type-display
                     *ngSwitchCase="'function'"
@@ -75,6 +78,9 @@ export class VariableDisplayComponent implements OnInit {
     @Input()
     public debugState:DebuggerState;
 
+    @Input()
+    public lineNum:number = -1;
+
     @ViewChild(StructTypeDisplay)
     private structDisplay: StructTypeDisplay;
     @ViewChild(PrimitiveTypeDisplay)
@@ -90,9 +96,6 @@ export class VariableDisplayComponent implements OnInit {
     constructor(){}
 
     public ngOnInit() {
-
-        console.log('VAR DISPLAY TYPE', this.type, this.value, this.valueMap);
-
         if(this.compact && this.editable) {
             console.log('Both "compact" and "editable" not supported, not displaying compactly.');
         }
