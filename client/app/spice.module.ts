@@ -31,6 +31,7 @@ import {FilterByStringPipe} from "./pipes/filter-by-string.pipe";
 import {VariableDisplayComponent} from "./components/common/variable-display/variable-display.component";
 
 import { MatchMaxHeightDirective } from "./directives/MatchMaxHeight.directive";
+import { ParameterFocusDirective } from "./directives/ParameterFocus.directive";
 import { TraceComponent } from "./components/debugger/trace.component";
 import { LineGraphComponent } from "./components/common/line-graph.component";
 import { TraceLoopComponent } from "./components/debugger/trace-loop.component";
@@ -60,6 +61,7 @@ import {TypeMappingComponent} from "./components/common/type-mapping.component";
         ProcessListComponent,
         FilterByStringPipe,
         MatchMaxHeightDirective,
+        ParameterFocusDirective,
         LineGraphComponent,
         TraceHistoryComponent,
         VariableDisplayComponent,

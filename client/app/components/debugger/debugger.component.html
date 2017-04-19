@@ -1,4 +1,10 @@
 <div class="debugger-container">
+	<span class="smallerMargin" >
+		<button md-raised-button (click)="GoToFunctionsView()">
+			<md-icon [color]="'primary'">arrow_back</md-icon>
+			Back to functions
+		</button>
+	</span>
 	<md-card class="smallerMargin">
 		<md-card-title><i>{{GetFunctionAsString()}}</i></md-card-title>
 		<md-card-subtitle *ngIf="!sourceFunction">Select functions and set breakpoints from the <span class="functions-keyword" (click)="GoToFunctionsView()">functions</span> view.</md-card-subtitle>
@@ -24,7 +30,7 @@
 			<div class="debugger-display source-code" fxFlex fxLayout="row">
 				<div class="source-code-viewer" fxFlex="40" fxLayout="row">
 					<div class="line-number-col" fxFlex="nogrow">
-						<div class="row" [matchMaxHeight]="'debugger-'+(sourceFunction.lineStart+i)" *ngFor="let line of lines; let i=index;">
+						<div class="row" fxLayoutAlign="end center" [matchMaxHeight]="'debugger-'+(sourceFunction.lineStart+i)" *ngFor="let line of lines; let i=index;">
 							<span>{{sourceFunction.lineStart + i}}</span>
 						</div>
 					</div>

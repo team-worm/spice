@@ -37,6 +37,11 @@ export class ToolbarComponent {
         return this.viewService.activeView === 'launcher';
     }
 
+    public IsFunctionExecution(): boolean {
+        return !!this.debuggerService.currentExecution
+            && this.debuggerService.currentExecution.data.eType === 'function';
+    }
+
     public GoToFunctionsView() {
     	this.debuggerService.displayFunction(null);
     }
@@ -52,40 +57,53 @@ export class ToolbarComponent {
     }
 
     public ContinueExecution() {
-    	this.debuggerService.continueExecution('', '')
-			.subscribe(
-				() => {},
-				(error: Response) => {
-					this.snackBar.open('Error continuing execution (' + error.status + '): ' + error.statusText, undefined, {
-						duration: 3000
-					});
-					if ((<any>error).message) {
-						console.error(error);
-					}
-				});
+        this.debuggerService.continueExecution('', '').subscribe(
+            () => {},
+            (error: Response) => {
+                this.snackBar.open('Error continuing execution (' + error.status + '): ' + error.statusText, undefined, {
+                    duration: 3000
+                });
+                if ((<any>error).message) {
+                    console.error(error);
+                }
+            }
+        );
     }
-	public KillProcess() {
-		this.debuggerService.killProcess().subscribe(
-			() => {},
-			(e:any)=> {
-				this.snackBar.open('Error Stopping Process', undefined, {
-					duration: 3000
-				});
-			});
-	}
 
-	public StopExecution() {
-		this.debuggerService.stopCurrentExecution()
-			.subscribe(
-				() => {},
-				(error: Response) => {
-					this.snackBar.open('Error stopping execution (' + error.status + '): ' + error.statusText, undefined, {
-						duration: 3000
-					});
-					if ((<any>error).message) {
-						console.error(error);
-					}
-				});
+    public StopExecution() {
+        this.debuggerService.stopCurrentExecution().subscribe(
+            () => {},
+            (error: Response) => {
+                this.snackBar.open('Error stopping execution (' + error.status + '): ' + error.statusText, undefined, {
+                    duration: 3000
+                });
+                if ((<any>error).message) {
+                    console.error(error);
+                }
+            }
+        );
+    }
+
+    public KillProcess() {
+        if (!!this.debuggerService.currentExecution) {
+            this.StopExecution();
+        }
+
+        this.debuggerService.killProcess().subscribe(
+            () => {},
+            (e:any)=> {
+                this.snackBar.open('Error Stopping Process', undefined, {
+                    duration: 3000
+                });
+            }
+        );
+    }
+
+    public Detach() {
+        this.debuggerService.detach().subscribe(
+            () => {},
+            (err) => { console.error(err); }
+        );
     }
 
     public onExecution(event: ExecutionEvent) {
@@ -93,14 +111,6 @@ export class ToolbarComponent {
 	}
 
 	public onProcessEnded(event: ProcessEndedEvent) {
-    }
-
-	public Detach() {
-		this.debuggerService.detach()
-			.subscribe(
-				() => {},
-				(err) => { console.error(err); }
-		);
     }
 
 	public GetBpFunctions() {
@@ -119,12 +129,20 @@ export class ToolbarComponent {
 		return !!this.debuggerService.currentDebuggerState;
 	}
 
+    public isAttached(): boolean {
+        return !!this.debuggerService.currentDebuggerState;
+    }
+
 	public canStart(): boolean {
-		return !!this.debuggerService.currentDebuggerState && !this.debuggerService.currentExecution;
+        return !!this.debuggerService.currentDebuggerState &&
+            !!this.viewService.debuggerComponent &&
+            !this.viewService.debuggerComponent.currentExecution;
 	}
 
 	public canContinue(): boolean {
-		return !!this.debuggerService.currentDebuggerState && !!this.debuggerService.currentExecution;
+        return !!this.debuggerService.currentDebuggerState &&
+            !!this.viewService.debuggerComponent &&
+            !!this.viewService.debuggerComponent.currentExecution;
 	}
 
 	public canStopExecution(): boolean {
@@ -132,7 +150,7 @@ export class ToolbarComponent {
 	}
 
 	public canKillProcess(): boolean {
-		return !!this.debuggerService.currentDebuggerState && !!this.debuggerService.currentExecution;
+        return !!this.debuggerService.currentDebuggerState;
 	}
 
 	public processName(): string {
@@ -140,6 +158,15 @@ export class ToolbarComponent {
 	}
 
 	public breakpointCount(): number {
-		return (this.debuggerService.currentDebuggerState && this.debuggerService.currentDebuggerState.breakpoints.size) || 0
+        return (this.debuggerService.currentDebuggerState && this.debuggerService.currentDebuggerState.breakpoints.size) || 0;
+    }
+
+    public executionCount(): number {
+        if (this.debuggerService.currentDebuggerState) {
+            return Array.from(this.debuggerService.currentDebuggerState.executions.values())
+                .filter(ex => ex.data.eType === 'function').length;
+        } else {
+            return 0;
+        }
 	}
 }

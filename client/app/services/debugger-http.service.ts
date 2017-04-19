@@ -157,7 +157,7 @@ export class DebuggerHttpService {
 						trace.data.value = Value.deserialize(trace.data.value);
 					}
 					observer.next(trace);
-					if (['return', 'break', 'exit', 'crash', 'error'].indexOf(t.data.tType) > -1) {
+					if (['return', 'cancel', 'break', 'exit', 'crash', 'error'].indexOf(t.data.tType) > -1) {
 						observer.complete();
 					}
 				} catch(e) {

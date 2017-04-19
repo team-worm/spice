@@ -2,7 +2,7 @@
     <md-card class="smallMargin" [style.height.px]="launcherCardHeight">
         <md-tab-group>
             <md-tab label="Launch Binary">
-                <spice-file-browser #LauncherFileBrowser (onFileSelected)="OnFileSelected($event)" [elementHeightPx]="fileBrowserHeight"></spice-file-browser>
+                <spice-file-browser #LauncherFileBrowser (onDoubleClickFile)="OnDoubleClickFile($event)" (onFileSelected)="OnFileSelected($event)" [elementHeightPx]="fileBrowserHeight"></spice-file-browser>
             </md-tab>
             <md-tab label="Attach to Existing Process">
                 <spice-process-list #LauncherProcessList (onProcessSelected)="OnProcessSelected($event)" [elementHeightPx]="processListHeight"></spice-process-list>

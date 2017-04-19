@@ -44,7 +44,7 @@
                 <div class="source-code" *ngIf="!!lines && linesLoaded">
                     <div class="source-code-viewer" fxFlex fxLayout="row">
                         <div class="line-number-col" fxFlex="nogrow">
-                            <div class="row"
+                            <div class="row" fxLayoutAlign="end center" (click)="ToggleBreakpoint()"
 								 [ngClass]="{breakpoint: HasBreakpoint(i+1)}"
                                  [matchMaxHeight]="'functions-'+i"
                                  *ngFor="let line of lines; let i=index;">
@@ -52,7 +52,7 @@
                             </div>
                         </div>
                         <div class="source-code-col" fxFlex>
-                            <pre class="language-clike"><code class="language-clike"><div class="row" [matchMaxHeight]="'functions-'+i"*ngFor="let line of lines; let i=index;"><div [innerHTML]="line"></div></div></code></pre>
+                            <pre class="language-clike"><code class="language-clike"><div class="row" (click)="ToggleBreakpoint()" [matchMaxHeight]="'functions-'+i"*ngFor="let line of lines; let i=index;"><div [innerHTML]="line"></div></div></code></pre>
                         </div>
                     </div>
                 </div>

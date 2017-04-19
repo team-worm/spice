@@ -1,6 +1,5 @@
 import {Component, QueryList, ViewChild, ViewChildren} from "@angular/core";
-import { DebuggerState } from "../../models/DebuggerState";
-import { Execution, ExecutionId, FunctionData } from "../../models/Execution";
+import { Execution, FunctionData } from "../../models/Execution";
 import { Trace } from "../../models/Trace";
 import { Observable } from "rxjs/Observable";
 import { SourceFunction, SourceFunctionId } from "../../models/SourceFunction";
@@ -112,6 +111,11 @@ export class DebuggerComponent {
 			});
 			return;
 		}
+
+        if (['return', 'cancel', 'exit', 'crash', 'error'].indexOf(trace.data.tType) > -1) {
+            let reason: any = trace.data.tType;
+            this.debuggerService.executionStopped(reason);
+        }
 
 		if (trace.data.tType === 'line' && this.sourceFunction && this.debuggerService.currentDebuggerState) {
         	let ds = this.debuggerService.currentDebuggerState;
