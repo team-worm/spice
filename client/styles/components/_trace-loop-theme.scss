@@ -10,7 +10,7 @@
 		background: map-get($background, background);
 		border-right: 1px solid mat-color($primary);
 		.trace {
-			box-sizing: border-box;
+		    box-sizing: border-box;
 		}
 		.trace.first {
 			border-top: 1px solid mat-color($primary);
@@ -42,7 +42,9 @@
 			/*width: 100%;*/
 		}
 		.iteration {
-			border-right: 1px solid mat-color($primary, default);
+		    border-right: 1px solid mat-color($primary, default);
+                    flex-basis: auto;
+                    width: max-content;
 		}
 	}
 }
