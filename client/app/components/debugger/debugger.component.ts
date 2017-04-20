@@ -1,6 +1,7 @@
 import {Component, QueryList, ViewChild, ViewChildren} from "@angular/core";
-import { Execution, FunctionData } from "../../models/Execution";
-import { Trace } from "../../models/Trace";
+import { DebuggerState } from "../../models/DebuggerState";
+import { Execution, ExecutionId, FunctionData } from "../../models/Execution";
+import { Trace, LineData } from "../../models/Trace";
 import { Observable } from "rxjs/Observable";
 import { SourceFunction, SourceFunctionId } from "../../models/SourceFunction";
 import { Response } from "@angular/http";
@@ -11,11 +12,12 @@ import { LineGraphComponent, DataXY } from "../common/line-graph.component";
 import { SourceVariableId } from "../../models/SourceVariable";
 import { Subscriber } from "rxjs/Subscriber";
 import { LoopData, TraceGroup } from "./trace-loop.component";
-import { DebuggerService, ExecutionEvent, PreCallFunctionEvent, DisplayTraceEvent, AttachEvent } from "../../services/debugger.service";
-import {Value} from "../../models/Value";
+import { DebuggerService, ExecutionEvent, PreCallFunctionEvent, DisplayTraceEvent, ProcessEndedEvent, DetachEvent, AttachEvent } from "../../services/debugger.service";
 import {VariableDisplayComponent} from "../common/variable-display/variable-display.component";
 import * as Prism from 'prismjs';
-import {SourceType} from "../../models/SourceType";
+import { GraphDisplayComponent, GraphData, DataNode, DataEdge } from "../common/graph-display.component";
+import { SourceType, Field } from "../../models/SourceType";
+import { StructValue, Value, PointerValue } from "../../models/Value";
 import {MatchMaxHeightDirective} from "../../directives/MatchMaxHeight.directive";
 
 @Component({
@@ -38,8 +40,16 @@ export class DebuggerComponent {
 	public setParameters:{[address: number]: Value} = {};
 
 	@ViewChild('lineGraph') lineGraph: LineGraphComponent;
+	@ViewChild('graphDisplay') graphDisplay: GraphDisplayComponent;
 	public graphData: DataXY[] = [];
 	public graphVariable: SourceVariableId | null = null;
+
+	public nodeGraphData: GraphData = {nodes: [], edges: []};
+	public nodeGraphVariable: SourceVariableId | null = null;
+	public nodeGraphFieldOffsets: Set<number>;
+	public nodeGraphDataOffset: number | null = null;
+	public nodeGraphTrackedNode: SourceVariableId | null = null;
+
 	public currentExecution: Execution | null = null;
 	public currentSess: number;
 
@@ -50,6 +60,8 @@ export class DebuggerComponent {
 				private fileSystemService: FileSystemService,
 				private viewService: ViewService,
 				private snackBar: MdSnackBar) {
+
+		this.nodeGraphFieldOffsets = new Set<number>();
 		this.viewService.debuggerComponent = this;
 		this.debuggerService.getEventStream(['execution']).subscribe((event: ExecutionEvent) => this.onExecution(event));
 		this.debuggerService.getEventStream(['preCallFunction']).subscribe((event: PreCallFunctionEvent) => this.onPreCallFunction(event));
@@ -270,6 +282,164 @@ export class DebuggerComponent {
 					});
 			}).debounceTime(100).subscribe(
 				() => this.lineGraph.onDataUpdated());
+		}
+	}
+
+	public variableBaseTypeIsStruct(id: SourceVariableId | null): boolean {
+		let sourceType = this.getVariableBaseType(id);
+		return !!sourceType && sourceType.data.tType === 'struct';
+	}
+
+	public getVariableType(id: SourceVariableId | null): SourceType | null {
+		if(!id || ! this.debuggerService.currentDebuggerState || !this.sourceFunction) {
+			return null;
+		}
+		let sourceVariable = this.sourceFunction.locals.concat(this.sourceFunction.parameters).find(v => v.address === id);
+		return sourceVariable && this.debuggerService.currentDebuggerState.sourceTypes.get(sourceVariable.sType) || null;
+	}
+
+	public getVariableBaseType(id: SourceVariableId | null): SourceType | null {
+		let initialType = this.getVariableType(id);
+		if(!initialType) {
+			return null;
+		}
+		return this.getBaseType(initialType);
+	}
+
+	public getBaseType(sourceType: SourceType): SourceType {
+		switch(sourceType.data.tType) {
+			case 'primitive':
+			case 'function':
+			case 'struct':
+			return sourceType;
+			case 'pointer':
+			case 'array':
+				return this.getBaseType(this.debuggerService.currentDebuggerState!.sourceTypes.get(sourceType.data.sType)!);
+		}
+	}
+
+	//public getBaseValue(id: SourceVariableId, value: Value) {
+		//let sourceType = this.getVariableType(id);
+		//if(sourceType.data.tType === 'pointer') {
+			//return this.getBaseValue((value as PointerValue).
+		//}
+
+		//return value;
+	//}
+
+	public toggleNodeGraphFieldIndex(i: number) {
+		if(this.nodeGraphFieldOffsets.has(i)) {
+			this.nodeGraphFieldOffsets.delete(i);
+		}
+		else {
+			this.nodeGraphFieldOffsets.add(i);
+		}
+	}
+
+	public SetNodeGraphVariable(variableId: SourceVariableId): void {
+		if(this.sourceFunction) {
+			this.nodeGraphData = {nodes: [], edges: []};
+			this.nodeGraphVariable = variableId;
+			let trackedNodeCount = 0;
+			this.graphDisplay.onDataUpdated(trackedNodeCount);
+
+			let graphUpdates = Observable.create((observer: Subscriber<Trace>) => {
+				this.debuggerService.currentDebuggerState!.ensureTrace(this.currentExecution!.id).mergeMap(tObservable => tObservable).subscribe(
+					(t: Trace) => {
+						if(t.data.tType === 'line') {
+							let lineData: LineData = t.data;
+							let rootStructAddress: PointerValue | null = null;
+							if(lineData.state[this.nodeGraphVariable!]) {
+								rootStructAddress = lineData.state[this.nodeGraphVariable!].value as PointerValue;
+								if(Array.isArray(rootStructAddress)) {
+									rootStructAddress = rootStructAddress[0].value as PointerValue;
+								}
+							}
+							let processedNodes = new Set<number>();
+							//for all nodes in the graph changed in this trace (and the root), remove old edges and nodes, add new edges and nodes
+							let updatedNodes = Object.keys(t.data.state)
+								.filter(s => parseInt(s) === rootStructAddress || !!this.nodeGraphData.nodes.find(n => n.id === parseInt(s)));
+
+							function updateNode(nodeStructAddress: number) {
+								if(!lineData.state[nodeStructAddress]) {
+									//the pointer is probably garbage from initialization, just skip it
+									return;
+								}
+								if(processedNodes.has(nodeStructAddress)) {
+									return;
+								}
+
+								processedNodes.add(nodeStructAddress);
+								//assume a node is always a pointer to a struct
+								//TODO: make this generalized (using spice types)
+
+								let nodeIdx = this.nodeGraphData.nodes.findIndex((n:DataNode) => n.id === nodeStructAddress);
+								let nodeData = null;
+								if(this.nodeGraphDataOffset !== null) {
+									nodeData = ''+(lineData.state[nodeStructAddress].value as StructValue)[this.nodeGraphDataOffset].value;
+								}
+								let nodeObj: DataNode;
+								if(nodeIdx === -1) {
+									//if this node doesn't exist in the graph, add it
+									nodeObj = {id: nodeStructAddress, data: nodeData, trackedNodeValue: null, edgesOut: {}};
+									this.nodeGraphData.nodes.push(nodeObj);
+
+								} else {
+									nodeObj = this.nodeGraphData.nodes[nodeIdx]
+									nodeObj.data = nodeData;
+								}
+
+								let nodeStructValue = lineData.state[nodeStructAddress].value as StructValue;
+								if(Array.isArray(nodeStructValue)) {
+									nodeStructValue = nodeStructValue[0].value;
+								}
+								Array.from(this.nodeGraphFieldOffsets.values()).forEach((offset: number) => {
+									let nodeEdgePointer = nodeStructValue[offset].value as PointerValue;
+									let edgeId = `${nodeStructAddress},${nodeEdgePointer}`;
+
+									if(nodeObj.edgesOut[offset] && nodeObj.edgesOut[offset].target.id !== nodeEdgePointer) {
+										//remove the old edge, mark node for deletion
+										//TODO:
+									}
+									//if there is no state for this edge, it's probably a garbage pointer so we wouldn't process it
+									if(nodeEdgePointer && lineData.state[nodeEdgePointer]) {
+										//update/create children
+										updateNode.call(this, nodeEdgePointer);
+
+										//update edges
+										let edgeIdx = this.nodeGraphData.edges.findIndex((n:DataEdge) => n.id === edgeId);
+										let edgeObj: DataEdge;
+										if(edgeIdx === -1) {
+											//add
+											edgeObj = {id: edgeId, source: nodeStructAddress as any, target: nodeEdgePointer as any};
+											this.nodeGraphData.edges.push(edgeObj);
+											nodeObj.edgesOut[offset] = edgeObj;
+										} else {
+											// update
+											//edgeObj = this.nodeGraphData.edges[edgeIdx];
+										}
+									}
+								});
+							}
+
+							updatedNodes.forEach(address => updateNode.call(this, parseInt(address)));
+
+							if(this.nodeGraphTrackedNode && lineData.state[this.nodeGraphTrackedNode]) {
+								let nodeObj = this.nodeGraphData.nodes.find((n:DataNode) => n.id === lineData.state[this.nodeGraphTrackedNode!].value);
+								if(nodeObj) {
+									nodeObj.trackedNodeValue = trackedNodeCount;
+									trackedNodeCount++;
+								}
+							}
+
+							observer.next();
+						}
+					},
+                        (error: Response) => {
+						console.error(error);
+					});
+			}).debounceTime(100).subscribe(
+				() => this.graphDisplay.onDataUpdated(trackedNodeCount));
 		}
 	}
 

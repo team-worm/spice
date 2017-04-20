@@ -41,6 +41,7 @@ import {PrimitiveTypeDisplay} from "./components/common/variable-display/primiti
 import {ArrayTypeDisplay} from "./components/common/variable-display/array-type-display.component";
 import {PointerTypeDisplay} from "./components/common/variable-display/pointer-type-display.component";
 import {FunctionTypeDisplay} from "./components/common/variable-display/function-type-display.component";
+import {GraphDisplayComponent} from "./components/common/graph-display.component";
 
 @NgModule({
     imports: [MaterialModule.forRoot(), FormsModule, RouterModule, BrowserModule, HttpModule, FlexLayoutModule, BrowserAnimationsModule],
@@ -69,6 +70,7 @@ import {FunctionTypeDisplay} from "./components/common/variable-display/function
         ArrayTypeDisplay,
         PointerTypeDisplay,
         FunctionTypeDisplay,
+        GraphDisplayComponent,
     ],
     providers: [
         //BEGIN MOCK PROVIDERS--Comment these out to disable backend mocking!
