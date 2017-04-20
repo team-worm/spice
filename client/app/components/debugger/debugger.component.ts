@@ -376,7 +376,11 @@ export class DebuggerComponent {
 								let nodeIdx = this.nodeGraphData.nodes.findIndex((n:DataNode) => n.id === nodeStructAddress);
 								let nodeData = null;
 								if(this.nodeGraphDataOffset !== null) {
-									nodeData = ''+(lineData.state[nodeStructAddress].value as StructValue)[this.nodeGraphDataOffset].value;
+									let structVal = (lineData.state[nodeStructAddress].value as StructValue);
+									if(Array.isArray(structVal)) {
+										structVal = structVal[0].value;
+									}
+									nodeData = ''+structVal[this.nodeGraphDataOffset].value;
 								}
 								let nodeObj: DataNode;
 								if(nodeIdx === -1) {
