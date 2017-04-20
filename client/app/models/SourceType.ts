@@ -72,30 +72,30 @@ export class SourceType {
 
 type PrimitiveBaseType = "void" | "bool" | "int" | "uint" | "float";
 
-interface PrimitiveType {
+export interface PrimitiveType {
 	tType: 'primitive';
 	base: PrimitiveBaseType;
 	size: number;
 }
-interface PointerType {
+export interface PointerType {
 	tType: "pointer";
 	sType: number;
 }
 
-interface ArrayType {
+export interface ArrayType {
 	tType: "array";
 	sType: number;
 	count: number;
 }
 
-interface FunctionType {
+export interface FunctionType {
 	tType: "function";
 	callingConvention: number;
 	sType: number;
 	parameters: number[];
 }
 
-interface StructType {
+export interface StructType {
 	tType: "struct";
 	name: string;
 	size: number;

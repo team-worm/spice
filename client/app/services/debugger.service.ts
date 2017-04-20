@@ -32,7 +32,7 @@ export interface DetachEvent {
 export interface ExecutionEvent {
 	eType: 'execution';
 	execution: Execution | null;
-	reason: 'continue' | 'call' | 'return' | 'break' | 'exit' | 'cancel' | 'crash' | 'error';
+	reason: 'continue' | 'call' | 'return' | 'break' | 'exit' | 'cancel' | 'crash' | 'error' | 'kill';
 }
 
 export interface ProcessEndedEvent {
@@ -149,7 +149,7 @@ export class DebuggerService {
 			.catch(DebuggerService.makeErrorHandler(this, 'Failed to stop execution'));
 	}
 
-    public executionStopped(reason: 'return' | 'cancel' | 'exit' | 'crash' | 'error') {
+    public executionStopped(reason: 'return' | 'cancel' | 'exit' | 'crash' | 'error' | 'kill') {
         this.currentExecution = null;
         this.debuggerEventsObserver.next({eType: 'execution', execution: null, reason: reason});
     }
@@ -215,9 +215,9 @@ export class DebuggerService {
 	}
 
 	public processEnded(reason: 'exit' | 'crash' | 'error' | 'kill') {
+		this.executionStopped(reason);
 		let lastDebuggerState = this.currentDebuggerState;
 		this.currentDebuggerState = null;
-		this.currentExecution = null;
 		this.debuggerEventsObserver.next({eType: 'processEnded', reason: reason, lastDebuggerState: lastDebuggerState!});
 	}
 

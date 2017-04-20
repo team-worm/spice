@@ -16,8 +16,8 @@ import { DebuggerService, ExecutionEvent, PreCallFunctionEvent, DisplayTraceEven
 import {VariableDisplayComponent} from "../common/variable-display/variable-display.component";
 import * as Prism from 'prismjs';
 import { GraphDisplayComponent, GraphData, DataNode, DataEdge } from "../common/graph-display.component";
-import { SourceType, Field } from "../../models/SourceType";
-import { StructValue, Value, PointerValue } from "../../models/Value";
+import { SourceType, Field, StructType } from "../../models/SourceType";
+import { StructValue, Value, PointerValue, ArrayValue } from "../../models/Value";
 import {MatchMaxHeightDirective} from "../../directives/MatchMaxHeight.directive";
 
 @Component({
@@ -160,6 +160,11 @@ export class DebuggerComponent {
 
 
 			}
+		}
+		
+		//this shouldn't happen
+		if(trace.line >= this.sourceFunction!.lineStart + this.sourceFunction!.lineCount) {
+			return;
 		}
 
 
@@ -343,6 +348,16 @@ export class DebuggerComponent {
 
 	public SetNodeGraphVariable(variableId: SourceVariableId): void {
 		if(this.sourceFunction) {
+			let nodeBaseType = this.getVariableBaseType(variableId)!;
+			if(nodeBaseType.data.tType !== 'struct') {
+				this.snackBar.open(`Node base type must be a struct`, undefined, {
+					duration: 3000
+				});
+				return;
+			}
+
+			let nodeStructType: StructType = nodeBaseType.data;
+
 			this.nodeGraphData = {nodes: [], edges: []};
 			this.nodeGraphVariable = variableId;
 			let trackedNodeCount = 0;
@@ -403,29 +418,40 @@ export class DebuggerComponent {
 									nodeStructValue = nodeStructValue[0].value;
 								}
 								Array.from(this.nodeGraphFieldOffsets.values()).forEach((offset: number) => {
-									let nodeEdgePointer = nodeStructValue[offset].value as PointerValue;
-									let edgeId = `${nodeStructAddress},${nodeEdgePointer}`;
-
-									if(nodeObj.edgesOut[offset] && nodeObj.edgesOut[offset].target.id !== nodeEdgePointer) {
-										//remove the old edge, mark node for deletion
-										//TODO:
+									let nodeEdgePointers: PointerValue[] = [];
+									let fieldTypeId = nodeStructType.fields.find(f => f.offset === offset)!.sType;
+									let fieldType = this.debuggerService.currentDebuggerState!.sourceTypes.get(fieldTypeId);
+									if(fieldType.data.tType === 'pointer') {
+										nodeEdgePointers.push(nodeStructValue[offset].value as PointerValue);
 									}
-									//if there is no state for this edge, it's probably a garbage pointer so we wouldn't process it
-									if(nodeEdgePointer && lineData.state[nodeEdgePointer]) {
-										//update/create children
-										updateNode.call(this, nodeEdgePointer);
+									else if(fieldType.data.tType === 'array') {
+										nodeEdgePointers = (nodeStructValue[offset].value as ArrayValue).map(v => v.value as PointerValue);
+									}
 
-										//update edges
-										let edgeIdx = this.nodeGraphData.edges.findIndex((n:DataEdge) => n.id === edgeId);
-										let edgeObj: DataEdge;
-										if(edgeIdx === -1) {
-											//add
-											edgeObj = {id: edgeId, source: nodeStructAddress as any, target: nodeEdgePointer as any};
-											this.nodeGraphData.edges.push(edgeObj);
-											nodeObj.edgesOut[offset] = edgeObj;
-										} else {
-											// update
-											//edgeObj = this.nodeGraphData.edges[edgeIdx];
+									for(let nodeEdgePointer of nodeEdgePointers) {
+										let edgeId = `${nodeStructAddress},${nodeEdgePointer}`;
+
+										if(nodeObj.edgesOut[offset] && nodeObj.edgesOut[offset].target.id !== nodeEdgePointer) {
+											//remove the old edge, mark node for deletion
+											//TODO:
+										}
+										//if there is no state for this edge, it's probably a garbage pointer so we wouldn't process it
+										if(nodeEdgePointer && lineData.state[nodeEdgePointer]) {
+											//update/create children
+											updateNode.call(this, nodeEdgePointer);
+
+											//update edges
+											let edgeIdx = this.nodeGraphData.edges.findIndex((n:DataEdge) => n.id === edgeId);
+											let edgeObj: DataEdge;
+											if(edgeIdx === -1) {
+												//add
+												edgeObj = {id: edgeId, source: nodeStructAddress as any, target: nodeEdgePointer as any};
+												this.nodeGraphData.edges.push(edgeObj);
+												nodeObj.edgesOut[offset] = edgeObj;
+											} else {
+												// update
+												//edgeObj = this.nodeGraphData.edges[edgeIdx];
+											}
 										}
 									}
 								});
