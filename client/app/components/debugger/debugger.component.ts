@@ -123,17 +123,22 @@ export class DebuggerComponent {
 			//TODO: properly handle these
 			return;
 		}
-        if (trace.data.tType === 'crash') {
-			this.snackBar.open(`Program crashed: ${trace.data.stack}`, undefined, {
-				duration: 5000
-			});
-			return;
-		}
 
-        if (['return', 'cancel', 'exit', 'crash', 'error'].indexOf(trace.data.tType) > -1) {
+        if (['return', 'cancel'].indexOf(trace.data.tType) > -1) {
             let reason: any = trace.data.tType;
             this.debuggerService.executionStopped(reason);
         }
+
+		if(['exit', 'crash', 'error'].indexOf(trace.data.tType) > -1) {
+			if(trace.data.tType === 'crash') {
+				this.debuggerService.errorOccurred('crash', trace.data.stack);
+			}
+			else if(trace.data.tType === 'error') {
+				this.debuggerService.errorOccurred('error', trace.data.error);
+			}
+
+			this.debuggerService.processEnded(trace.data.tType as 'exit' | 'crash' | 'error');
+		}
 
 		if (trace.data.tType === 'line' && this.sourceFunction && this.debuggerService.currentDebuggerState) {
         	let ds = this.debuggerService.currentDebuggerState;

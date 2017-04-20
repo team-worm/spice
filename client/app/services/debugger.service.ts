@@ -118,13 +118,16 @@ export class DebuggerService {
                     case 'cancel':
                         this.executionStopped('cancel');
                     break;
-					case 'crash':
 					case 'exit':
+						this.processEnded('exit');
+						break;
+					case 'crash':
+						this.errorOccurred('crash', new Error(t.data.stack));
+						this.processEnded(t.data.tType);
+						break;
 					case 'error':
-						let lastDebuggerState = this.currentDebuggerState;
-						this.currentDebuggerState = null;
-						this.currentExecution = null;
-						this.debuggerEventsObserver.next({eType: 'processEnded', reason: t.data.tType, lastDebuggerState: lastDebuggerState!});
+						this.errorOccurred('error', t.data.error);
+						this.processEnded(t.data.tType);
 					break;
 				}
 				return t;
@@ -180,11 +183,14 @@ export class DebuggerService {
 	//kills (without sending processEnded event), then detaches
 	public detach(): Observable<{}> {
 		return this.currentDebuggerState!.killProcess()
+			.catch(DebuggerService.makeErrorHandler(this, 'Failed to kill process'))
+			.catch(() => Observable.of({}))
 			.map(() => {
 				this.currentExecution = null;
 				this.currentDebuggerState = null;
 				this.debuggerEventsObserver.next({eType: 'detach'});
-			}).catch(DebuggerService.makeErrorHandler(this, 'Failed to detach'));
+				return {};
+			});
 	}
 
 	public callFunction(sourceFunction: SourceFunction, parameters: { [varId: number]: Value}): Observable<Execution> {
@@ -206,6 +212,17 @@ export class DebuggerService {
 
 	public displayFunction(sourceFunction: SourceFunction | null) {
 		this.debuggerEventsObserver.next({eType: 'displayFunction', sourceFunction: sourceFunction});
+	}
+
+	public processEnded(reason: 'exit' | 'crash' | 'error' | 'kill') {
+		let lastDebuggerState = this.currentDebuggerState;
+		this.currentDebuggerState = null;
+		this.currentExecution = null;
+		this.debuggerEventsObserver.next({eType: 'processEnded', reason: reason, lastDebuggerState: lastDebuggerState!});
+	}
+
+	public errorOccurred(cause: string, error: any) {
+		this.debuggerEventsObserver.next({eType: 'error', cause: cause, error: error});
 	}
 
 	protected onProcessEnded(event: ProcessEndedEvent) {
