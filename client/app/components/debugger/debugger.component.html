@@ -51,72 +51,75 @@
 		</md-card-content>
 	</md-card>
 	<md-card class="smallerMargin">
-		<md-card-content fxLayout="row">
-			<div fxFlex="25">
-				<h2>Node Graph</h2>
-				<div class="variable-selector">
-					<md-select placeholder="Variable" *ngIf="!!sourceFunction" [(ngModel)]="nodeGraphVariable">
-						<md-option *ngFor="let sf of sourceFunction.locals.concat(sourceFunction.parameters)" [value]="sf.address">
-							{{sf.name}}
-						</md-option>
-					</md-select>
-				</div>
-				<div *ngIf="variableBaseTypeIsStruct(nodeGraphVariable)">
-					<div class="node-selector">
-						<ul>
-							<li *ngFor="let field of getVariableBaseType(nodeGraphVariable).data.fields">
-								<button md-button (click)="toggleNodeGraphFieldIndex(field.offset)">
-									<md-icon [color]="'accent'" *ngIf="nodeGraphFieldOffsets.has(field.offset)">check</md-icon>
-									<md-icon [color]="'warn'" *ngIf="!nodeGraphFieldOffsets.has(field.offset)">close</md-icon>
-									{{field.name}}
-								</button>
-							</li>
-						</ul>
+		<md-card-content dynamicHeight="true">
+			<md-tab-group>
+				<md-tab label="Node Graph">
+					<div fxLayout="row">
+						<div fxFlex="25">
+							<h2>Node Graph</h2>
+							<div class="variable-selector">
+								<md-select placeholder="Root Node" *ngIf="!!sourceFunction" [(ngModel)]="nodeGraphVariable">
+									<md-option *ngFor="let sf of sortSourceFunctions(sourceFunction.locals.concat(sourceFunction.parameters))" [value]="sf.address">
+										{{sf.name}}
+									</md-option>
+								</md-select>
+							</div>
+							<div *ngIf="variableBaseTypeIsStruct(nodeGraphVariable)">
+								<div class="node-selector">
+									<ul>
+										<li *ngFor="let field of getVariableBaseType(nodeGraphVariable).data.fields">
+											<button md-button (click)="toggleNodeGraphFieldIndex(field.offset)">
+												<md-icon [color]="'accent'" *ngIf="nodeGraphFieldOffsets.has(field.offset)">check</md-icon>
+												<md-icon [color]="'warn'" *ngIf="!nodeGraphFieldOffsets.has(field.offset)">close</md-icon>
+												{{field.name}}
+											</button>
+										</li>
+									</ul>
+								</div>
+								<div class="data-selector">
+									<md-select placeholder="Data Field" [(ngModel)]="nodeGraphDataOffset">
+										<md-option *ngFor="let field of getVariableBaseType(nodeGraphVariable).data.fields" [value]="field.offset">
+											{{field.name}}
+										</md-option>
+									</md-select>
+								</div>
+								<div class="tracked-node-selector">
+								<md-select placeholder="Tracked Node" *ngIf="!!sourceFunction" [(ngModel)]="nodeGraphTrackedNode">
+									<md-option *ngFor="let sf of sortSourceFunctions(sourceFunction.locals.concat(sourceFunction.parameters))" [value]="sf.address">
+										{{sf.name}}
+									</md-option>
+								</md-select>
+								</div>
+							</div>
+							<button md-raised-button [disabled]="!nodeGraphVariable" (click)="SetNodeGraphVariable(nodeGraphVariable)"><md-icon>timeline</md-icon> Display</button>
+						</div>
+						<div fxFlex class="graph-display">
+							<spice-graph-display #graphDisplay [data]="nodeGraphData" [width]="1100" [height]="450"></spice-graph-display>
+						</div>
 					</div>
-					<div class="data-selector">
-						<md-select placeholder="Data" [(ngModel)]="nodeGraphDataOffset">
-							<md-option *ngFor="let field of getVariableBaseType(nodeGraphVariable).data.fields" [value]="field.offset">
-								{{field.name}}
-							</md-option>
-						</md-select>
+				</md-tab>
+				<md-tab label="Variable Chart">
+					<div fxLayout="row">
+						<div fxFlex="25">
+							<h2>Graph Function Variable</h2>
+							<div class="variable-selector">
+								<md-select placeholder="Variable" *ngIf="!!sourceFunction" [(ngModel)]="graphVariable">
+									<md-option *ngFor="let sf of sortSourceFunctions(sourceFunction.locals.concat(sourceFunction.parameters))" [value]="sf.address">
+										{{sf.name}}
+									</md-option>
+								</md-select>
+							</div>
+							<!--<md-input-container class="width-100">-->
+							<!--<input mdInput [(ngModel)]="graphVariableName" placeholder="Variable name">-->
+							<!--</md-input-container>-->
+							<button md-raised-button [disabled]="!graphVariable" (click)="SetGraphVariable(graphVariable)"><md-icon>timeline</md-icon> Graph</button>
+						</div>
+						<div fxFlex class="line-graph">
+							<spice-line-graph #lineGraph [data]="graphData" [width]="1100" [height]="450"></spice-line-graph>
+						</div>
 					</div>
-					<div class="tracked-node-selector">
-					<md-select placeholder="Tracked Node" *ngIf="!!sourceFunction" [(ngModel)]="nodeGraphTrackedNode">
-						<md-option *ngFor="let sf of sourceFunction.locals.concat(sourceFunction.parameters)" [value]="sf.address">
-							{{sf.name}}
-						</md-option>
-					</md-select>
-					</div>
-				</div>
-				<button md-raised-button [disabled]="!nodeGraphVariable" (click)="SetNodeGraphVariable(nodeGraphVariable)"><md-icon>timeline</md-icon> Display</button>
-			</div>
-			<span fxFlex></span>
-			<div fxFlex class="graph-display">
-				<spice-graph-display #graphDisplay [data]="nodeGraphData" [width]="750" [height]="450"></spice-graph-display>
-			</div>
-		</md-card-content>
-	</md-card>
-
-	<md-card class="smallerMargin">
-		<md-card-content fxLayout="row">
-			<div fxFlex="25">
-				<h2>Graph Function Variable</h2>
-				<div class="variable-selector">
-					<md-select placeholder="Variable" *ngIf="!!sourceFunction" [(ngModel)]="graphVariable">
-						<md-option *ngFor="let sf of sourceFunction.locals.concat(sourceFunction.parameters)" [value]="sf.address">
-							{{sf.name}}
-						</md-option>
-					</md-select>
-				</div>
-				<!--<md-input-container class="width-100">-->
-					<!--<input mdInput [(ngModel)]="graphVariableName" placeholder="Variable name">-->
-				<!--</md-input-container>-->
-				<button md-raised-button [disabled]="!graphVariable" (click)="SetGraphVariable(graphVariable)"><md-icon>timeline</md-icon> Graph</button>
-			</div>
-			<span fxFlex></span>
-			<div fxFlex class="line-graph">
-				<spice-line-graph #lineGraph [data]="graphData" [width]="750" [height]="250"></spice-line-graph>
-			</div>
+				</md-tab>
+			</md-tab-group>
 		</md-card-content>
 	</md-card>
 </div>

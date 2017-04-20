@@ -480,5 +480,14 @@ export class DebuggerComponent {
 		this.graphData = [];
 		this.graphVariable = null;
 		this.currentExecution = null;
+		this.nodeGraphData = {nodes: [], edges: []};
+		this.nodeGraphVariable = null;
+		this.nodeGraphFieldOffsets = new Set<number>();
+		this.nodeGraphDataOffset = null;
+		this.nodeGraphTrackedNode = null;
+	}
+
+	public sortSourceFunctions(arr: SourceFunction[]) {
+		return arr.sort((a,b)=> a.name.localeCompare(b.name));
 	}
 }
