@@ -351,6 +351,9 @@ export class DebuggerComponent {
 							let rootStructAddress: PointerValue | null = null;
 							if(lineData.state[this.nodeGraphVariable!]) {
 								rootStructAddress = lineData.state[this.nodeGraphVariable!].value as PointerValue;
+								if(Array.isArray(rootStructAddress)) {
+									rootStructAddress = rootStructAddress[0].value as PointerValue;
+								}
 							}
 							let processedNodes = new Set<number>();
 							//for all nodes in the graph changed in this trace (and the root), remove old edges and nodes, add new edges and nodes
@@ -387,6 +390,9 @@ export class DebuggerComponent {
 								}
 
 								let nodeStructValue = lineData.state[nodeStructAddress].value as StructValue;
+								if(Array.isArray(nodeStructValue)) {
+									nodeStructValue = nodeStructValue[0].value;
+								}
 								Array.from(this.nodeGraphFieldOffsets.values()).forEach((offset: number) => {
 									let nodeEdgePointer = nodeStructValue[offset].value as PointerValue;
 									let edgeId = `${nodeStructAddress},${nodeEdgePointer}`;

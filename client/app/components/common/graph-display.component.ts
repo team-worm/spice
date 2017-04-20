@@ -173,6 +173,7 @@ export class GraphDisplayComponent implements OnInit, AfterViewInit, OnChanges, 
 		newNode.append('text')
 			.attr('class', 'node-text')
 			.attr('text-anchor', 'middle')
+			.attr('dominant-baseline', 'central')
 			.text((d:DataNode) => d.data || '');
 
 		node.exit().remove();
