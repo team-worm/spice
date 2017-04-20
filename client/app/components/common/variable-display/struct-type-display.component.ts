@@ -65,7 +65,7 @@ import {FunctionTypeDisplay} from "./function-type-display.component";
         </div>
     `
 })
-export class StructTypeDisplay{
+export class StructTypeDisplay implements OnInit {
 
     @Input()
     public type:SourceType;
@@ -98,6 +98,8 @@ export class StructTypeDisplay{
     private pointerDisplays: QueryList<PointerTypeDisplay>;
     @ViewChildren(FunctionTypeDisplay)
     private functionDisplays: QueryList<FunctionTypeDisplay>;
+
+    private activeVal:Value;
 
     public getValue(parameters:{[address: number]: Value}):Value | undefined {
         if(this.type && this.type.data.tType === 'struct') {
@@ -133,9 +135,9 @@ export class StructTypeDisplay{
     }
 
     public getStructValue(offset:number):Value | null {
-        if(this.value && this.value.value) {
-            let val = this.value.value[offset];
-            if(val) {
+        if(this.activeVal && this.activeVal.value) {
+            let val = this.activeVal.value[offset];
+            if (val) {
                 return val;
             }
         }
@@ -143,5 +145,13 @@ export class StructTypeDisplay{
     }
 
     constructor(){
+    }
+
+    public ngOnInit() {
+        if(this.value && this.value.value && Array.isArray(this.value.value) && this.value.value.length > 0) {
+            this.activeVal = this.value.value[0];
+        } else {
+            this.activeVal = this.value;
+        }
     }
 }
