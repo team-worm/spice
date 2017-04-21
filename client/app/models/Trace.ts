@@ -19,6 +19,11 @@ export interface LineData {
     state: { [sVariable: number]: Value}
 }
 
+export interface CallData {
+    tType: "call";
+    sFunction: number;
+}
+
 export interface ReturnData {
     tType: "return";
     value: Value;

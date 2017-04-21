@@ -1,4 +1,19 @@
 .toolbar {
+    -webkit-app-region: drag;
+    -webkit-user-select: none;
+    button {
+        -webkit-app-region: no-drag;
+        min-width: 0;
+    }
+    .os {
+        padding: 0 8px;
+    }
+
+    overflow: hidden;
+    position: absolute;
+    width: 100%;
+    height: 64px;
+
     .title {
         cursor: pointer;
     }

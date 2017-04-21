@@ -8,7 +8,12 @@ export default {
     sourceMap: true,
     plugins: [
         resolve({ module: true }),
-        commonjs({ include: "node_modules/rxjs/**" }),
+        commonjs({
+            include: [ "node_modules/rxjs/**", "node_modules/prismjs/**" ],
+            namedExports: {
+                "node_modules/prismjs/prism.js": [ "highlight", "languages" ],
+            },
+        }),
     ],
 
     onwarn: function (warning) {

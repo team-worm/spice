@@ -349,7 +349,11 @@ export class DebuggerComponent {
 		}
 	}
 
-	public SetNodeGraphVariable(variableId: SourceVariableId): void {
+	public SetNodeGraphVariable(variableId: SourceVariableId | null): void {
+        if (!variableId) {
+            return;
+        }
+
 		if(this.sourceFunction) {
 			this.nodeGraphData = {nodes: [], edges: []};
 			this.nodeGraphVariable = variableId;

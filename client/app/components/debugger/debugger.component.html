@@ -112,7 +112,7 @@
 							<!--<md-input-container class="width-100">-->
 							<!--<input mdInput [(ngModel)]="graphVariableName" placeholder="Variable name">-->
 							<!--</md-input-container>-->
-							<button md-raised-button [disabled]="!graphVariable" (click)="SetGraphVariable(graphVariable)"><md-icon>timeline</md-icon> Graph</button>
+				<button md-raised-button [disabled]="!graphVariable" (click)="SetGraphVariable(graphVariable || 0)"><md-icon>timeline</md-icon> Graph</button>
 						</div>
 						<div fxFlex class="line-graph">
 							<spice-line-graph #lineGraph [data]="graphData" [width]="1100" [height]="450"></spice-line-graph>

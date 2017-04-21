@@ -179,4 +179,17 @@ export class ToolbarComponent {
         }
         return executionCount;
     }
+
+    public isMaximized(): boolean {
+        return false;
+    }
+
+    public Minimize() {
+    }
+
+    public Maximize() {
+    }
+
+    public Close() {
+    }
 }
