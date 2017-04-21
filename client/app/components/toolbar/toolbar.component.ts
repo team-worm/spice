@@ -5,6 +5,7 @@ import {AboutComponent} from "./about.component";
 import {ViewService} from "../../services/view.service";
 import {SourceFunction} from "../../models/SourceFunction";
 import {DebuggerService, ExecutionEvent, ProcessEndedEvent} from "../../services/debugger.service";
+const remote = require("electron").remote;
 
 /** Toolbar Component
  * Allows the user to control global debugger state, including starting and
@@ -20,11 +21,13 @@ export class ToolbarComponent {
     @Output() isDarkTheme = new EventEmitter<boolean>();
     private dark: boolean = false;
     public bpFunctions: SourceFunction[] = [];
+    private window: any;
 
     constructor(public dialog: MdDialog,
                 public viewService: ViewService,
                 public debuggerService: DebuggerService,
                 private snackBar: MdSnackBar) {
+        this.window = remote.getCurrentWindow();
         this.debuggerService.getEventStream(['execution']).subscribe((event: ExecutionEvent) => this.onExecution(event));
     }
 
@@ -181,15 +184,22 @@ export class ToolbarComponent {
     }
 
     public isMaximized(): boolean {
-        return false;
+        return this.window && this.window.isMaximized();
     }
 
     public Minimize() {
+        this.window.minimize();
     }
 
     public Maximize() {
+        if (!this.window.isMaximized()) {
+            this.window.maximize();
+        } else {
+            this.window.unmaximize();
+        }
     }
 
     public Close() {
+        this.window.close();
     }
 }
