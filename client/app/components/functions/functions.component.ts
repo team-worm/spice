@@ -1,7 +1,7 @@
 import {Component, Input, OnInit, ViewChild} from "@angular/core";
 import {MdDialog, MdSnackBar} from "@angular/material";
-import {SourceFunction, SourceFunctionId } from "../../models/SourceFunction";
-import {DebuggerService, AttachEvent, DisplayFunctionEvent } from "../../services/debugger.service";
+import {SourceFunction, SourceFunctionId} from "../../models/SourceFunction";
+import {AttachEvent, DebuggerService, DisplayFunctionEvent} from "../../services/debugger.service";
 import {DebuggerState} from "../../models/DebuggerState";
 import {Breakpoint} from "../../models/Breakpoint";
 import {FileSystemService} from "../../services/file-system.service";
@@ -9,10 +9,18 @@ import {MatchMaxHeightDirective} from "../../directives/MatchMaxHeight.directive
 import {FunctionListComponent} from "../common/function-list.component";
 import {fromJSON} from "../../util/SpiceValidator";
 import {SourceFunctionCollection} from "../../models/SourceFunctionCollection";
-import * as Prism from 'prismjs';
+import * as Prism from "prismjs";
 import cRuntime from "./cRuntime";
 import cStandardLib from "./cStandardLib";
-import { displaySnackbarError } from "../../util/SnackbarError";
+import {displaySnackbarError} from "../../util/SnackbarError";
+
+/**
+ * Functions Component
+ * This component is responsible for allow a user to explore functions and set breakpoints for execution.
+ * It oversees the Function List and supplies it with the list of functions.
+ * It handles when the user has selected a function, to display additional information and its source code.
+ *
+ */
 
 @Component({
     moduleId: module.id,

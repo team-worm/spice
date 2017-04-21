@@ -6,6 +6,14 @@ import {PrimitiveTypeDisplay} from "./primitive-type-display.component";
 import {PointerTypeDisplay} from "./pointer-type-display.component";
 import {FunctionTypeDisplay} from "./function-type-display.component";
 import {MatchMaxHeightDirective} from "../../../directives/MatchMaxHeight.directive";
+
+/**
+ * Array Type Display Component
+ * This component is responsible for displaying array SourceTypes
+ * It is generated through the Variable Display Components chain of generated variable displays.
+ * This generates additional display components for each value of the array's count.
+ */
+
 @Component({
     selector: 'spice-array-type-display',
     template: `        
@@ -102,7 +110,6 @@ export class ArrayTypeDisplay implements OnInit{
     public baseType:SourceType | undefined;
     public baseValues:Value;
 
-    private _expanded:boolean;
     public get expanded() {
         return this._expanded;
     }
@@ -112,6 +119,9 @@ export class ArrayTypeDisplay implements OnInit{
         }
         this._expanded = val;
     }
+
+    private _expanded:boolean;
+
     constructor() {}
 
     public ngOnInit() {

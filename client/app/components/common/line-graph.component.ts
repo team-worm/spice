@@ -4,10 +4,14 @@ import * as d3 from 'd3';
 
 export type DataXY = {x: number, y: number};
 
+/** Line Graph Component
+ * Draws a line graph
+ */
 @Component({
 	selector: 'spice-line-graph',
 	template: `<div></div>`
 })
+
 export class LineGraphComponent implements OnInit, AfterViewInit, OnChanges, OnDestroy {
 	@Input('width') width: number;
 	@Input('height') height: number;
@@ -17,8 +21,6 @@ export class LineGraphComponent implements OnInit, AfterViewInit, OnChanges, OnD
 	protected xAxis: d3.Axis<any>;
 	protected yAxis: d3.Axis<any>;
 	protected margin: { top: number, right: number, bottom: number, left: number};
-	//protected width: number;
-	//protected height: number;
 	protected xScale: d3.ScaleContinuousNumeric<any,any>;
 	protected yScale: d3.ScaleContinuousNumeric<any,any>;
 
@@ -83,22 +85,6 @@ export class LineGraphComponent implements OnInit, AfterViewInit, OnChanges, OnD
 	protected populate(): void {
 		this.xScale.domain(d3.extent(this.data, (d: DataXY) => d.x) as [any, any]);
 		this.yScale.domain(d3.extent(this.data, (d: DataXY) => d.y) as [any, any]);
-		//let points = this.svg.selectAll('circle').data(this.data);
-
-		//points.exit().remove();
-
-		//points.enter()
-				//.append('circle')
-					//.attr('class', 'point')
-					//.attr('r', 0)
-					//.attr('cx', (d:DataXY) => this.xScale(d.x))
-					//.attr('cy', (d:DataXY) => this.yScale(d.y))
-					//.style('fill', '#ff5722')
-			//.merge(points)
-				//.transition()
-				//.attr('cx', (d:DataXY) => this.xScale(d.x))
-				//.attr('cy', (d:DataXY) => this.yScale(d.y))
-				//.attr('r', 3)
 
 		this.svg.append('path')
 			.attr('class', 'line');
@@ -108,16 +94,6 @@ export class LineGraphComponent implements OnInit, AfterViewInit, OnChanges, OnD
 			.attr('d', d3.line<DataXY>()
 				.x((d: any) => this.xScale(d.x))
 				.y((d: any) => this.yScale(d.y)));
-
-		//this.svg.append('path')
-			//.datum(this.data)
-			//.attr('class', 'line')
-			//.style('fill', 'none') //TODO: move these styles into css
-			//.style('stroke', '#ff5722')
-			//.style('stroke-width', '1.5')
-			//.attr('d', d3.line<DataXY>()
-				//.x((d: any) => this.xScale(d.x))
-				//.y((d: any) => this.yScale(d.y)));
 
 		this.svg.selectAll('.x.axis')
 			.call(this.xAxis);

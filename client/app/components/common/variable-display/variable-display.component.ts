@@ -1,12 +1,20 @@
-import {Component, EventEmitter, Input, OnInit, Output, ViewChild} from "@angular/core";
+import {Component, Input, OnInit, ViewChild} from "@angular/core";
 import {DebuggerState} from "../../../models/DebuggerState";
-import {SourceType, SourceTypeId} from "../../../models/SourceType";
+import {SourceType} from "../../../models/SourceType";
 import {Value} from "../../../models/Value";
 import {StructTypeDisplay} from "./struct-type-display.component";
 import {PrimitiveTypeDisplay} from "./primitive-type-display.component";
 import {ArrayTypeDisplay} from "./array-type-display.component";
 import {PointerTypeDisplay} from "./pointer-type-display.component";
 import {FunctionTypeDisplay} from "./function-type-display.component";
+
+/**
+ * Variable Display Component
+ * This flexible component is responsible for displaying any type of Variable and Value passed into it.
+ * The component must be passed a type to function and the value will be displayed if it is present.
+ * This component just wraps the 5 other display component that specialize in each SourceType.
+ * The user entered values can be requested with applyValue().
+ */
 
 @Component({
     selector: 'spice-variable-display',

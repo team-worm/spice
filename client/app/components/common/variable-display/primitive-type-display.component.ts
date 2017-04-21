@@ -1,9 +1,13 @@
-import {
-    AfterContentInit, AfterViewInit, Component, ElementRef, Input, OnChanges, OnInit,
-    ViewChild
-} from "@angular/core";
+import {Component, ElementRef, Input, ViewChild} from "@angular/core";
 import {SourceType} from "../../../models/SourceType";
 import {Value} from "../../../models/Value";
+
+/**
+ * Primitive Type Display Component
+ * This component is responsible for displaying primitive SourceTypes
+ * It is generated through the Variable Display Components chain of generated variable displays.
+ */
+
 @Component({
     selector: 'spice-primitive-type-display',
     template: `

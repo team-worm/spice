@@ -2,6 +2,13 @@ import {Component, Input, EventEmitter, Output, OnInit, ElementRef} from "@angul
 import {Process} from "../../models/Process";
 import { DebuggerService } from "../../services/debugger.service";
 
+/**
+ * Process List Component
+ * This component displays the list of processes available on the host machine.
+ * The processes can be selected for attaching.
+ * This component is responsible for filtering and refreshing the list of processes.
+ */
+
 @Component({
     selector: 'spice-process-list',
     template: `

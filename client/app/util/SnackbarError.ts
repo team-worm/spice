@@ -1,5 +1,6 @@
 import { MdSnackBar } from "@angular/material";
 import { Response } from "@angular/http";
+
 export function displaySnackbarError(snackBar: MdSnackBar, cause: string, error: any) {
 	let errorMessage = '';
 	if(error instanceof Error) {

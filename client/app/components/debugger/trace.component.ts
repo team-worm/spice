@@ -6,6 +6,9 @@ import { Value } from "../../models/Value";
 import { SourceFunction } from "../../models/SourceFunction";
 import { SourceType } from "../../models/SourceType";
 
+/** Trace Component
+ * Renders a single trace iteration
+ */
 @Component({
     moduleId: module.id,
 	selector: 'spice-trace',

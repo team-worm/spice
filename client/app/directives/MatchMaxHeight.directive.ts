@@ -4,6 +4,14 @@ import { Observable } from "rxjs/Observable";
 const dirtyDuration = 150; //Leave ids marked dirty for this many ms to ensure that they get updated after render
 const dirtyUpdateInterval = 50; //only actually update dirty rows every interval
 
+/** Match Max Height Directive
+ * Usage: <div [matchMaxHeight]="id"></div>
+ * All DOM elements given the same "id" will be resized to match the height of
+ * the tallest element in the set.
+ *
+ * Height recalculation must be manually triggered by calling markDirty(id).
+ * Recalculations are debounced to reduce overhead.
+ */
 @Directive({ selector: '[matchMaxHeight]' })
 export class MatchMaxHeightDirective implements OnInit, OnChanges, OnDestroy {
 	@Input('matchMaxHeight') matchId: string;
@@ -18,7 +26,6 @@ export class MatchMaxHeightDirective implements OnInit, OnChanges, OnDestroy {
 	}
 
 	ngOnInit() {
-		//this.registerDirective(this.matchId);
 	}
 
 	ngOnChanges(changes: any) {

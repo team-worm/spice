@@ -1,6 +1,14 @@
-import {Component, Input, OnInit} from "@angular/core";
+import {Component, Input} from "@angular/core";
 import {SourceType, SourceTypeId} from "../../../models/SourceType";
 import {Value} from "../../../models/Value";
+
+/**
+ * Function Type Display Component
+ * This component is responsible for displaying function SourceTypes
+ * It is generated through the Variable Display Components chain of generated variable displays.
+ * This is the least complex and feature rich of the display on inline functions is really complicated and not making it into the final release
+ */
+
 @Component({
     selector: 'spice-function-type-display',
     template: `

@@ -1,10 +1,18 @@
-import {Component, Input, OnInit, QueryList, ViewChild, ViewChildren} from "@angular/core";
+import {Component, Input, OnInit, QueryList, ViewChildren} from "@angular/core";
 import {SourceType, SourceTypeId} from "../../../models/SourceType";
 import {Value} from "../../../models/Value";
 import {PrimitiveTypeDisplay} from "./primitive-type-display.component";
 import {ArrayTypeDisplay} from "./array-type-display.component";
 import {PointerTypeDisplay} from "./pointer-type-display.component";
 import {FunctionTypeDisplay} from "./function-type-display.component";
+
+/**
+ * Struct Type Display Component
+ * This component is responsible for displaying struct SourceTypes
+ * It is generated through the Variable Display Components chain of generated variable displays.
+ * This generates additional display components for each parameter of the input struct SourceType.
+ */
+
 @Component({
     selector: 'spice-struct-type-display',
     template: `

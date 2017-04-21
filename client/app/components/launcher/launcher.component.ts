@@ -1,14 +1,19 @@
-import { Component, ViewChild, ElementRef, AfterContentChecked } from "@angular/core";
+import {AfterContentChecked, Component, ElementRef, ViewChild} from "@angular/core";
 import {Response} from "@angular/http";
-
 import {SourceFile} from "../../models/SourceFile";
 import {Process} from "../../models/Process";
-import {DebuggerService, DebuggerEvent, AttachEvent, DetachEvent } from "../../services/debugger.service";
+import {AttachEvent, DebuggerService, DetachEvent} from "../../services/debugger.service";
 import {DebuggerState} from "../../models/DebuggerState";
-import {ViewService} from "../../services/view.service";
 import {FileBrowserComponent} from "../common/file-browser.component";
 import {ProcessListComponent} from "../common/process-list.component";
-import { LineGraphComponent } from "../common/line-graph.component";
+
+ /**
+ * Launcher Component
+ * Large component that contains all the sub-components responsible for launching and attaching to applications and processes.
+ * Contains the File Browser Component and Process List Component which reports back user selections.
+ * Informs the Debugger Service that the user has made a selection and they wish to attach to it.
+ *
+ */
 
 @Component({
     moduleId: module.id,
@@ -30,7 +35,6 @@ export class LauncherComponent implements AfterContentChecked {
     public launchedFile: SourceFile | null = null;
 
 	constructor(private debuggerService: DebuggerService,
-				private viewService: ViewService,
 				private element: ElementRef) {
 		this.debuggerService.getEventStream(['attach']).subscribe((event: AttachEvent) => this.onAttach(event));
 		this.debuggerService.getEventStream(['detach']).subscribe((event: DetachEvent) => this.onDetach(event));

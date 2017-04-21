@@ -1,23 +1,36 @@
 import {Component, QueryList, ViewChild, ViewChildren} from "@angular/core";
-import { Execution, ExecutionId, FunctionData } from "../../models/Execution";
-import { Trace, LineData } from "../../models/Trace";
-import { Observable } from "rxjs/Observable";
-import { SourceFunction, SourceFunctionId } from "../../models/SourceFunction";
-import { Response } from "@angular/http";
-import { ViewService } from "../../services/view.service";
-import { FileSystemService } from "../../services/file-system.service";
-import { MdSnackBar } from "@angular/material";
-import { LineGraphComponent, DataXY } from "../common/line-graph.component";
-import { SourceVariableId } from "../../models/SourceVariable";
-import { Subscriber } from "rxjs/Subscriber";
-import { LoopData, TraceGroup } from "./trace-loop.component";
-import { DebuggerService, ExecutionEvent, PreCallFunctionEvent, DisplayTraceEvent, AttachEvent } from "../../services/debugger.service";
+import {Execution, FunctionData} from "../../models/Execution";
+import {LineData, Trace} from "../../models/Trace";
+import {Observable} from "rxjs/Observable";
+import {SourceFunction, SourceFunctionId} from "../../models/SourceFunction";
+import {Response} from "@angular/http";
+import {ViewService} from "../../services/view.service";
+import {FileSystemService} from "../../services/file-system.service";
+import {DataXY, LineGraphComponent} from "../common/line-graph.component";
+import {SourceVariableId} from "../../models/SourceVariable";
+import {Subscriber} from "rxjs/Subscriber";
+import {LoopData, TraceGroup} from "./trace-loop.component";
+import {
+	AttachEvent,
+	DebuggerService,
+	DisplayTraceEvent,
+	ExecutionEvent,
+	PreCallFunctionEvent
+} from "../../services/debugger.service";
 import {VariableDisplayComponent} from "../common/variable-display/variable-display.component";
-import * as Prism from 'prismjs';
-import { GraphDisplayComponent, GraphData, DataNode, DataEdge } from "../common/graph-display.component";
-import { SourceType } from "../../models/SourceType";
-import { StructValue, Value, PointerValue } from "../../models/Value";
+import * as Prism from "prismjs";
+import {DataEdge, DataNode, GraphData, GraphDisplayComponent} from "../common/graph-display.component";
+import {SourceType} from "../../models/SourceType";
+import {PointerValue, StructValue, Value} from "../../models/Value";
 import {MatchMaxHeightDirective} from "../../directives/MatchMaxHeight.directive";
+
+/**
+ * Debugger Component
+ * This component is responsible for wrapping all aspects of the debugging experience.
+ * It manages the various trace display and visualization components, as well as calling functions with custom parameters.
+ * It handles traces and passes them to the trace components.
+ * It interacts with the debugger service to call functions and view debug state.
+ */
 
 @Component({
     moduleId: module.id,
@@ -57,8 +70,7 @@ export class DebuggerComponent {
 
 	constructor(public debuggerService: DebuggerService,
 				private fileSystemService: FileSystemService,
-				private viewService: ViewService,
-				private snackBar: MdSnackBar) {
+				private viewService: ViewService) {
 
 		this.nodeGraphFieldOffsets = new Set<number>();
 		this.viewService.debuggerComponent = this;
@@ -68,6 +80,12 @@ export class DebuggerComponent {
 		this.debuggerService.getEventStream(['attach']).subscribe((event: AttachEvent) => this.resetView());
 	}
 
+	/**
+	 * Sets the active SourceFunction that is being debugged.
+	 * This is done from the Function Component.
+	 * @param sf
+	 * @returns {Observable<R>}
+	 */
 	public setSourceFunction(sf: SourceFunction): Observable<null> {
 		this.sourceFunction = sf;
 		this.lines = [];

@@ -1,26 +1,28 @@
-import { Injectable } from "@angular/core";
-import { Http, Response } from "@angular/http";
-import { DebugInfo, DebugId } from "../models/DebugInfo";
-import { SourceFunction, SourceFunctionId } from "../models/SourceFunction";
-import { SpiceError } from "../models/SpiceError";
-import { SourceVariable } from "../models/SourceVariable";
-import { fromJSON } from "../util/SpiceValidator";
-import { InvalidServerDataError, InvalidTypeError } from "../models/Errors";
-import { Observable } from "rxjs/Observable";
-import { DebuggerState } from "../models/DebuggerState";
-import { Execution, ExecutionId } from "../models/Execution";
-import { Breakpoint } from "../models/Breakpoint";
-import { Trace, LineData } from "../models/Trace";
-import { Subscriber } from "rxjs/Subscriber";
-import { Process } from "../models/Process";
-import { Value } from "../models/Value";
-import { SourceTypeId, SourceType } from "../models/SourceType";
+import {Injectable} from "@angular/core";
+import {Http, Response} from "@angular/http";
+import {DebugId, DebugInfo} from "../models/DebugInfo";
+import {SourceFunction, SourceFunctionId} from "../models/SourceFunction";
+import {fromJSON} from "../util/SpiceValidator";
+import {InvalidServerDataError} from "../models/Errors";
+import {Observable} from "rxjs/Observable";
+import {DebuggerState} from "../models/DebuggerState";
+import {Execution, ExecutionId} from "../models/Execution";
+import {Breakpoint} from "../models/Breakpoint";
+import {LineData, Trace} from "../models/Trace";
+import {Subscriber} from "rxjs/Subscriber";
+import {Process} from "../models/Process";
+import {Value} from "../models/Value";
+import {SourceType, SourceTypeId} from "../models/SourceType";
 
 const host:string = 'localhost';
 const port:number = 3000;
 
 declare var oboe: any;
 
+/** Debugger HTTP Service
+ * A stateless implemenation for all the HTTP protocol endpoints.
+ * It should be used by DebuggerService and DebuggerState, and not directly accessed by components.
+ */
 @Injectable()
 export class DebuggerHttpService {
 
