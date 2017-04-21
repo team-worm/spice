@@ -1,15 +1,10 @@
-import { Component, Output, EventEmitter } from "@angular/core";
-import { Response } from "@angular/http";
-import { MdDialog, MdSnackBar, MdSidenav } from "@angular/material";
-import { AboutComponent } from "./about.component";
-import { ViewService } from "../../services/view.service";
-import { DebuggerState } from "../../models/DebuggerState";
-import { Execution } from "../../models/Execution";
-import { Observable } from "rxjs/Observable";
-import { Trace } from "../../models/Trace";
-import { SourceFunction, SourceFunctionId } from "../../models/SourceFunction";
-import { DebuggerService, ExecutionEvent, ProcessEndedEvent } from "../../services/debugger.service";
-import { Breakpoint } from "../../models/Breakpoint";
+import {Component, EventEmitter, Output} from "@angular/core";
+import {Response} from "@angular/http";
+import {MdDialog, MdSnackBar} from "@angular/material";
+import {AboutComponent} from "./about.component";
+import {ViewService} from "../../services/view.service";
+import {SourceFunction} from "../../models/SourceFunction";
+import {DebuggerService, ExecutionEvent, ProcessEndedEvent} from "../../services/debugger.service";
 
 /** Toolbar Component
  * Allows the user to control global debugger state, including starting and

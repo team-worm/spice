@@ -1,15 +1,14 @@
 import {Injectable} from "@angular/core";
-import { DebuggerState } from "../models/DebuggerState";
-import { Observable } from "rxjs/Observable";
-import { DebuggerHttpService } from "./debugger-http.service";
-import { DebugInfo, DebugId } from "../models/DebugInfo";
-import { Process } from "../models/Process";
-import { Execution } from "../models/Execution";
-import { Observer } from "rxjs/Observer";
-import { Trace, BreakData } from "../models/Trace";
-import { SourceFunction } from "../models/SourceFunction";
-import { Value } from "../models/Value";
-import { Response } from "@angular/http";
+import {DebuggerState} from "../models/DebuggerState";
+import {Observable} from "rxjs/Observable";
+import {DebuggerHttpService} from "./debugger-http.service";
+import {DebugId} from "../models/DebugInfo";
+import {Process} from "../models/Process";
+import {Execution} from "../models/Execution";
+import {Observer} from "rxjs/Observer";
+import {BreakData, Trace} from "../models/Trace";
+import {SourceFunction} from "../models/SourceFunction";
+import {Value} from "../models/Value";
 import {SourceType, SourceTypeId} from "../models/SourceType";
 
 export type DebuggerEvent = ErrorEvent | AttachEvent | DetachEvent | ExecutionEvent | ProcessEndedEvent | PreCallFunctionEvent | DisplayTraceEvent | DisplayFunctionEvent;
