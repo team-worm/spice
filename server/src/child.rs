@@ -15,6 +15,7 @@ use trace::*;
 use value;
 use api;
 
+/// Custom `Thread` struct used to keep track of `Execution` information
 pub struct Thread {
     pub session: usize,
 
@@ -26,12 +27,13 @@ pub struct Thread {
     pub id: i32,
 }
 
+/// An execution is either a process or function execution
 pub enum Execution {
     Process,
     Function(usize),
 }
 
-/// messages the debug event loop sends to the server
+/// Messages the debug event loop sends to the server
 pub enum DebugMessage {
     Attached(debug::Cancel),
     Functions(Vec<api::Function>),
@@ -45,6 +47,7 @@ pub enum DebugMessage {
     Error(io::Error),
 }
 
+/// Various trace events that can occur while tracing a function
 pub enum DebugTrace {
     Line(u32, HashMap<usize, api::Value>),
     Call(u32, usize),
@@ -56,7 +59,7 @@ pub enum DebugTrace {
     Crash(String),
 }
 
-/// messages the server sends to the debug event loop to request info
+/// Messages the server sends to the debug event loop to request info
 pub enum ServerMessage {
     ListFunctions,
     DescribeFunction { address: usize },
@@ -75,6 +78,8 @@ lazy_static! {
 }
 
 impl Thread {
+    /// Given a path to an executable binary, attempts to start and attach to the binary
+    /// in a new separate thread in order to listen for actions to complete from the server
     pub fn launch(path: PathBuf) -> (Thread, Arc<AtomicBool>) {
         Thread::spawn(move |debug_tx, server_rx, cancel| {
             let child = debug::Command::new(&path)
@@ -85,6 +90,8 @@ impl Thread {
         })
     }
 
+    /// Given a process id of a currently running process, attempts to attach to the process
+    /// in a new and separate thread in order to listen for actions from the server
     pub fn attach(pid: u32) -> (Thread, Arc<AtomicBool>) {
         Thread::spawn(move |debug_tx, server_rx, cancel| {
             let child = debug::Child::attach(pid)?;
@@ -93,6 +100,9 @@ impl Thread {
         })
     }
 
+    /// Responsible for actually creating the new thread that will sit and listen for incoming
+    /// messages from the server
+    /// * Returns this `Thread` struct
     fn spawn<F>(f: F) -> (Thread, Arc<AtomicBool>) where
         F: FnOnce(SyncSender<DebugMessage>, Receiver<ServerMessage>, Arc<AtomicBool>)
             -> io::Result<()>,
@@ -123,12 +133,13 @@ impl Thread {
         (thread, cancel_flag)
     }
 
+    /// Get the next sequential id for the next `Execution` that is started
     pub fn next_id(&mut self) -> i32 {
         self.id += 1;
         self.id
     }
 }
-
+/// State information pertinent to the process that has been attached to and is being debugged
 struct TargetState {
     child: debug::Child,
     symbols: debug::SymbolHandler,
@@ -137,7 +148,7 @@ struct TargetState {
     breakpoints: BreakpointSet,
     traces: HashMap<usize, BreakpointSet>,
 }
-
+/// Debugging state information about the currently running `Execution`
 struct DebugState {
     threads: HashMap<winapi::DWORD, RawHandle>,
     execution: Option<ExecutionState>,
@@ -158,6 +169,8 @@ enum ExecutionState {
     },
 }
 
+/// Started in its own thread and listens for messages from the server on how to act upon the
+/// target process being debugged
 fn run(
     child: debug::Child, tx: SyncSender<DebugMessage>, rx: Receiver<ServerMessage>,
     cancel: Arc<AtomicBool>, launch: bool
@@ -339,6 +352,7 @@ fn run(
     Ok(())
 }
 
+/// List the functions of the target process being debugged
 fn list_functions(target: &TargetState) -> io::Result<Vec<api::Function>> {
     let TargetState { ref symbols, .. } = *target;
 
@@ -354,7 +368,7 @@ fn list_functions(target: &TargetState) -> io::Result<Vec<api::Function>> {
 
     Ok((functions))
 }
-
+/// Get source file path and input parameter types of a function that resides at address `address`
 fn describe_function(target: &TargetState, address: usize) -> io::Result<api::Function> {
     let TargetState { ref symbols, .. } = *target;
 
@@ -410,6 +424,7 @@ fn describe_function(target: &TargetState, address: usize) -> io::Result<api::Fu
     })
 }
 
+/// Get type information of variables
 fn list_types(target: &TargetState, types: Vec<u32>) -> io::Result<HashMap<u32, api::Type>> {
     let TargetState { ref symbols, module, .. } = *target;
 
@@ -461,6 +476,7 @@ fn list_types(target: &TargetState, types: Vec<u32>) -> io::Result<HashMap<u32, 
     Ok(types?)
 }
 
+/// Set a breakpoint on an address in the process being debugged
 fn set_breakpoint(target: &mut TargetState, address: usize) -> io::Result<()> {
     let TargetState { ref child, ref symbols, ref mut breakpoints, ref mut traces, .. } = *target;
 
@@ -485,6 +501,7 @@ fn set_breakpoint(target: &mut TargetState, address: usize) -> io::Result<()> {
     Ok(())
 }
 
+/// Remove breakpoint from the process being debugged
 fn remove_breakpoint(target: &mut TargetState, address: usize) -> io::Result<()> {
     let TargetState { ref child, ref mut breakpoints, ref mut traces, .. } = *target;
 
@@ -498,6 +515,7 @@ fn remove_breakpoint(target: &mut TargetState, address: usize) -> io::Result<()>
     Ok(())
 }
 
+/// Used to signal the debug event loop to continue execution.
 fn continue_process(state: &mut DebugState) -> io::Result<()> {
     let event = state.event.take()
         .ok_or(io::Error::new(io::ErrorKind::AlreadyExists, "process already running"))?;
@@ -508,6 +526,7 @@ fn continue_process(state: &mut DebugState) -> io::Result<()> {
     Ok(())
 }
 
+/// Gather `TraceEvent` information about the current target process
 fn trace_process(
     target: &TargetState, state: &mut DebugState,
     tx: &SyncSender<DebugMessage>, cancel: &AtomicBool,
@@ -562,6 +581,7 @@ fn trace_process(
     }
 }
 
+/// Call a function of the process being debugged with custom parameters
 fn call_function(
     target: &mut TargetState, state: &mut DebugState,
     thread: RawHandle, address: usize, arguments: HashMap<usize, api::Value>
@@ -607,6 +627,7 @@ enum TraceEvent {
     Terminate,
 }
 
+/// Gather `Trace` information about the current target process
 fn trace_function(
     target: &TargetState, state: &mut DebugState,
     tx: &SyncSender<DebugMessage>, cancel: &AtomicBool,
