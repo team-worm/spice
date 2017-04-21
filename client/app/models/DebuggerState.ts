@@ -9,6 +9,20 @@ import { Trace } from "./Trace";
 import { Value } from "./Value";
 import { SourceTypeId, SourceType } from "./SourceType";
 
+/** Debugger State
+ * A DebuggerState represents a single debugging session. It stores all the
+ * execution, breakpoint, function, type, and trace information for that
+ * session. Any time the target program terminates or crashes, the application
+ * re-attaches and a new DebuggerState is initialized.
+ *
+ * To minimize the asynchronous code in components, debugger state can be
+ * directly accessed through public properties.  If a component needs to make
+ * sure that we have pulled data from the server into the frontend, it can call
+ * the "ensure..." brand of functions. These functions compare the requested
+ * resoures against the cache, and make HTTP requests for any resources that
+ * are missing. When all requested resources are retrieved, the observable
+ * emits an event and closes.
+ */
 export class DebuggerState {
 
 	public executions: Map<ExecutionId, Execution>;
@@ -37,11 +51,6 @@ export class DebuggerState {
 				.map((sfs) => {
 					sfs.forEach(sf => this.sourceFunctions.set(sf.address, sf));
 				}))
-			//initialize breakpoints
-			// this.debuggerHttp.getBreakpoints(this.info.id)
-			// 	.map((bs) => {
-			// 		bs.forEach(b => this.breakpoints.set(b.sFunction.id, Observable.of(b)));
-			// 	}))
 			.map(() => null);
 	}
 
@@ -65,6 +74,9 @@ export class DebuggerState {
 			});
 	}
 
+	/**
+	 * Recursively retrieve all source typeSet
+	 */
 	public ensureSourceTypes(ids: SourceTypeId[]): Observable<Map<SourceTypeId, SourceType>> {
 		return this.debuggerHttp.getSourceTypes(this.info.id, ids)
 			.mergeMap(sts => {
@@ -74,18 +86,12 @@ export class DebuggerState {
 					switch(st.data.tType) {
 						case 'pointer':
 							typeSet.add(st.data.sType);
-							if(st.data.sType === 1252 || st.data.sType === 1257) {
-							}
 							break;
 						case 'array':
 							typeSet.add(st.data.sType);
-							if(st.data.sType === 1252 || st.data.sType === 1257) {
-							}
 							break;
 						case 'function':
 							typeSet.add(st.data.sType);
-							if(st.data.sType === 1252 || st.data.sType === 1257) {
-							}
 							st.data.parameters.forEach(tId => typeSet.add(tId));
 							break;
 						case 'struct':
@@ -119,10 +125,6 @@ export class DebuggerState {
 					});
 			});
 	}
-
-	//public ensureSourceVariables(ids: SourceVariableId[]): Observable<SourceVariable[]> {
-		//return this.ensureMapValues(ids, this.sourceVariables, id => this.debuggerHttp.getSourceVariable(this.info.id, id), val => val.address);
-	//}
 
 	public ensureExecutions(ids: ExecutionId[]): Observable<Map<ExecutionId, Execution>> {
 		return this.ensureMapValues(ids, this.executions, id => this.debuggerHttp.getExecution(this.info.id, id), val => val.id);

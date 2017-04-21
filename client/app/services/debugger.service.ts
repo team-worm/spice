@@ -56,14 +56,29 @@ export interface DisplayFunctionEvent {
 	sourceFunction: SourceFunction | null;
 }
 
+/** Debugger Service
+ * Controls state and control flow that is used to control the debugger across
+ * the entire app.
+ *
+ * The service exposes a global event observable (via getEventStream) that
+ * other components should listen to, so they can react to events like
+ * attaching/detaching from a process.
+ *
+ * Components that need to modify global state (e.g. attach, detach, start
+ * execution) should do so through this service.
+ *
+ * Some components require more direct access global state, and should notify
+ * other components of changes they make by calling the appropriate "event
+ * dispatch" functions.
+ */
 @Injectable()
 export class DebuggerService {
-	public currentDebuggerState: DebuggerState | null = null;
 	public debuggerStates: Map<DebugId, DebuggerState>;
+	public currentDebuggerState: DebuggerState | null = null;
+	public currentExecution: Execution | null = null;
 
 	public debuggerEvents: Observable<DebuggerEvent>;
 	protected debuggerEventsObserver: Observer<DebuggerEvent>;
-	public currentExecution: Execution | null = null;
 
 
 	constructor(private debuggerHttp: DebuggerHttpService) {
@@ -72,11 +87,15 @@ export class DebuggerService {
 			this.debuggerEventsObserver = observer;
 		}).publishReplay().refCount();
 		this.getEventStream(['processEnded']).subscribe((event: ProcessEndedEvent) => this.onProcessEnded(event));
+
 		this.debuggerEvents.subscribe(
-			(event: DebuggerEvent) => console.log(event),
+			(event: DebuggerEvent) => {/*console.log(event)*/},
 			(err) => console.error(err));
 	}
 	
+	/**
+	 * Returns an observable which emits global events of the types listed in the input array
+	 */
 	public getEventStream(eventTypes: string[]): Observable<DebuggerEvent> {
 		return this.debuggerEvents.filter((event: DebuggerEvent) => eventTypes.indexOf(event.eType) !== -1);
 	}
@@ -97,6 +116,9 @@ export class DebuggerService {
 			}).catch(DebuggerService.makeErrorHandler(this, 'Failed to attach to process'));
 	}
 
+	/**
+	 * Start/continue execution until we hit an endpoint or the application ends/crashes
+	 */
     public continueExecution(args: string = '', env: string = ''): Observable<Trace> {
 		return this.currentDebuggerState!.executeBinary(args, env)
 			.mergeMap((ex: Execution) => {
@@ -144,6 +166,9 @@ export class DebuggerService {
 			}).catch(DebuggerService.makeErrorHandler(this, 'Failed to kill process'));
 	}
 
+	/**
+	 * Cancels the currently running exeuction
+	 */
 	public stopCurrentExecution(): Observable<{}> {
 		return this.currentDebuggerState!.stopExecution(this.currentExecution!.id)
 			.catch(DebuggerService.makeErrorHandler(this, 'Failed to stop execution'));
@@ -154,6 +179,9 @@ export class DebuggerService {
         this.debuggerEventsObserver.next({eType: 'execution', execution: null, reason: reason});
     }
 
+	/**
+	 * After we attach, load the program's function list and variable types
+	 */
 	protected onAttach(ds: DebuggerState, name: string, binaryPath: string, isBinary: boolean) {
 		ds.name = name;
 		ds.binaryPath = binaryPath;
@@ -180,7 +208,9 @@ export class DebuggerService {
 		return this.debuggerHttp.getProcesses().catch(DebuggerService.makeErrorHandler(this, 'Failed to get processes'));
 	}
 
-	//kills (without sending processEnded event), then detaches
+	/**
+	 * Kills program (without sending processEnded event), then detaches
+	 */
 	public detach(): Observable<{}> {
 		return this.currentDebuggerState!.killProcess()
 			.catch(DebuggerService.makeErrorHandler(this, 'Failed to kill process'))
@@ -225,6 +255,9 @@ export class DebuggerService {
 		this.debuggerEventsObserver.next({eType: 'error', cause: cause, error: error});
 	}
 
+	/**
+	 * When the process ends, automatically reattach so the user can immediately re-run code
+	 */
 	protected onProcessEnded(event: ProcessEndedEvent) {
 		if(!event.lastDebuggerState.isBinary) {
 			//TODO: do something when attached process ends (vs launched binary)

@@ -3,11 +3,24 @@ import { Observable } from "rxjs/Observable";
 import * as d3 from 'd3';
 
 export type GraphData = {nodes: DataNode[], edges: DataEdge[]};
-export type DataNode = {id: number, data: string | null, trackedNodeValue: number | null; edgesOut: {[offset: number]: DataEdge}};
-export type DataEdge = {id: string, source: DataNode & d3.SimulationNodeDatum, target: DataNode & d3.SimulationNodeDatum};
+export type DataNode = {
+	id: number,                            // unique node id
+	data: string | null,                   // string that will be rendered inside this node
+	trackedNodeValue: number | null,       // integer denoting the order this node was accessed, if displaying tracked nodes
+	edgesOut: {[offset: number]: DataEdge} // map of references to edges leaving this node
+};
+export type DataEdge = {
+	id: string,                                //unique edge id (usually formatted as sourceId,targetId)
+	source: DataNode & d3.SimulationNodeDatum, //reference to source node (can be initialized to an id string)
+	target: DataNode & d3.SimulationNodeDatum  //reference to target node (can be initialized to an id string)
+};
 
 const targetAlpha = 0.0;
 const minAlpha = 0.001;
+
+/** Graph Display Component
+ * Draws a node graph. Supports zoom, panning, and dragging nodes.
+ */
 
 @Component({
 	selector: 'spice-graph-display',
@@ -50,13 +63,6 @@ export class GraphDisplayComponent implements OnInit, AfterViewInit, OnChanges, 
 	}
 
 	ngOnChanges(changes: SimpleChanges) {
-		//let nodes = [{id: 'a'},{id: 'b'},{id: 'c'},{id: 'd'}];
-		//let edges = [
-			//{id: 0, source: nodes[0], target: nodes[1]},
-			//{id: 1, source: nodes[1], target: nodes[2]},
-			//{id: 2, source: nodes[1], target: nodes[3]},
-			//{id: 3, source: nodes[3], target: nodes[3]}];
-		//this.data = {nodes: nodes, edges: edges};
 		this.setup();
 		this.buildSvg();
 		this.populate();
@@ -212,7 +218,6 @@ export class GraphDisplayComponent implements OnInit, AfterViewInit, OnChanges, 
 	protected onDrag(d: d3.SimulationNodeDatum) {
 		d.fx = d3.event.x;
 		d.fy = d3.event.y;
-		//this.nodeClickHandler.apply(this, arguments);
 	}
 
 	protected onDragEnd(d: d3.SimulationNodeDatum) {

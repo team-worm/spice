@@ -21,6 +21,10 @@ const port:number = 3000;
 
 declare var oboe: any;
 
+/** Debugger HTTP Service
+ * A stateless implemenation for all the HTTP protocol endpoints.
+ * It should be used by DebuggerService and DebuggerState, and not directly accessed by components.
+ */
 @Injectable()
 export class DebuggerHttpService {
 
