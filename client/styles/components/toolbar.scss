@@ -15,7 +15,13 @@
     height: 64px;
 
     .title {
+        -webkit-app-region: no-drag;
         cursor: pointer;
+    }
+    .title img {
+        width: 48px;
+        height: 48px;
+        vertical-align: middle;
     }
     .float-right {
         float: right;
