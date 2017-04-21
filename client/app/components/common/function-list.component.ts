@@ -1,7 +1,14 @@
 import {Component, Input, EventEmitter, Output} from "@angular/core";
 import { SourceFunction, SourceFunctionId } from "../../models/SourceFunction";
 import {DebuggerState} from "../../models/DebuggerState";
-import {DebuggerService} from "../../services/debugger.service";
+
+/**
+ * Function List Component
+ * Responsible for displaying a list of SourceFunctions that is passed into this component.
+ * The display of each function depends on the type and if it has a breakpoint.
+ * This component reports back when a function has been selected.
+ * Offers filtering functionality.
+ */
 
 @Component({
     selector: 'spice-function-list',

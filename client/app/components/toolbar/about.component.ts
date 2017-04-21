@@ -3,6 +3,12 @@ import {MdDialog} from "@angular/material";
 import {HelpComponent} from "./help.component";
 import {ViewService} from "../../services/view.service";
 
+/**
+ * About Component
+ * Displays some simple information about Spice and Team Worm.
+ * Contains link to the help view.
+ */
+
 @Component({
     moduleId: module.id,
     selector: 'spice-help',

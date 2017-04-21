@@ -5,9 +5,14 @@ import {StructTypeDisplay} from "./struct-type-display.component";
 import {PrimitiveTypeDisplay} from "./primitive-type-display.component";
 import {ArrayTypeDisplay} from "./array-type-display.component";
 import {FunctionTypeDisplay} from "./function-type-display.component";
-
 import { MatchMaxHeightDirective } from "../../../directives/MatchMaxHeight.directive";
 
+/**
+ * Pointer Type Display Component
+ * This component is responsible for displaying pointer SourceTypes
+ * It is generated through the Variable Display Components chain of generated variable displays.
+ * This generates an additional display component for the type/value this pointer points to.
+ */
 
 @Component({
     selector: 'spice-pointer-type-display',

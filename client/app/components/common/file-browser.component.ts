@@ -2,6 +2,13 @@ import { Component, Output, EventEmitter, Input, ElementRef } from "@angular/cor
 import { FileSystemService } from "../../services/file-system.service";
 import { SourceFile } from "../../models/SourceFile";
 
+/**
+ * File Browser Component
+ * Responsible for displaying the filesystem in the launcher view.
+ * Interacts with the File System Service to perform HTTP request.
+ * Contains a list of children File Browser Nodes that represent files.
+ */
+
 @Component({
     selector: 'spice-file-browser',
     template: `

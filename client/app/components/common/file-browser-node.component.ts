@@ -2,6 +2,15 @@ import { Component, Input, ViewChild, OnInit, EventEmitter } from "@angular/core
 import { SourceFile } from "../../models/SourceFile";
 import { FileSystemService } from "../../services/file-system.service";
 
+/**
+ * File Browser Node Component
+ * These nodes are created by either parent File Browser Node Components or the File Browser Component.
+ * They perform 3 functions:
+ *  a) Draw the name and type of file that this node represents
+ *  b) Request and create the child File Browser Node Components in the case of this node being a folder.
+ *  c) Reports back to the File Browser Component when a node has been selected.
+ */
+
 @Component({
     selector: 'spice-file-browser-node',
     template: `
