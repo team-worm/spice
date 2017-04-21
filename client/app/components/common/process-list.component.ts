@@ -40,7 +40,7 @@ export class ProcessListComponent implements OnInit {
     public elementHeightPx:number;
 
     @Output()
-    public onProcessSelected: EventEmitter<Process>;
+    public onProcessSelected: EventEmitter<Process | null>;
 
     public filterString:string;
     public processes: Process[];
@@ -60,7 +60,7 @@ export class ProcessListComponent implements OnInit {
     constructor(private debuggerService: DebuggerService,
                 public element: ElementRef) {
         let self = this;
-        this.onProcessSelected = new EventEmitter<Process>();
+        this.onProcessSelected = new EventEmitter<Process | null>();
         this.sortingOptions = [{
             name: 'Name',
             icon: 'arrow_drop_up',
@@ -88,6 +88,7 @@ export class ProcessListComponent implements OnInit {
 	}
 
 	public refreshProcessList() {
+        this.onProcessSelected.emit(null);
 		this.debuggerService.getProcesses()
 			.subscribe(
 				ps => { this.processes = ps; },

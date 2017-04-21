@@ -1,8 +1,10 @@
 import { Injectable } from "@angular/core";
 import { SourceFile } from "../models/SourceFile";
-import { Observable } from "rxjs/Observable";
 import { Http } from "@angular/http";
 import { Subscriber } from "rxjs";
+import { Observable } from "rxjs/Observable";
+import "rxjs/add/operator/retryWhen";
+import "rxjs/add/operator/timeout";
 import { InvalidServerDataError, InvalidTypeError } from "../models/Errors";
 
 
@@ -18,9 +20,15 @@ export class FileSystemService {
         this.resetFilesystem();
     }
 
-    get filesystem(): SourceFile {
-        return this._filesystem;
+    get filesystem(): SourceFile | null {
+        if(this._failedToLoad) {
+            return null;
+        } else {
+            return this._filesystem;
+        }
     }
+
+    private _failedToLoad: boolean;
 
     public resetFilesystem() {
         this._filesystem = {
@@ -31,10 +39,14 @@ export class FileSystemService {
                 contents: null
             }
         };
+        this._failedToLoad = false;
         this.http.get(`http://${host}:${port}/api/v1/filesystem/`)
+            .retryWhen(error => error.delay(500))
+            .timeout(2000)
             .subscribe((res: any) => {
-                let retSf = res.json() as SourceFile;
-                this._filesystem = retSf;
+                this._filesystem = res.json() as SourceFile;
+            }, (error) => {
+                this._failedToLoad = true;
             });
     }
 
@@ -56,7 +68,6 @@ export class FileSystemService {
                 })
 
             }
-
 
             for (let i = 1; i < parts.length; i++) {
 
@@ -96,6 +107,8 @@ export class FileSystemService {
         let path = file.path.charAt(file.path.length - 1) === '/' ? file.path : file.path + '/';
 
         this.http.get(`http://${host}:${port}/api/v1/filesystem/${path}`)
+            .retryWhen(error => error.delay(500))
+            .timeout(2000)
             .subscribe((res: any) => {
 
                 let retSf = res.json() as SourceFile;

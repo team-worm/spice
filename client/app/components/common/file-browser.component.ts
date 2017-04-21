@@ -14,6 +14,7 @@ import { SourceFile } from "../../models/SourceFile";
         <md-input-container fxFlex="25"> 
             <input mdInput placeholder="Filter Files" (keyup)="FilterNameKeyDown($event)"/>
         </md-input-container>
+        <button md-button title="refresh filesystem" (click)="ResetFileSystem()"><md-icon>refresh</md-icon></button>
     </div>
     
     <div class="file-list" [style.height.px]="elementHeightPx - 60">
@@ -24,7 +25,7 @@ import { SourceFile } from "../../models/SourceFile";
                 [selectedFileRef]="selectedFileRef" 
                 [customPath]="customPath"
                 [onSelected]="GetOnSelected()"
-[onDoubleClickFile]="GetOnDoubleClickFile()"
+                [onDoubleClickFile]="GetOnDoubleClickFile()"
                 [filterNameChangeEmitter]="filterNameChangeEmitter"></spice-file-browser-node>
         </md-list>
     </div>
@@ -33,24 +34,19 @@ import { SourceFile } from "../../models/SourceFile";
 })
 export class FileBrowserComponent {
 
-    public selectedFileRef: {
-        file: SourceFile | null
-    };
-
     @Input()
     public elementHeightPx: number;
 
     @Output()
-    public onFileSelected: EventEmitter<SourceFile>;
+    public onFileSelected: EventEmitter<SourceFile | null>;
 
     @Output()
     public onDoubleClickFile: EventEmitter<SourceFile>;
 
     public filterNameChangeEmitter: EventEmitter<string>;
-
     public customPath: string;
-
-    public filterName: string; //TODO: Finish implementing this;
+    public selectedFileRef: { file: SourceFile | null };
+    public filterName: string;
 
     constructor(public FSS: FileSystemService,
         public element: ElementRef) {
@@ -59,7 +55,7 @@ export class FileBrowserComponent {
         };
         this.customPath = '';
         this.elementHeightPx = 0;
-        this.onFileSelected = new EventEmitter<SourceFile>();
+        this.onFileSelected = new EventEmitter<SourceFile | null>();
         this.onDoubleClickFile = new EventEmitter<SourceFile>();
         this.filterNameChangeEmitter = new EventEmitter<string>();
     }
@@ -91,13 +87,18 @@ export class FileBrowserComponent {
         this.filterNameChangeEmitter.emit((<HTMLInputElement>$event.srcElement).value.toLowerCase());
     }
 
+    public ResetFileSystem() {
+        this.customPath = '';
+        this.filterName = '';
+        this.selectedFileRef.file = null;
+        this.onFileSelected.emit(null);
+        this.FSS.resetFilesystem();
+    }
+
     private loadFilterPath(path: string) {
         this.customPath = path;
 
-        this.FSS.getUpToPath(this.customPath).subscribe((sf: SourceFile) => { }, (err: any) => {
-            /* TODO: Determine if this is an error or not */
-            //console.error('Error loading Custom Path.', err);
-        });
+        this.FSS.getUpToPath(this.customPath).subscribe((sf: SourceFile) => { }, (err: any) => {});
     }
 
 

@@ -1,21 +1,22 @@
-import { Component, Input, ViewChild, ElementRef, OnInit, Output, EventEmitter } from "@angular/core";
+import { Component, Input, ViewChild, OnInit, EventEmitter } from "@angular/core";
 import { SourceFile } from "../../models/SourceFile";
 import { FileSystemService } from "../../services/file-system.service";
-import { SourceFunction } from "../../models/SourceFunction";
+
 @Component({
     selector: 'spice-file-browser-node',
     template: `
 <md-list-item #ListItemElement 
     class="file-system-node" 
     *ngIf="!filtered && !IsRootContainer()"
-    (click)="Clicked()"
-(dblclick)="DoubleClicked()" 
+    (click)="Clicked()" (dblclick)="DoubleClicked()" 
     [ngClass]="{'selected': !!file && selectedFileRef.file === file, 'searched': inCustomPath()}"
     [style.paddingLeft]="(this.fileDepth*1.5) + 'em'">
-    <md-icon md-list-avatar class="file-icon" *ngIf="!!file" >{{IconName()}}</md-icon>
-    <md-progress-spinner md-list-avatar *ngIf="!file" mode="indeterminate"></md-progress-spinner>
+    <md-icon md-list-avatar class="file-icon">{{IconName()}}</md-icon>
+    <md-progress-spinner md-list-avatar *ngIf="file === undefined" mode="indeterminate"></md-progress-spinner>
     <p md-line class="file-header">{{FileHead()}}</p>
 </md-list-item>
+<span *ngIf="IsRootContainer() && file === null"><md-icon>{{IconName()}}</md-icon> {{FileHead()}}</span>
+
 <span *ngIf="IsFolder()" [style.display]="IsExpanded() ? 'inherit' : 'none'" >
     <md-divider class="divider-spacing"></md-divider>
     <span *ngIf="FileHasContents()">
@@ -23,8 +24,8 @@ import { SourceFunction } from "../../models/SourceFunction";
          [file]="f" 
          [fileDepth]="fileDepth + 1" 
          [selectedFileRef]="selectedFileRef" 
-         [onSelected]="onSelected"
-[onDoubleClickFile]="onDoubleClickFile"
+         [onSelected]="onSelected" 
+         [onDoubleClickFile]="onDoubleClickFile"
          [customPath]="customPath"
          [filterNameChangeEmitter]="filterNameChangeEmitter"></spice-file-browser-node>
     </span>
@@ -34,7 +35,7 @@ import { SourceFunction } from "../../models/SourceFunction";
 })
 export class FileBrowserNodeComponent implements OnInit {
     @Input()
-    public file: SourceFile | null;
+    public file: SourceFile | null | undefined;
     @Input()
     public fileDepth: number;
     @Input()
@@ -109,13 +110,18 @@ export class FileBrowserNodeComponent implements OnInit {
                 return 'error_outline';
             }
         }
+        if (this.file === null) {
+            return 'error'
+        }
         return '';
     }
     public FileHead(): string {
         if (!!this.file) {
             return this.file.name;
-        } else {
+        } else if(this.file === undefined) {
             return 'Loading...'
+        } else {
+            return 'error loading file'
         }
     }
     public Clicked() {

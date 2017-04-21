@@ -82,7 +82,7 @@ export class LauncherComponent implements AfterContentChecked {
         }
     }
 
-    public OnFileSelected($event:SourceFile) {
+    public OnFileSelected($event:SourceFile | null) {
         this.selectedFileOrProcess = $event;
         this.processList.ResetSelectedProcess();
     }
@@ -91,7 +91,7 @@ export class LauncherComponent implements AfterContentChecked {
         this.processList.ResetSelectedProcess();
         this.Attach();
     }
-    public OnProcessSelected($event:Process) {
+    public OnProcessSelected($event:Process | null) {
         this.selectedFileOrProcess = $event;
         this.fileBrowser.ResetSelectedFile();
     }

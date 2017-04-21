@@ -1,5 +1,4 @@
 import {Component, QueryList, ViewChild, ViewChildren} from "@angular/core";
-import { DebuggerState } from "../../models/DebuggerState";
 import { Execution, ExecutionId, FunctionData } from "../../models/Execution";
 import { Trace, LineData } from "../../models/Trace";
 import { Observable } from "rxjs/Observable";
@@ -12,11 +11,11 @@ import { LineGraphComponent, DataXY } from "../common/line-graph.component";
 import { SourceVariableId } from "../../models/SourceVariable";
 import { Subscriber } from "rxjs/Subscriber";
 import { LoopData, TraceGroup } from "./trace-loop.component";
-import { DebuggerService, ExecutionEvent, PreCallFunctionEvent, DisplayTraceEvent, ProcessEndedEvent, DetachEvent, AttachEvent } from "../../services/debugger.service";
+import { DebuggerService, ExecutionEvent, PreCallFunctionEvent, DisplayTraceEvent, AttachEvent } from "../../services/debugger.service";
 import {VariableDisplayComponent} from "../common/variable-display/variable-display.component";
 import * as Prism from 'prismjs';
 import { GraphDisplayComponent, GraphData, DataNode, DataEdge } from "../common/graph-display.component";
-import { SourceType, Field } from "../../models/SourceType";
+import { SourceType } from "../../models/SourceType";
 import { StructValue, Value, PointerValue } from "../../models/Value";
 import {MatchMaxHeightDirective} from "../../directives/MatchMaxHeight.directive";
 
@@ -51,7 +50,7 @@ export class DebuggerComponent {
 	public nodeGraphTrackedNode: SourceVariableId | null = null;
 
 	public currentExecution: Execution | null = null;
-	public currentSess: number;
+	public currentSession: number;
 
 	public pointerTypes:{[address:number]:{type: SourceType, name:string}} = {};
 	public pointerValues: { [sVariable: number]: Value} = {};
@@ -100,9 +99,9 @@ export class DebuggerComponent {
 		}
 		this.currentExecution = execution;
 		if (!sessId) {
-			this.currentSess = this.debuggerService.currentDebuggerState!.info.id;
+			this.currentSession = this.debuggerService.currentDebuggerState!.info.id;
 		} else {
-			this.currentSess = sessId;
+			this.currentSession = sessId;
 		}
 		this.debuggerService.currentDebuggerState!.ensureSourceFunctions([execution.data.sFunction])
 			.mergeMap((sfMap: Map<SourceFunctionId, SourceFunction>) => {
@@ -239,8 +238,8 @@ export class DebuggerComponent {
     public GetFunctionAsString(): string {
 		if (!this.sourceFunction) {
 			return 'No Function Selected';
-		} else if (this.debuggerService.debuggerStates.get(this.currentSess)) {
-			let stMap = this.debuggerService.debuggerStates.get(this.currentSess) !.sourceTypes;
+		} else if (this.debuggerService.debuggerStates.get(this.currentSession)) {
+			let stMap = this.debuggerService.debuggerStates.get(this.currentSession) !.sourceTypes;
 			const parameters = this.sourceFunction.parameters
                 .map(parameter => stMap.get(parameter.sType)
 				&& `${stMap.get(parameter.sType) !.toString(stMap)} ${parameter.name}`)
@@ -322,15 +321,6 @@ export class DebuggerComponent {
 				return this.getBaseType(this.debuggerService.currentDebuggerState!.sourceTypes.get(sourceType.data.sType)!);
 		}
 	}
-
-	//public getBaseValue(id: SourceVariableId, value: Value) {
-		//let sourceType = this.getVariableType(id);
-		//if(sourceType.data.tType === 'pointer') {
-			//return this.getBaseValue((value as PointerValue).
-		//}
-
-		//return value;
-	//}
 
 	public toggleNodeGraphFieldIndex(i: number) {
 		if(this.nodeGraphFieldOffsets.has(i)) {
