@@ -1,9 +1,7 @@
 import {Component, Input, OnInit, ViewChild} from "@angular/core";
 import {SourceType, SourceTypeId} from "../../../models/SourceType";
 import {Value} from "../../../models/Value";
-import {StructTypeDisplay} from "./struct-type-display.component";
 import {PrimitiveTypeDisplay} from "./primitive-type-display.component";
-import {ArrayTypeDisplay} from "./array-type-display.component";
 import {FunctionTypeDisplay} from "./function-type-display.component";
 import { MatchMaxHeightDirective } from "../../../directives/MatchMaxHeight.directive";
 
@@ -96,11 +94,11 @@ export class PointerTypeDisplay implements OnInit {
     public types:Map<SourceTypeId, SourceType>;
 
     @ViewChild('struct')
-    private structDisplay: StructTypeDisplay;
+    private structDisplay: any;
     @ViewChild(PrimitiveTypeDisplay)
     private primitiveDisplay: PrimitiveTypeDisplay;
     @ViewChild('array')
-    private arrayDisplay: ArrayTypeDisplay;
+    private arrayDisplay: any;
     @ViewChild(PointerTypeDisplay)
     private pointerDisplay: PointerTypeDisplay;
     @ViewChild(FunctionTypeDisplay)
