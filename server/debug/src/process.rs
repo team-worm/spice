@@ -78,7 +78,11 @@ impl Child {
 
     pub fn attach(pid: u32) -> io::Result<Child> {
         unsafe {
-            let access = winapi::PROCESS_VM_READ | winapi::PROCESS_QUERY_INFORMATION;
+            let access =
+                winapi::PROCESS_VM_OPERATION |
+                winapi::PROCESS_VM_READ |
+                winapi::PROCESS_VM_WRITE |
+                winapi::PROCESS_QUERY_INFORMATION;
             let process = kernel32::OpenProcess(access, winapi::TRUE, pid);
             if process == ptr::null_mut() {
                 return Err(io::Error::last_os_error());
