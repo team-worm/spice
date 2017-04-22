@@ -1,3 +1,10 @@
+///! This module implements the core debug loop.
+///!
+///! It runs on its own thread, which is the only thread the Win32 API allows to call its debugging
+///! APIs. It is generally in one of two states:
+///! - Waiting for commands or queries, with the target process paused
+///! - Streaming an execution trace, while the target process runs
+
 use std::{io, mem};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, ATOMIC_USIZE_INIT, Ordering};
@@ -15,6 +22,11 @@ use trace::*;
 use value;
 use api;
 
+/// An interface from the outside world into the debug thread.
+///
+/// There are two methods of communicating with the debug thread- sending `ServerMessage`s over
+/// this channel, or injecting a cancellation breakpoint through the `debug::Cancel` object sent in
+/// `DebugMessage::Attached`.
 pub struct Thread {
     pub session: usize,
 
@@ -26,12 +38,15 @@ pub struct Thread {
     pub id: i32,
 }
 
+/// The state of a running target process can be one of two things:
+/// - Untraced, normally about to hit a function-level breakpoint
+/// - Traced, running through a function (or its children) instrumented with per-line breakpoints
 pub enum Execution {
     Process,
     Function(usize),
 }
 
-/// messages the debug event loop sends to the server
+/// Messages from the debug thread in response to commands and queries from the server threads
 pub enum DebugMessage {
     Attached(debug::Cancel),
     Functions(Vec<api::Function>),
@@ -45,6 +60,7 @@ pub enum DebugMessage {
     Error(io::Error),
 }
 
+/// Events that occur while the target process is running
 pub enum DebugTrace {
     Line(u32, HashMap<usize, api::Value>),
     Call(u32, usize),
@@ -56,7 +72,7 @@ pub enum DebugTrace {
     Crash(String),
 }
 
-/// messages the server sends to the debug event loop to request info
+/// Messages from the server threads to the debug thread representing commands and queries
 pub enum ServerMessage {
     ListFunctions,
     DescribeFunction { address: usize },
@@ -75,6 +91,7 @@ lazy_static! {
 }
 
 impl Thread {
+    /// Start a new debug thread by launching a binary
     pub fn launch(path: PathBuf) -> (Thread, Arc<AtomicBool>) {
         Thread::spawn(move |debug_tx, server_rx, cancel| {
             let child = debug::Command::new(&path)
@@ -85,6 +102,7 @@ impl Thread {
         })
     }
 
+    /// Start a new debug thread by attaching to a running process
     pub fn attach(pid: u32) -> (Thread, Arc<AtomicBool>) {
         Thread::spawn(move |debug_tx, server_rx, cancel| {
             let child = debug::Child::attach(pid)?;
@@ -129,6 +147,10 @@ impl Thread {
     }
 }
 
+/// State shared across recursive invocations of `trace_function` by multiple `TraceGuard`s.
+/// It thus must be accessed via immutable reference, unlike `DebugState`.
+///
+/// `BreakpointSet` has interior mutability for enabling and disabling breakpoints.
 struct TargetState {
     child: debug::Child,
     symbols: debug::SymbolHandler,
@@ -138,6 +160,11 @@ struct TargetState {
     traces: HashMap<usize, BreakpointSet>,
 }
 
+/// State accessed by mutable reference, mostly from `trace_default`, unlike `TargetState`.
+///
+/// A common pattern in this module is to store a debug event in this object's `event` field while
+/// performing a sequence of operations that can fail. That way, the event is not lost and other
+/// operations can be attempted.
 struct DebugState {
     threads: HashMap<winapi::DWORD, RawHandle>,
     execution: Option<ExecutionState>,
@@ -145,6 +172,8 @@ struct DebugState {
     last_call: Option<usize>,
 }
 
+/// The internal dual of `Execution`, `ExecutionState` holds the state necessary to detect function
+/// trace completion.
 enum ExecutionState {
     Process,
 
@@ -158,6 +187,9 @@ enum ExecutionState {
     },
 }
 
+/// The main debug thread flow.
+///
+/// Runs the target process up to its entry point, then begins processing commands and queries.
 fn run(
     child: debug::Child, tx: SyncSender<DebugMessage>, rx: Receiver<ServerMessage>,
     cancel: Arc<AtomicBool>, launch: bool
@@ -203,6 +235,10 @@ fn run(
         panic!("got another debug event before CreateProcess");
     };
 
+    // Before any function calls can be made, the target process must load and initialize all DLLs.
+    // This runs past the ntdll built-in "attach" breakpoint, to our own breakpoint set at the
+    // process entry point.
+
     let breakpoint = if launch { Some(target.child.set_breakpoint(start_address)?) } else { None };
     let thread;
     loop {
@@ -226,6 +262,8 @@ fn run(
         event = state.event.take().unwrap();
     }
 
+    // restore the instruction pointer to the entry point
+
     if let Some(breakpoint) = breakpoint {
         let mut context = debug::get_thread_context(thread, winapi::CONTEXT_FULL)?;
 
@@ -236,6 +274,8 @@ fn run(
     }
 
     tx.send(DebugMessage::Attached(target.child.get_cancel())).unwrap();
+
+    // main message loop
 
     let mut breakpoint_added = false;
     loop {
@@ -381,6 +421,12 @@ fn describe_function(target: &TargetState, address: usize) -> io::Result<api::Fu
         true
     })?;
 
+    // TODO: this is kind of a hack, which may be neccessary because of what debug info exposes.
+    // we enumerate locals at each line of code, in order to collect everything, including nested
+    // block scopes.
+    //
+    // this may be buggy in the presence of code that adjusts the stack pointer mid-function, as
+    // that would change the offsets of the locals, which we use to identify them.
     let mut locals = HashMap::new();
     for line in symbols.lines_from_symbol(&function)? {
         symbols.enumerate_locals(line.address, |symbol, _| {
@@ -469,6 +515,7 @@ fn set_breakpoint(target: &mut TargetState, address: usize) -> io::Result<()> {
         return Err(io::Error::new(io::ErrorKind::NotFound, "no such function"));
     }
 
+    // don't double-set breakpoints; that loses the original instruction fragment being overwritten
     if breakpoints.contains_key(&address) {
         return Ok(());
     }
@@ -599,6 +646,8 @@ fn call_function(
     Ok(())
 }
 
+/// Higher-level events as detected by `trace_default`
+/// `run`, `trace_process`, and `trace_function` react to them differently
 enum TraceEvent {
     Attach(RawHandle, usize),
     Call(ExecutionState),
@@ -705,6 +754,9 @@ fn trace_function(
             }
 
             // function return breakpoint
+            //
+            // may not actually be a return- recursive functions' return addresses are within
+            // their bodies. we also need to check the stack pointer to detect return.
 
             Exception { first_chance: true, code: winapi::EXCEPTION_BREAKPOINT, address } if
                 state.threads[&event.thread_id] == thread && address == exit && ret.is_some()
@@ -804,6 +856,8 @@ fn trace_function(
             }
         }
 
+        // after cancellation is signalled, wait to return until all single-step events have
+        // completed, re-enabling all per-line breakpoints
         if cancelled && last_breakpoint.is_none() && state.last_call.is_none() {
             state.event = Some(event);
 
@@ -819,6 +873,9 @@ fn trace_function(
     }
 }
 
+/// Event handlers shared between `run`'s startup code, `trace_process`, and `trace_function`.
+///
+/// Expects `state.event` to contain the last debug event
 fn trace_default(
     target: &TargetState, state: &mut DebugState,
     tx: &SyncSender<DebugMessage>, cancel: &AtomicBool,
@@ -928,6 +985,9 @@ fn trace_default(
         }
 
         // cancellation
+        //
+        // by this point, we are sure the breakpoint did not happen on the current thread
+        // if `cancel` is set, a server thread must have injected it
 
         Exception { first_chance: true, code: winapi::EXCEPTION_BREAKPOINT, .. } if
             cancel.load(Ordering::Relaxed)

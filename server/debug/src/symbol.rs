@@ -79,6 +79,7 @@ impl SymbolHandler {
         }
     }
 
+    /// Find the module containing the given address
     pub fn module_from_address(&self, address: usize) -> io::Result<usize> {
         unsafe {
             let mut module = winapi::IMAGEHLP_MODULEW64 {
@@ -95,7 +96,7 @@ impl SymbolHandler {
         }
     }
 
-    /// Retrieve the symbol and byte offset of an address
+    /// Retrieve the symbol and byte offset into that symbol of an address
     pub fn symbol_from_address(&self, address: usize) -> io::Result<(Symbol, usize)> {
         unsafe {
             let mut displacement = 0;
@@ -182,6 +183,7 @@ impl SymbolHandler {
         }
     }
 
+    /// Convert a type index into its symbolic representation
     pub fn type_from_index(&self, module: usize, type_index: u32) -> io::Result<Type> {
         let tag: winapi::SymTag = self.get_type_info(module, type_index)?;
         if tag == winapi::SymTagBaseType {
@@ -252,6 +254,7 @@ impl SymbolHandler {
         }
     }
 
+    /// Polymorphic function to retrieve a symbol property. See the `DebugProperty` trait.
     fn get_type_info<T: DebugProperty>(&self, module: usize, index: u32) -> io::Result<T> {
         unsafe {
             let mut property: T = mem::uninitialized();
@@ -266,6 +269,7 @@ impl SymbolHandler {
         }
     }
 
+    /// Wrapper around `get_type_info` that handles string allocation.
     fn get_type_name(&self, module: usize, index: u32) -> io::Result<OsString> {
         unsafe {
             let TypeName(name_wide) = self.get_type_info(module, index)?;
@@ -276,6 +280,7 @@ impl SymbolHandler {
         }
     }
 
+    /// Retrieve the children of a type- struct fields, nested types, etc.
     fn get_type_children(&self, module: usize, index: u32) -> io::Result<Vec<u32>> {
         let TypeChildren(count) = self.get_type_info(module, index)?;
 

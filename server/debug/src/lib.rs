@@ -1,6 +1,12 @@
 #![feature(optin_builtin_traits)]
 #![feature(associated_consts)]
 
+///! # Spice debug library
+///!
+///! This crate should contain (but does not, yet) all the platform-specific debugging code used by
+///! Spice. It should be possible to port Spice to another platform solely by providing another
+///! implementation of this code.
+
 extern crate winapi;
 extern crate kernel32;
 extern crate dbghelp;

@@ -6,6 +6,12 @@ use debug;
 
 pub type BreakpointSet = HashMap<usize, RefCell<Option<debug::Breakpoint>>>;
 
+/// A set of per-line breakpoints that may need to be removed as part of error recovery.
+///
+/// The first `TraceGuard` to call `enable_all` becomes the owner of the breakpoints. Further
+/// instances (from recursive executions of the same function) do not own the breakpoints.
+///
+/// Only the owner removes the breakpoints, thus leaving them active until the last user is done.
 pub struct TraceGuard<'c, 'b> {
     child: &'c debug::Child,
     breakpoints: &'b BreakpointSet,
@@ -52,8 +58,11 @@ impl<'c, 'b> Drop for TraceGuard<'c, 'b> {
     }
 }
 
+/// A single breakpoint that needs to be removed as part of error recovery.
 pub struct BreakpointGuard<'a> {
     child: &'a debug::Child,
+
+    // `breakpoint` is never `None`, it is only this way to handle the `Drop` implementation
     breakpoint: Option<debug::Breakpoint>,
 }
 

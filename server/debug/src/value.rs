@@ -3,6 +3,10 @@ use {Child, SymbolHandler, Symbol, Context, Type, Primitive, Field, AsBytes};
 
 use winapi;
 
+/// A byte buffer and its type, which describes how to interpret it.
+///
+/// Either taken from the address space of the target program, or
+/// intended to be written to the address space of the target program.
 pub struct Value {
     pub data: Vec<u8>,
     pub data_type: Type,
@@ -14,6 +18,7 @@ impl Value {
         Value { data: data.as_bytes().into(), data_type: data_type, module: 0 }
     }
 
+    /// Read a value from an absolute address.
     pub fn read_pointer(
         child: &Child, symbols: &SymbolHandler, address: usize, module: usize, type_index: u32
     ) -> io::Result<Value> {
@@ -25,6 +30,7 @@ impl Value {
         Ok(Value { data, data_type, module })
     }
 
+    /// Read a value via a symbol, which can be a function local or argument.
     pub fn read_symbol(
         child: &Child, context: &Context, symbols: &SymbolHandler, symbol: &Symbol
     ) -> io::Result<Value> {
@@ -57,6 +63,7 @@ impl Value {
         Ok(Value { data, data_type, module })
     }
 
+    /// Read a value that was returned from a function.
     pub fn read_return(
         child: &Child, context: &winapi::CONTEXT, symbols: &SymbolHandler, data_type: Type
     ) -> io::Result<Value> {

@@ -1,3 +1,13 @@
+///! # Spice server
+///!
+///! The spice server has two main parts.
+///!
+///! This file implements the HTTP protocol to the frontend; it does not implement any debug logic.
+///! It does track the various IDs used by the protocol to refer to sessions, executions, etc.
+///!
+///! It sends messages to another thread implemented in `child.rs`, which implements high-level
+///! debugger flow. Low-level (and ideally platform-specific) code goes in the `debug` crate.
+
 extern crate hyper;
 extern crate unicase;
 extern crate reroute;
@@ -36,9 +46,15 @@ mod trace;
 mod value;
 mod api;
 
+/// The HTTP server is multithreaded, and thus shares access to the debug thread via an
+/// `Arc<Mutex<T>>`
 type ChildThread = Arc<Mutex<Option<child::Thread>>>;
 type ChildCancel = Arc<Mutex<Option<Cancel>>>;
 
+/// The `child::Thread` lock is held during a trace, so this side channel is used to signal for
+/// cancellation.
+///
+/// First set `flag`, *then* inject an otherwise-unexpected breakpoint via `cancel`.
 struct Cancel {
     cancel: debug::Cancel,
     flag: Arc<AtomicBool>,
@@ -266,6 +282,8 @@ fn main() {
         }.unwrap();
     });
 
+    // CORS compatible header generation
+
     router.options(r".*", move |_, mut res, _| {
         {
             use hyper::header::*;
@@ -292,7 +310,10 @@ fn main() {
     server.handle(router).unwrap();
 }
 
+/// Send a successful JSON response to the client
 fn send(mut req: Request, mut res: Response, body: &[u8]) -> io::Result<()> {
+    // to work around a bug in Hyper, read (and ignore) all of the remaining request body
+    // https://github.com/hyperium/hyper/issues/309
     io::copy(&mut req, &mut io::sink()).unwrap();
 
     {
@@ -306,6 +327,7 @@ fn send(mut req: Request, mut res: Response, body: &[u8]) -> io::Result<()> {
     res.send(body)
 }
 
+/// Send JSON error messages to the client
 fn send_error(req: Request, mut res: Response, error: io::Error) -> io::Result<()> {
     *res.status_mut() = status_from_error(error.kind());
 
@@ -324,7 +346,8 @@ fn status_from_error(error: io::ErrorKind) -> StatusCode {
     }
 }
 
-/// GET /processes -- gets the list of processes running on the host machine
+/// GET /processes
+/// Gets the list of processes running on the host machine
 fn processes(_: Captures) -> io::Result<Vec<u8>> {
     let procs: Vec<_> = debug::Process::running()?
         .map(|debug::Process { id, name }| api::Process {
@@ -336,7 +359,8 @@ fn processes(_: Captures) -> io::Result<Vec<u8>> {
     Ok(serde_json::to_vec(&procs).unwrap())
 }
 
-/// GET /filesystem/:path* -- gets the file(s) within the given path
+/// GET /filesystem/:path*
+/// Gets the file(s) within the given path
 fn filesystem(caps: Captures) -> io::Result<Vec<u8>> {
     let caps = caps.unwrap();
     let path = url::percent_encoding::percent_decode(caps[1].as_bytes());
@@ -404,6 +428,7 @@ fn filesystem(caps: Captures) -> io::Result<Vec<u8>> {
 }
 
 /// GET /file/:path*
+/// Get the contents of a file
 fn file(mut req: Request, mut res: Response, caps: Captures) {
     let caps = caps.unwrap();
     let path = url::percent_encoding::percent_decode(caps[1].as_bytes());
@@ -437,7 +462,8 @@ fn file(mut req: Request, mut res: Response, caps: Captures) {
     }
 }
 
-/// POST /debug/attach/pid/:pid -- attach to a running process
+/// POST /debug/attach/pid/:pid
+/// attach to a running process
 fn debug_attach_pid(caps: Captures, child: ChildThread, cancel: ChildCancel) -> io::Result<Vec<u8>> {
     let caps = caps.unwrap();
     let pid = caps[1].parse::<u32>()
@@ -475,7 +501,8 @@ fn debug_attach_pid(caps: Captures, child: ChildThread, cancel: ChildCancel) -> 
     Ok(serde_json::to_vec(&message).unwrap())
 }
 
-/// POST /debug/attach/bin/:path -- attach to a binary
+/// POST /debug/attach/bin/:path
+/// attach to a binary
 fn debug_attach_bin(caps: Captures, child: ChildThread, cancel: ChildCancel) -> io::Result<Vec<u8>> {
     let caps = caps.unwrap();
     let path = url::percent_encoding::percent_decode(caps[1].as_bytes());
@@ -515,12 +542,14 @@ fn debug_attach_bin(caps: Captures, child: ChildThread, cancel: ChildCancel) -> 
 }
 
 /// GET /debug
+/// Returns information about the current debug session
 fn debug(req: Request, mut res: Response, _: Captures, _child: ChildThread) {
     *res.status_mut() = StatusCode::NotImplemented;
     send(req, res, b"").unwrap();
 }
 
 /// POST /debug/:id/kill
+/// Kills the running proceses and detaches the debugger.  Invalidates this `debugId`
 fn debug_kill(caps: Captures, child: ChildThread, cancel: ChildCancel) -> io::Result<Vec<u8>> {
     let caps = caps.unwrap();
     let debug_id = caps[1].parse::<usize>()
@@ -543,7 +572,8 @@ fn debug_kill(caps: Captures, child: ChildThread, cancel: ChildCancel) -> io::Re
     Ok(vec![])
 }
 
-/// GET /debug/:id/functions -- return a list of debuggable functions
+/// GET /debug/:id/functions
+/// return a list of debuggable functions in the attached process
 fn debug_functions(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
     let caps = caps.unwrap();
     let debug_id = caps[1].parse::<usize>()
@@ -566,6 +596,7 @@ fn debug_functions(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
 }
 
 /// GET /debug/:id/functions/:function
+/// Returns information about the function, including source file path and input parameter types
 fn debug_function(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
     let caps = caps.unwrap();
     let debug_id = caps[1].parse::<usize>()
@@ -590,6 +621,7 @@ fn debug_function(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
 }
 
 /// GET /debug/:id/types?ids=:id,:id,:id,...
+/// List type definitions
 fn debug_types(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
     let caps = caps.unwrap();
     let debug_id = caps[1].parse::<usize>()
@@ -614,6 +646,7 @@ fn debug_types(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
 }
 
 /// GET /debug/:id/breakpoints
+/// List breakpoints
 fn debug_breakpoints(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
     let caps = caps.unwrap();
     let debug_id = caps[1].parse::<usize>()
@@ -640,6 +673,7 @@ fn debug_breakpoints(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> 
 }
 
 /// PUT /debug/:id/breakpoints/:function
+/// Sets a breakpoint on this function
 fn debug_breakpoint_put(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
     let caps = caps.unwrap();
     let debug_id = caps[1].parse::<usize>()
@@ -666,6 +700,7 @@ fn debug_breakpoint_put(caps: Captures, child: ChildThread) -> io::Result<Vec<u8
 }
 
 /// DELETE /debug/:id/breakpoints/:function
+/// Removes breakpoint on this function
 fn debug_breakpoint_delete(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
     let caps = caps.unwrap();
     let debug_id = caps[1].parse::<usize>()
@@ -691,6 +726,7 @@ fn debug_breakpoint_delete(caps: Captures, child: ChildThread) -> io::Result<Vec
 }
 
 /// POST /debug/:id/execute
+/// Launches the process if it is not running or continues execution until the next breakpoint
 fn debug_execute(caps: Captures, _body: api::Launch, child: ChildThread) -> io::Result<Vec<u8>> {
     let caps = caps.unwrap();
     let debug_id = caps[1].parse::<usize>()
@@ -716,6 +752,7 @@ fn debug_execute(caps: Captures, _body: api::Launch, child: ChildThread) -> io::
 }
 
 /// POST /debug/:id/functions/:function/execute
+/// Calls the function
 fn debug_function_execute(caps: Captures, body: api::Call, child: ChildThread) -> io::Result<Vec<u8>> {
     let caps = caps.unwrap();
     let debug_id = caps[1].parse::<usize>()
@@ -745,6 +782,7 @@ fn debug_function_execute(caps: Captures, body: api::Call, child: ChildThread) -
 }
 
 /// POST /debug/:id/executions
+/// Get a list of active executions.  There is only ever one at a time.
 fn debug_executions(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
     let caps = caps.unwrap();
     let debug_id = caps[1].parse::<usize>()
@@ -767,6 +805,7 @@ fn debug_executions(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
 }
 
 /// GET /debug/:id/executions/:execution
+/// Get information about an execution status
 fn debug_execution(caps: Captures, child: ChildThread) -> io::Result<Vec<u8>> {
     let caps = caps.unwrap();
     let debug_id = caps[1].parse::<usize>()
@@ -802,6 +841,7 @@ impl<'a> From<&'a child::Execution> for api::ExecutionData {
 }
 
 /// GET /debug/:id/executions/:execution/trace
+/// Get trace data for the execution
 fn debug_execution_trace(caps: Captures, child: &child::Thread) -> io::Result<i32> {
     let caps = caps.unwrap();
     let debug_id = caps[1].parse::<usize>()
@@ -819,6 +859,7 @@ fn debug_execution_trace(caps: Captures, child: &child::Thread) -> io::Result<i3
     }
 }
 
+/// Stream function or process trace data to the client as it's generated
 fn trace_stream(res: &mut Response<Streaming>, child: &mut child::Thread) -> io::Result<bool> {
     child.tx.send(ServerMessage::Trace).unwrap();
 
@@ -925,7 +966,8 @@ fn trace_stream(res: &mut Response<Streaming>, child: &mut child::Thread) -> io:
     Ok(terminated)
 }
 
-/// POST /debug/:id/executions/:execution/stop -- Halts a running execution
+/// POST /debug/:id/executions/:execution/stop
+/// Halts a running execution
 fn debug_execution_stop(caps: Captures, cancel: ChildCancel) -> io::Result<Vec<u8>> {
     let caps = caps.unwrap();
     let _debug_id = caps[1].parse::<usize>()

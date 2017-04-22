@@ -1,3 +1,5 @@
+///! See `docs/api/v1.md` for how these types are used.
+
 use std::collections::HashMap;
 
 #[derive(Deserialize)]
