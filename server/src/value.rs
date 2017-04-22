@@ -3,6 +3,9 @@ use std::collections::{HashMap, VecDeque};
 use debug::{self, SymbolHandler};
 use api;
 
+/// Convert a byte buffer and its type into an `api::Value` and a list of pointers it contains
+///
+/// The inverse of `api::Value::into_value`.
 pub fn parse(
     value: &debug::Value, symbols: &SymbolHandler,
     pointers: &mut VecDeque<(usize, u32)>
@@ -89,6 +92,7 @@ fn parse_bytes(
     }
 }
 
+/// Drain the pointer worklist built by `parse`/`parse_bytes` to build a graph of `api::Value`s
 pub fn trace_pointers(
     child: &debug::Child, symbols: &debug::SymbolHandler, module: usize, base: usize,
     pointers: &mut VecDeque<(usize, u32)>, values: &mut HashMap<usize, api::Value>
@@ -119,6 +123,10 @@ pub fn trace_pointers(
 }
 
 impl debug::IntoValue for api::Value {
+    /// Convert an `api::Value` into a byte buffer, its type, and a list of pointers that need to
+    /// be fixed up.
+    ///
+    /// The inverse of `parse` and `trace_pointers`
     fn into_value(
         self, data_type: debug::Type, module: usize, symbols: &debug::SymbolHandler,
         value_offset: usize, offsets: &mut HashMap<usize, usize>,

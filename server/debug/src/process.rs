@@ -50,6 +50,7 @@ impl Child {
         }
     }
 
+    /// Save the first byte of an instruction and replace it with `int3`
     pub fn set_breakpoint(&self, address: usize) -> io::Result<Breakpoint> {
         let mut saved = [0u8; 1];
         self.read_memory(address, &mut saved)?;
@@ -57,6 +58,7 @@ impl Child {
         Ok(Breakpoint { address, saved })
     }
 
+    /// Restore an instruction that has been replaced with `int3`
     pub fn remove_breakpoint(&self, breakpoint: Breakpoint) -> io::Result<()> {
         self.write_memory(breakpoint.address, &breakpoint.saved)?;
         Ok(())
@@ -76,6 +78,7 @@ impl Child {
         Cancel(self.0)
     }
 
+    /// Attach to a running process with the permissions required for debugging.
     pub fn attach(pid: u32) -> io::Result<Child> {
         unsafe {
             let access =
@@ -142,6 +145,8 @@ impl IntoRawHandle for Child {
 }
 
 impl Cancel {
+    /// Inject a breakpoint into the target process.
+    /// The debugger can distinguish this from another breakpoint because it's on another thread.
     pub fn trigger_breakpoint(&self) -> io::Result<()> {
         unsafe {
             if kernel32::DebugBreakProcess(self.0) == winapi::FALSE {

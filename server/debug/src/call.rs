@@ -6,12 +6,19 @@ use winapi;
 use AsBytes;
 use {Child, Context, Value, Type, Primitive, SymbolHandler, Symbol};
 
+/// A captured function call.
+///
+/// If `context` is `Some`, the call is synthetic and `context` needs to be restored on
+/// completion or cancellation.
 pub struct Call {
     return_type: Type,
     context: Option<Context>,
 }
 
 pub trait IntoValue {
+    /// Convert a client-specific value into two things:
+    /// - A byte buffer containing its representation for the target program
+    /// - A list of pointers in that buffer that need to be fixed up
     fn into_value(
         self, data_type: Type, module: usize, symbols: &SymbolHandler,
         value_offset: usize, offsets: &mut HashMap<usize, usize>,
@@ -20,6 +27,8 @@ pub trait IntoValue {
 }
 
 impl Call {
+    /// Capture a function call that has already happened,
+    /// in preparation for extracting its return value.
     pub fn capture(symbols: &SymbolHandler, function: &Symbol) -> io::Result<Call> {
         let (module, return_type, _) = get_function_types(symbols, function)?;
         let return_type = symbols.type_from_index(module, return_type)?;
@@ -27,6 +36,9 @@ impl Call {
         Ok(Call { return_type, context: None })
     }
 
+    /// Synthesize a function call on the stack of the thread with the given context.
+    ///
+    /// `arg_values` can contain not only the direct arguments, but also any values they point to.
     pub fn setup<A: IntoValue>(
         child: &Child, symbols: &SymbolHandler,
         old_context: &mut Context, function: &Symbol, mut arg_values: HashMap<usize, A>
@@ -85,6 +97,9 @@ impl Call {
         }
 
         // write direct arguments to registers and the stack
+        //
+        // TODO: this is a simplistic implemenation of the win64 calling convention.
+        // it is probably missing some details and doesn't support other CCs.
 
         let mut args = args.into_iter();
 
@@ -174,6 +189,7 @@ impl Call {
         })
     }
 
+    /// After a function has returned, extract its return value.
     pub fn teardown(
         self, child: &Child, context: &Context, symbols: &SymbolHandler
     ) -> io::Result<(Value, Option<Context>)> {
@@ -205,6 +221,11 @@ fn get_function_types(symbols: &SymbolHandler, function: &Symbol) ->
     Ok((module, return_type, arg_types))
 }
 
+/// Prepare a value to become an argument.
+///
+/// Determine if it belongs in a floating point register.
+/// If would fit in a register, return its bit pattern (this may be pushed onto the stack later).
+/// If it needs to be on the stack, push it and return its address.
 fn write_value(
     mut arg: Value, arg_type: &Type, child: &Child, context: &mut Context,
     addresses: &HashMap<usize, usize>, offsets: &HashMap<usize, usize>

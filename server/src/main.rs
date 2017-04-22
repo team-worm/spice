@@ -1,3 +1,13 @@
+///! # Spice server
+///!
+///! The spice server has two main parts.
+///!
+///! This file implements the HTTP protocol to the frontend; it does not implement any debug logic.
+///! It does track the various IDs used by the protocol to refer to sessions, executions, etc.
+///!
+///! It sends messages to another thread implemented in `child.rs`, which implements high-level
+///! debugger flow. Low-level (and ideally platform-specific) code goes in the `debug` crate.
+
 extern crate hyper;
 extern crate unicase;
 extern crate reroute;
@@ -36,15 +46,20 @@ mod trace;
 mod value;
 mod api;
 
+/// The HTTP server is multithreaded, and thus shares access to the debug thread via an
+/// `Arc<Mutex<T>>`
 type ChildThread = Arc<Mutex<Option<child::Thread>>>;
 type ChildCancel = Arc<Mutex<Option<Cancel>>>;
 
+/// The `child::Thread` lock is held during a trace, so this side channel is used to signal for
+/// cancellation.
+///
+/// First set `flag`, *then* inject an otherwise-unexpected breakpoint via `cancel`.
 struct Cancel {
     cancel: debug::Cancel,
     flag: Arc<AtomicBool>,
 }
 
-/// Setup all of the REST endpoints and start the server
 fn main() {
     // current child thread (only one at a time)
     let child_thread = Arc::new(Mutex::new(None));
@@ -268,6 +283,7 @@ fn main() {
     });
 
     // CORS compatible header generation
+
     router.options(r".*", move |_, mut res, _| {
         {
             use hyper::header::*;
@@ -290,13 +306,14 @@ fn main() {
 
     let router = router.finalize().unwrap();
 
-    // start the server
     let server = Server::http("127.0.0.1:3000").unwrap();
     server.handle(router).unwrap();
 }
 
-/// Helper function to send successful JSON responses and payloads over the wire to the client
+/// Send a successful JSON response to the client
 fn send(mut req: Request, mut res: Response, body: &[u8]) -> io::Result<()> {
+    // to work around a bug in Hyper, read (and ignore) all of the remaining request body
+    // https://github.com/hyperium/hyper/issues/309
     io::copy(&mut req, &mut io::sink()).unwrap();
 
     {
@@ -310,7 +327,7 @@ fn send(mut req: Request, mut res: Response, body: &[u8]) -> io::Result<()> {
     res.send(body)
 }
 
-/// Helper function to send JSON error messages to the client
+/// Send JSON error messages to the client
 fn send_error(req: Request, mut res: Response, error: io::Error) -> io::Result<()> {
     *res.status_mut() = status_from_error(error.kind());
 
@@ -318,8 +335,6 @@ fn send_error(req: Request, mut res: Response, error: io::Error) -> io::Result<(
     send(req, res, &serde_json::to_vec(&message).unwrap())
 }
 
-/// Helper function to determine the appropriate HTTP status code based on the type of error the server
-/// encountered
 fn status_from_error(error: io::ErrorKind) -> StatusCode {
     match error {
         io::ErrorKind::NotFound => StatusCode::NotFound,
@@ -527,8 +542,7 @@ fn debug_attach_bin(caps: Captures, child: ChildThread, cancel: ChildCancel) -> 
 }
 
 /// GET /debug
-/// Returns information about the currently attached process or executable
-/// Currently not implemented
+/// Returns information about the current debug session
 fn debug(req: Request, mut res: Response, _: Captures, _child: ChildThread) {
     *res.status_mut() = StatusCode::NotImplemented;
     send(req, res, b"").unwrap();
@@ -845,8 +859,7 @@ fn debug_execution_trace(caps: Captures, child: &child::Thread) -> io::Result<i3
     }
 }
 
-/// Helper function to continually stream function or process trace data to the client as soon
-/// as it's generated.
+/// Stream function or process trace data to the client as it's generated
 fn trace_stream(res: &mut Response<Streaming>, child: &mut child::Thread) -> io::Result<bool> {
     child.tx.send(ServerMessage::Trace).unwrap();
 
@@ -953,7 +966,8 @@ fn trace_stream(res: &mut Response<Streaming>, child: &mut child::Thread) -> io:
     Ok(terminated)
 }
 
-/// POST /debug/:id/executions/:execution/stop -- Halts a running execution
+/// POST /debug/:id/executions/:execution/stop
+/// Halts a running execution
 fn debug_execution_stop(caps: Captures, cancel: ChildCancel) -> io::Result<Vec<u8>> {
     let caps = caps.unwrap();
     let _debug_id = caps[1].parse::<usize>()

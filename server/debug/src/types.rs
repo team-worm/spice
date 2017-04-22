@@ -3,6 +3,7 @@ use std::ffi::OsString;
 
 use SymbolHandler;
 
+/// A symbolic representation of a type in the target program.
 #[derive(Clone, PartialEq, Eq)]
 pub enum Type {
     Base { base: Primitive, size: usize },
