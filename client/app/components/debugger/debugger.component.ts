@@ -115,6 +115,15 @@ export class DebuggerComponent {
 		if(execution.data.eType !== 'function') {
 			throw new Error('Cannot display trace for execution ${execution.id}: Only function traces can be displayed');
 		}
+
+		this.graphData = [];
+		this.graphVariable = null;
+		this.nodeGraphData = {nodes: [], edges: []};
+		this.nodeGraphVariable = null;
+		this.nodeGraphFieldOffsets = new Set<number>();
+		this.nodeGraphDataOffset = null;
+		this.nodeGraphTrackedNode = null;
+
 		this.currentExecution = execution;
 		if (!sessId) {
 			this.currentSession = this.debuggerService.currentDebuggerState!.info.id;
@@ -228,6 +237,7 @@ export class DebuggerComponent {
 	}
 
 	public onPreCallFunction(event: PreCallFunctionEvent) {
+		this.resetView();
 		this.setParameters = {};
 		if(this.debuggerService.currentDebuggerState) {
 			for(let par of event.sourceFunction.parameters) {
@@ -490,13 +500,12 @@ export class DebuggerComponent {
 		this.lastTrace = null;
 		this.traceLoopStack = [];
 
+		this.currentExecution = null;
 		this.sourceFunction = null;
 		this.setParameters = {};
 
-
 		this.graphData = [];
 		this.graphVariable = null;
-		this.currentExecution = null;
 		this.nodeGraphData = {nodes: [], edges: []};
 		this.nodeGraphVariable = null;
 		this.nodeGraphFieldOffsets = new Set<number>();
