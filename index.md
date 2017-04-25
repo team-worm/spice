@@ -5,11 +5,23 @@ title: Home
 
 # Debugging That Transcends Time
 
-Spice is an experimental debugger that works across time. Rather than step through a program line by line, Spice traces the execution of a whole function at once and visualizes its control flow and data structures in one view. Altering its inputs immediately shows the corresponding changes in its behavior. For example, a graph traversal appears as a line running between the nodes, and a binary search appears as a chart of the high, low, and mid-points over time.
+Spice is an experimental debugger that works across time. Rather than step through a program line by line, Spice traces the execution of a whole function at once, such that altering its arguments immediately shows the corresponding changes in its behavior. Spice visualizes control flow and changes in data structures- for example, the values of variables as they change across loop iterations, the path of a pointer as it traverses a graph, or the motion of array elements as they are sorted.
+
+<img src="images/trace.png" width="708">
+
+See every branch, loop, and state change in one view.
+
+<img src="images/graph.png" width="708">
+
+Explore data structures visually.
+
+<img src="images/chart.png" width="708">
+
+Chart variable values over time.
 
 # The Team
 
-<img src="images/team.jpg" width="480" height="270">
+<div class="team"><img src="images/team.jpg" width="708" height="398.25"></div>
 
 <div class="profile" markdown="1">
 # Tarik Courdy
